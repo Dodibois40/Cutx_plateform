@@ -59,10 +59,17 @@ Le configurateur V3 provient de `La_Manufacture_de_la_finition/manufacture-front
 - [x] Projet Next.js initialisé
 - [x] shadcn/ui configuré
 - [x] Structure de base créée
-- [ ] Migration code configurateur
-- [ ] Backend API
+- [x] **Migration code configurateur (142 fichiers)**
+  - [x] 25 composants UI
+  - [x] 21 fichiers lib (calculs, types, import, etc.)
+  - [x] 80+ fichiers catalogue Bouney
+  - [x] 4 services API
+  - [x] Design system CSS
+- [x] Build passe ✅
+- [ ] Backend API (cutx-api) - À CRÉER
 - [ ] Auth
 - [ ] Multi-tenant
+- [ ] Déploiement Netlify
 
 ## Commandes Utiles
 
