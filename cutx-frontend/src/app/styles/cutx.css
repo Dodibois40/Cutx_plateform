@@ -1,0 +1,216 @@
+/* ============================================
+   CUTX - DESIGN SYSTEM
+   Direction: "Industrial Craft"
+   ============================================ */
+
+/* === CUSTOM FONTS === */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+/* === CSS VARIABLES === */
+:root {
+  /* FONDS */
+  --admin-bg-base: #0A0A09;
+  --admin-bg-elevated: #0F0E0D;
+  --admin-bg-surface: #151413;
+  --admin-bg-card: #121110;
+  --admin-bg-hover: #1A1918;
+  --admin-bg-tertiary: #151413;
+
+  /* BORDURES */
+  --admin-border-subtle: #1E1D1B;
+  --admin-border-default: #2A2826;
+  --admin-border-strong: #3A3835;
+  --admin-border-hover: #3A3835;
+  --admin-border-active: #4A4845;
+
+  /* TEXTES */
+  --admin-text-primary: #F5F4F1;
+  --admin-text-secondary: #E0DFDA;
+  --admin-text-tertiary: #A5A49F;
+  --admin-text-muted: #6B6A66;
+
+  /* VERT OLIVE - Accent principal */
+  --admin-accent-primary: #8B9A4B;
+  --admin-accent-primary-light: #9DAC5A;
+  --admin-accent-primary-hover: #9DAC5A;
+  --admin-accent-primary-dark: #6B7A38;
+  --admin-accent-primary-muted: #707D3E;
+  --admin-accent-primary-glow: rgba(139, 154, 75, 0.12);
+  --admin-olive: #8B9A4B;
+  --admin-olive-hover: #9DAC5A;
+  --admin-olive-light: #A8B86A;
+  --admin-olive-dark: #6B7A38;
+  --admin-olive-bg: rgba(139, 154, 75, 0.12);
+  --admin-olive-border: rgba(139, 154, 75, 0.25);
+
+  /* NOYER - Accent chaud */
+  --admin-accent-warm: #8B5A3C;
+  --admin-accent-warm-light: #9D6A4A;
+  --admin-accent-warm-dark: #5C3D28;
+  --admin-noyer: #8B5A3C;
+  --admin-noyer-hover: #9D6A4A;
+  --admin-noyer-light: #A67B5B;
+  --admin-noyer-bg: rgba(139, 90, 60, 0.12);
+  --admin-noyer-border: rgba(139, 90, 60, 0.25);
+
+  /* SABLE - Accent neutre */
+  --admin-sable: #C9B896;
+  --admin-sable-hover: #D4C9A8;
+  --admin-sable-light: #E0D5B8;
+  --admin-sable-dark: #A89A7A;
+  --admin-sable-bg: rgba(201, 184, 150, 0.10);
+  --admin-sable-border: rgba(201, 184, 150, 0.20);
+
+  /* ARDOISE - Accent froid */
+  --admin-ardoise: #7A8B9A;
+  --admin-ardoise-hover: #8A9BAA;
+  --admin-ardoise-light: #9AABBA;
+  --admin-ardoise-dark: #5A6B7A;
+  --admin-ardoise-bg: rgba(122, 139, 154, 0.10);
+  --admin-ardoise-border: rgba(122, 139, 154, 0.20);
+
+  /* STATUS */
+  --admin-status-success: #8B9A4B;
+  --admin-status-success-bg: rgba(139, 154, 75, 0.12);
+  --admin-status-success-border: rgba(139, 154, 75, 0.25);
+  --admin-status-warning: #C9943A;
+  --admin-status-warning-bg: rgba(201, 148, 58, 0.12);
+  --admin-status-warning-border: rgba(201, 148, 58, 0.25);
+  --admin-status-danger: #B54D42;
+  --admin-status-danger-bg: rgba(181, 77, 66, 0.12);
+  --admin-status-danger-border: rgba(181, 77, 66, 0.25);
+  --admin-status-info: #7A8B9A;
+  --admin-status-info-bg: rgba(122, 139, 154, 0.10);
+  --admin-status-info-border: rgba(122, 139, 154, 0.20);
+  --admin-status-pending: #C9B896;
+  --admin-status-pending-bg: rgba(201, 184, 150, 0.10);
+  --admin-status-pending-border: rgba(201, 184, 150, 0.20);
+
+  /* SHADOWS */
+  --admin-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --admin-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --admin-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --admin-shadow-glow: 0 0 40px var(--admin-accent-primary-glow);
+
+  /* RADIUS */
+  --admin-radius-sm: 6px;
+  --admin-radius-md: 8px;
+  --admin-radius-lg: 12px;
+  --admin-radius-xl: 16px;
+  --admin-radius-2xl: 20px;
+  --admin-radius-full: 9999px;
+
+  /* TRANSITIONS */
+  --admin-transition-fast: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --admin-transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --admin-transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* === BASE STYLES === */
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background: var(--admin-bg-base);
+  color: var(--admin-text-primary);
+}
+
+/* === CONFIGURATEUR STYLES === */
+.configurateur {
+  min-height: 100vh;
+  background: var(--admin-bg-base);
+}
+
+/* === CARD === */
+.admin-card {
+  background: var(--admin-bg-card);
+  border: 1px solid var(--admin-border-subtle);
+  border-radius: var(--admin-radius-xl);
+  padding: 1.5rem;
+  transition: var(--admin-transition-base);
+}
+
+.admin-card:hover {
+  border-color: var(--admin-noyer);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* === BUTTONS === */
+.admin-btn {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 600;
+  border-radius: var(--admin-radius-lg);
+  transition: all var(--admin-transition-base);
+  cursor: pointer;
+  padding: 0.875rem 1.75rem;
+}
+
+.admin-btn-primary {
+  background: linear-gradient(135deg, var(--admin-accent-primary) 0%, var(--admin-accent-primary-dark) 100%);
+  color: var(--admin-text-primary);
+  border: none;
+  box-shadow: 0 2px 8px var(--admin-olive-bg);
+}
+
+.admin-btn-primary:hover {
+  background: linear-gradient(135deg, var(--admin-accent-primary-hover) 0%, var(--admin-accent-primary) 100%);
+  box-shadow: 0 6px 20px rgba(139, 154, 75, 0.25);
+  transform: translateY(-2px);
+}
+
+/* === INPUT === */
+.admin-input {
+  width: 100%;
+  background: var(--admin-bg-tertiary);
+  border: 1px solid var(--admin-border-default);
+  border-radius: var(--admin-radius-md);
+  padding: 0.75rem 1rem;
+  color: var(--admin-text-primary);
+  font-size: 0.9375rem;
+  transition: var(--admin-transition-base);
+}
+
+.admin-input:focus {
+  outline: none;
+  border-color: var(--admin-olive);
+  box-shadow: 0 0 0 3px var(--admin-olive-bg);
+}
+
+/* === BADGE === */
+.admin-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--admin-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  text-transform: uppercase;
+}
+
+.admin-badge-success {
+  background: var(--admin-status-success-bg);
+  color: var(--admin-status-success);
+  border: 1px solid var(--admin-status-success-border);
+}
+
+.admin-badge-warning {
+  background: var(--admin-status-warning-bg);
+  color: var(--admin-status-warning);
+  border: 1px solid var(--admin-status-warning-border);
+}
+
+.admin-badge-danger {
+  background: var(--admin-status-danger-bg);
+  color: var(--admin-status-danger);
+  border: 1px solid var(--admin-status-danger-border);
+}
+
+/* === ANIMATIONS === */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.blink-icon {
+  animation: blink 1.5s ease-in-out infinite;
+}

@@ -1,0 +1,1007 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  X,
+  Search,
+  CheckCircle2,
+  Clock,
+  RotateCcw,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Loader2,
+} from 'lucide-react';
+import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { ProduitCatalogue } from '@/lib/catalogues';
+import {
+  searchCatalogues as searchCataloguesAPI,
+  getMarquesDisponibles as getMarquesAPI,
+  getTypesDisponibles as getTypesAPI,
+  type CatalogueProduit,
+} from '@/lib/services/catalogue-api';
+
+type SortColumn = 'marque' | 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
+type SortDirection = 'asc' | 'desc';
+
+// Catégories de types simplifiées
+const CATEGORIES_TYPES_SIMPLES = [
+  { value: 'melamine', label: 'Mélaminé', match: (t: string) => t.toLowerCase().includes('mélaminé') || t.toLowerCase().includes('melamine') },
+  { value: 'hpl', label: 'Stratifié HPL', match: (t: string) => t.toLowerCase().includes('hpl') || t.toLowerCase().includes('stratifié') },
+  { value: 'compact', label: 'Compact', match: (t: string) => t.toLowerCase().includes('compact') },
+  { value: 'chant', label: 'Chants', match: (t: string) => t.toLowerCase().includes('chant') },
+] as const;
+
+type CategorieType = typeof CATEGORIES_TYPES_SIMPLES[number]['value'] | '';
+
+// Sous-catégories (dossiers du catalogue)
+const SOUS_CATEGORIES = ['Unis', 'Bois', 'Matières'] as const;
+
+// Épaisseurs disponibles
+const EPAISSEURS_PANNEAUX = [8, 10, 12, 16, 18, 19, 22, 25, 28, 30, 38];
+const EPAISSEURS_CHANTS = [0.4, 0.5, 0.8, 1, 1.3, 2, 3];
+
+interface PopupSelectionPanneauProps {
+  open: boolean;
+  panneauxCatalogue: PanneauCatalogue[];
+  selectedPanneauId: string | null;
+  epaisseurActuelle: number;
+  onSelect: (panneau: PanneauCatalogue, prixM2: number) => void;
+  onSelectCatalogue?: (produit: ProduitCatalogue) => void;
+  onClose: () => void;
+}
+
+export default function PopupSelectionPanneau({
+  open,
+  onSelectCatalogue,
+  onClose,
+}: PopupSelectionPanneauProps) {
+  const [mounted, setMounted] = useState(false);
+  const [produits, setProduits] = useState<CatalogueProduit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Recherche et filtres
+  const [search, setSearch] = useState('');
+  const [filtreMarque, setFiltreMarque] = useState<string>('');
+  const [filtreSousCategorie, setFiltreSousCategorie] = useState<string>('');
+  const [filtreCategorie, setFiltreCategorie] = useState<CategorieType>('');
+  const [filtreSousType, setFiltreSousType] = useState<string>('');
+  const [filtreEpaisseur, setFiltreEpaisseur] = useState<number | null>(19);
+  const [filtreEnStock, setFiltreEnStock] = useState(false);
+  const [marques, setMarques] = useState<string[]>([]);
+  const [types, setTypes] = useState<string[]>([]);
+
+  // Tri (100% côté client)
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Total pour affichage
+  const [total, setTotal] = useState(0);
+
+  // Épaisseurs dynamiques selon la catégorie
+  const epaisseurs = filtreCategorie === 'chant' ? EPAISSEURS_CHANTS : EPAISSEURS_PANNEAUX;
+
+  // Sous-types filtrés par catégorie
+  const sousTypes = filtreCategorie
+    ? types.filter(t => {
+        const cat = CATEGORIES_TYPES_SIMPLES.find(c => c.value === filtreCategorie);
+        return cat ? cat.match(t) : false;
+      })
+    : [];
+
+  const hasFilters = search || filtreMarque || filtreSousCategorie || filtreCategorie || filtreSousType || filtreEpaisseur || filtreEnStock;
+
+  // Charger les produits
+  const loadProduits = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Charger tous les produits sans tri API (tri côté client)
+      const result = await searchCataloguesAPI({
+        q: search || undefined,
+        marque: filtreMarque || undefined,
+        limit: 1500,
+        offset: 0,
+      });
+
+      let filteredProduits = result.produits as CatalogueProduit[];
+
+      // Filtrage côté client
+      if (filtreSousCategorie) {
+        filteredProduits = filteredProduits.filter(p => p.sousCategorie === filtreSousCategorie);
+      }
+
+      if (filtreCategorie) {
+        const cat = CATEGORIES_TYPES_SIMPLES.find(c => c.value === filtreCategorie);
+        if (cat) {
+          filteredProduits = filteredProduits.filter(p => cat.match(p.type));
+        }
+      }
+
+      if (filtreSousType) {
+        filteredProduits = filteredProduits.filter(p => p.type === filtreSousType);
+      }
+
+      if (filtreEpaisseur) {
+        filteredProduits = filteredProduits.filter(p => p.epaisseur === filtreEpaisseur);
+      }
+
+      if (filtreEnStock) {
+        filteredProduits = filteredProduits.filter(p => p.stock === 'EN STOCK');
+      }
+
+      // Tri côté client (100%)
+      if (sortColumn) {
+        filteredProduits.sort((a, b) => {
+          let comparison = 0;
+          switch (sortColumn) {
+            case 'marque':
+              comparison = (a.marque || '').localeCompare(b.marque || '');
+              break;
+            case 'reference':
+              comparison = (a.reference || '').localeCompare(b.reference || '');
+              break;
+            case 'nom':
+              comparison = (a.nom || '').localeCompare(b.nom || '');
+              break;
+            case 'epaisseur':
+              comparison = (a.epaisseur || 0) - (b.epaisseur || 0);
+              break;
+            case 'prix':
+              const prixA = a.prixVenteM2 || a.prixAchatM2 || 0;
+              const prixB = b.prixVenteM2 || b.prixAchatM2 || 0;
+              comparison = prixA - prixB;
+              break;
+            case 'stock':
+              const stockA = a.stock === 'EN STOCK' ? 0 : 1;
+              const stockB = b.stock === 'EN STOCK' ? 0 : 1;
+              comparison = stockA - stockB;
+              break;
+          }
+          return sortDirection === 'asc' ? comparison : -comparison;
+        });
+      }
+
+      setProduits(filteredProduits);
+      setTotal(filteredProduits.length);
+    } catch (err: any) {
+      console.error('❌ Erreur chargement:', err);
+      setError(err.message || 'Erreur lors du chargement des produits');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [search, filtreMarque, filtreSousCategorie, filtreCategorie, filtreSousType, filtreEpaisseur, filtreEnStock, sortColumn, sortDirection]);
+
+  // Charger les filtres
+  useEffect(() => {
+    if (!open) return;
+    const loadFilters = async () => {
+      try {
+        const [marquesData, typesData] = await Promise.all([
+          getMarquesAPI(),
+          getTypesAPI(),
+        ]);
+        setMarques(marquesData);
+        setTypes(typesData);
+      } catch (err) {
+        console.error('Erreur chargement filtres:', err);
+      }
+    };
+    loadFilters();
+  }, [open]);
+
+  // Charger les produits quand popup ouverte ou filtres changent
+  useEffect(() => {
+    if (open) {
+      loadProduits();
+    }
+  }, [open, loadProduits]);
+
+  // Reset quand on ferme
+  useEffect(() => {
+    if (!open) {
+      setSearch('');
+      setFiltreMarque('');
+      setFiltreSousCategorie('');
+      setFiltreCategorie('');
+      setFiltreSousType('');
+      setFiltreEpaisseur(19); // Par défaut 19mm
+      setFiltreEnStock(false);
+      setSortColumn(null);
+      setSortDirection('asc');
+    }
+  }, [open]);
+
+  // Montage client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortColumn(null);
+        setSortDirection('asc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const resetFilters = () => {
+    setSearch('');
+    setFiltreMarque('');
+    setFiltreSousCategorie('');
+    setFiltreCategorie('');
+    setFiltreSousType('');
+    setFiltreEpaisseur(19); // Par défaut 19mm
+    setFiltreEnStock(false);
+    setSortColumn(null);
+    setSortDirection('asc');
+  };
+
+  // Reset sous-type et épaisseur quand on change de catégorie
+  useEffect(() => {
+    setFiltreSousType('');
+    setFiltreEpaisseur(null);
+  }, [filtreCategorie]);
+
+  const handleSelectProduit = (produit: CatalogueProduit) => {
+    if (onSelectCatalogue) {
+      onSelectCatalogue(produit as ProduitCatalogue);
+    }
+    onClose();
+  };
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
+    <div
+      className="popup-overlay"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '1rem',
+      }}
+    >
+      <div
+        className="popup-container"
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--admin-bg-card, #1a1a1a)',
+          border: '1px solid var(--admin-border-default, #333)',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '1200px',
+          height: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+        }}
+      >
+        {/* Header */}
+        <div className="popup-header">
+          <div className="header-title">
+            <h2>Sélectionner un panneau</h2>
+            <span className="total-count">{total} produits</span>
+          </div>
+          <button className="btn-close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Barre de filtres compacts */}
+        <div className="filters-bar">
+          {/* Recherche */}
+          <div className="search-box">
+            <Search size={14} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="search-input"
+              autoFocus
+            />
+            {search && (
+              <button className="btn-clear" onClick={() => setSearch('')}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          <div className="separator" />
+
+          {/* Filtre Marque */}
+          <select
+            value={filtreMarque}
+            onChange={(e) => setFiltreMarque(e.target.value)}
+            className={`filter-select ${filtreMarque ? 'active' : ''}`}
+          >
+            <option value="">Marque</option>
+            {marques.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+
+          {/* Filtre Sous-catégorie (Unis, Bois, Matières) */}
+          <select
+            value={filtreSousCategorie}
+            onChange={(e) => setFiltreSousCategorie(e.target.value)}
+            className={`filter-select ${filtreSousCategorie ? 'active' : ''}`}
+          >
+            <option value="">Catégorie</option>
+            {SOUS_CATEGORIES.map(sc => (
+              <option key={sc} value={sc}>{sc}</option>
+            ))}
+          </select>
+
+          {/* Filtre Type */}
+          <select
+            value={filtreCategorie}
+            onChange={(e) => setFiltreCategorie(e.target.value as CategorieType)}
+            className={`filter-select ${filtreCategorie ? 'active' : ''}`}
+          >
+            <option value="">Type</option>
+            {CATEGORIES_TYPES_SIMPLES.map(cat => (
+              <option key={cat.value} value={cat.value}>{cat.label}</option>
+            ))}
+          </select>
+
+          {/* Filtre Sous-type (conditionnel) */}
+          {filtreCategorie && sousTypes.length > 1 && (
+            <select
+              value={filtreSousType}
+              onChange={(e) => setFiltreSousType(e.target.value)}
+              className={`filter-select filter-sous-type ${filtreSousType ? 'active' : ''}`}
+            >
+              <option value="">Sous-type</option>
+              {sousTypes.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Filtre Épaisseur */}
+          <select
+            value={filtreEpaisseur ?? ''}
+            onChange={(e) => setFiltreEpaisseur(e.target.value ? Number(e.target.value) : null)}
+            className={`filter-select ${filtreEpaisseur ? 'active' : ''}`}
+          >
+            <option value="">Ép.</option>
+            {epaisseurs.map(ep => (
+              <option key={ep} value={ep}>{ep}mm</option>
+            ))}
+          </select>
+
+          {/* Toggle Stock */}
+          <button
+            onClick={() => setFiltreEnStock(!filtreEnStock)}
+            className={`filter-toggle ${filtreEnStock ? 'active' : ''}`}
+          >
+            <CheckCircle2 size={12} />
+            <span>Stock</span>
+          </button>
+
+          {/* Reset */}
+          {hasFilters && (
+            <button onClick={resetFilters} className="btn-reset" title="Réinitialiser">
+              <RotateCcw size={12} />
+            </button>
+          )}
+
+          <div className="separator" />
+
+          {/* Compteur */}
+          <span className="result-count">
+            {total} résultat{total > 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Tableau */}
+        <div className="table-container">
+          {isLoading ? (
+            <div className="loading">
+              <Loader2 className="spinner" />
+            </div>
+          ) : error ? (
+            <div className="error-message">{error}</div>
+          ) : produits.length === 0 ? (
+            <div className="no-results">
+              {hasFilters ? 'Aucun produit trouvé avec ces filtres' : 'Aucun produit'}
+            </div>
+          ) : (
+            <table className="products-table">
+              <thead>
+                <tr>
+                  <th className="col-image">Image</th>
+                  <th className="col-marque sortable" onClick={() => handleSort('marque')}>
+                    <span>Marque</span>
+                    {sortColumn === 'marque' ? (
+                      sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                    ) : <ArrowUpDown size={12} className="sort-inactive" />}
+                  </th>
+                  <th className="col-ref sortable" onClick={() => handleSort('reference')}>
+                    <span>Réf</span>
+                    {sortColumn === 'reference' ? (
+                      sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                    ) : <ArrowUpDown size={12} className="sort-inactive" />}
+                  </th>
+                  <th className="col-nom sortable" onClick={() => handleSort('nom')}>
+                    <span>Nom</span>
+                    {sortColumn === 'nom' ? (
+                      sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                    ) : <ArrowUpDown size={12} className="sort-inactive" />}
+                  </th>
+                  <th className="col-type">Type</th>
+                  <th className="col-dim sortable" onClick={() => handleSort('epaisseur')}>
+                    <span>Ép.</span>
+                    {sortColumn === 'epaisseur' ? (
+                      sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                    ) : <ArrowUpDown size={12} className="sort-inactive" />}
+                  </th>
+                  <th className="col-dimensions">Dimensions</th>
+                  <th className="col-prix sortable" onClick={() => handleSort('prix')}>
+                    <span>€/m²</span>
+                    {sortColumn === 'prix' ? (
+                      sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                    ) : <ArrowUpDown size={12} className="sort-inactive" />}
+                  </th>
+                  <th className="col-stock sortable" onClick={() => handleSort('stock')}>
+                    <span>Stock</span>
+                    {sortColumn === 'stock' ? (
+                      sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                    ) : <ArrowUpDown size={12} className="sort-inactive" />}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {produits.map((produit) => {
+                  const isEnStock = produit.stock === 'EN STOCK';
+                  const prixM2 = produit.prixVenteM2 || produit.prixAchatM2 || 0;
+
+                  return (
+                    <tr
+                      key={produit.id}
+                      className="product-row"
+                      onClick={() => handleSelectProduit(produit)}
+                    >
+                      <td className="col-image">
+                        {produit.imageUrl ? (
+                          <img
+                            src={produit.imageUrl}
+                            alt={produit.nom}
+                            className="product-image"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="no-image">—</div>
+                        )}
+                      </td>
+                      <td className="col-marque">{produit.marque}</td>
+                      <td className="col-ref">{produit.reference}</td>
+                      <td className="col-nom">{produit.nom}</td>
+                      <td className="col-type">{produit.type}</td>
+                      <td className="col-dim">{produit.epaisseur}</td>
+                      <td className="col-dimensions">{produit.longueur} × {produit.largeur}</td>
+                      <td className="col-prix">{prixM2 > 0 ? prixM2.toFixed(2) : '-'}</td>
+                      <td className="col-stock">
+                        {isEnStock ? (
+                          <span className="stock-badge en-stock">
+                            <CheckCircle2 size={12} />
+                            Stock
+                          </span>
+                        ) : (
+                          <span className="stock-badge sur-commande">
+                            <Clock size={12} />
+                            Cmd
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+
+        <style jsx>{`
+          /* Header */
+          .popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--admin-border-subtle);
+            background: var(--admin-bg-tertiary);
+            flex-shrink: 0;
+          }
+
+          .header-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+          }
+
+          .header-title h2 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--admin-text-primary);
+            margin: 0;
+            font-family: 'Space Grotesk', sans-serif;
+          }
+
+          .total-count {
+            font-size: 0.75rem;
+            color: var(--admin-text-muted);
+            background: var(--admin-bg-hover);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+          }
+
+          .btn-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--admin-text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+          }
+
+          .btn-close:hover {
+            background: var(--admin-status-danger-bg);
+            color: var(--admin-status-danger);
+          }
+
+          /* Barre de filtres - alignée sur une ligne */
+          .filters-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--admin-bg-card);
+            border-bottom: 1px solid var(--admin-border-subtle);
+            flex-shrink: 0;
+            overflow-x: auto;
+          }
+
+          .separator {
+            width: 1px;
+            height: 24px;
+            background: var(--admin-border-subtle);
+            flex-shrink: 0;
+          }
+
+          .search-box {
+            position: relative;
+            width: 160px;
+            height: 32px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+          }
+
+          .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--admin-text-muted);
+            pointer-events: none;
+            z-index: 1;
+          }
+
+          .search-input {
+            width: 100%;
+            height: 32px;
+            padding: 0 28px 0 32px;
+            background: var(--admin-bg-tertiary);
+            border: 1px solid var(--admin-border-default);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--admin-text-primary);
+            outline: none;
+            transition: border-color 0.15s;
+            box-sizing: border-box;
+          }
+
+          .search-input:focus {
+            border-color: var(--admin-olive);
+          }
+
+          .search-input::placeholder {
+            color: var(--admin-text-muted);
+          }
+
+          .btn-clear {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: var(--admin-bg-hover);
+            border: none;
+            border-radius: 4px;
+            color: var(--admin-text-muted);
+            cursor: pointer;
+          }
+
+          .btn-clear:hover {
+            background: var(--admin-status-danger-bg);
+            color: var(--admin-status-danger);
+          }
+
+          .filter-select {
+            height: 32px;
+            padding: 0 24px 0 8px;
+            background: var(--admin-bg-tertiary);
+            border: 1px solid var(--admin-border-default);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--admin-text-secondary);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.15s;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 6px center;
+            min-width: 80px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+          }
+
+          .filter-select:hover {
+            border-color: var(--admin-border-hover);
+          }
+
+          .filter-select.active {
+            background-color: var(--admin-olive-bg);
+            border-color: var(--admin-olive);
+            color: var(--admin-olive);
+            font-weight: 600;
+          }
+
+          .filter-select option {
+            background: var(--admin-bg-elevated, #2a2a2a);
+            color: var(--admin-text-primary, #fff);
+            padding: 0.5rem;
+          }
+
+          .filter-sous-type {
+            max-width: 130px;
+          }
+
+          .filter-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 32px;
+            padding: 0 10px;
+            background: var(--admin-bg-tertiary);
+            border: 1px solid var(--admin-border-default);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--admin-text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+            box-sizing: border-box;
+            flex-shrink: 0;
+          }
+
+          .filter-toggle:hover {
+            border-color: var(--admin-border-hover);
+          }
+
+          .filter-toggle.active {
+            background-color: var(--admin-olive-bg);
+            border-color: var(--admin-olive);
+            color: var(--admin-olive);
+            font-weight: 600;
+          }
+
+          .btn-reset {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: var(--admin-bg-tertiary);
+            border: 1px solid var(--admin-border-default);
+            border-radius: 6px;
+            color: var(--admin-text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+            box-sizing: border-box;
+            flex-shrink: 0;
+          }
+
+          .btn-reset:hover {
+            background: var(--admin-status-danger-bg);
+            border-color: var(--admin-status-danger);
+            color: var(--admin-status-danger);
+          }
+
+          .result-count {
+            font-size: 0.75rem;
+            color: var(--admin-text-muted);
+            flex-shrink: 0;
+            white-space: nowrap;
+            line-height: 32px;
+          }
+
+          /* Tableau */
+          .table-container {
+            flex: 1;
+            overflow: auto;
+            min-height: 0;
+          }
+
+          .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+          }
+
+          .spinner {
+            width: 32px;
+            height: 32px;
+            color: var(--admin-olive);
+            animation: spin 1s linear infinite;
+          }
+
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+
+          .error-message,
+          .no-results {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--admin-text-muted);
+            font-size: 0.875rem;
+          }
+
+          .products-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+          }
+
+          .products-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--admin-bg-tertiary);
+          }
+
+          .products-table th {
+            padding: 0.75rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: var(--admin-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            text-align: left;
+            border-bottom: 1px solid var(--admin-border-subtle);
+            white-space: nowrap;
+          }
+
+          .products-table th.sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+          }
+
+          .products-table th.sortable:hover {
+            background: var(--admin-bg-secondary);
+          }
+
+          .products-table th.sortable span,
+          .products-table th.sortable :global(svg) {
+            display: inline-block;
+            vertical-align: middle;
+          }
+
+          .products-table th.sortable :global(svg) {
+            margin-left: 4px;
+          }
+
+          .products-table th.sortable :global(.sort-inactive) {
+            opacity: 0.3;
+          }
+
+          .products-table td {
+            padding: 0.625rem 0.75rem;
+            font-size: 0.8125rem;
+            color: var(--admin-text-primary);
+            border-bottom: 1px solid var(--admin-border-subtle);
+          }
+
+          .product-row {
+            cursor: pointer;
+            transition: background 0.1s;
+          }
+
+          .product-row:hover {
+            background: var(--admin-olive-bg);
+          }
+
+          /* Colonnes */
+          .col-image {
+            width: 50px;
+            text-align: center;
+          }
+
+          .product-image {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid var(--admin-border-subtle);
+          }
+
+          .no-image {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--admin-bg-tertiary);
+            border-radius: 4px;
+            border: 1px solid var(--admin-border-subtle);
+            color: var(--admin-text-muted);
+            font-size: 0.75rem;
+          }
+
+          .col-marque {
+            font-weight: 600;
+            color: var(--admin-text-primary);
+          }
+
+          .col-ref {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--admin-olive);
+          }
+
+          .col-nom {
+            max-width: 280px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .col-type {
+            font-size: 0.75rem;
+            color: var(--admin-text-muted);
+            max-width: 120px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .col-dim {
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+          }
+
+          .col-dimensions {
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--admin-text-muted);
+          }
+
+          .col-prix {
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--admin-sable);
+          }
+
+          .col-stock {
+            text-align: center;
+          }
+
+          .stock-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            border-radius: 999px;
+          }
+
+          .stock-badge.en-stock {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+          }
+
+          .stock-badge.sur-commande {
+            background: rgba(249, 115, 22, 0.1);
+            color: #f97316;
+          }
+
+          /* Responsive */
+          @media (max-width: 900px) {
+            .filters-bar {
+              gap: 0.375rem;
+              padding: 0.5rem;
+            }
+
+            .search-box {
+              width: 140px;
+            }
+
+            .filter-select {
+              min-width: 65px;
+              padding-left: 6px;
+              padding-right: 20px;
+              font-size: 0.7rem;
+            }
+
+            .col-dimensions,
+            .col-type {
+              display: none;
+            }
+
+            .col-nom {
+              max-width: 150px;
+            }
+          }
+
+          @media (max-width: 600px) {
+            .separator {
+              display: none;
+            }
+
+            .search-box {
+              width: 120px;
+            }
+
+            .filter-select {
+              min-width: 55px;
+            }
+
+            .result-count {
+              display: none;
+            }
+          }
+        `}</style>
+      </div>
+    </div>,
+    document.body
+  );
+}
