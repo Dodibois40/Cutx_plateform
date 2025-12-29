@@ -12,9 +12,10 @@ CutX est une plateforme SaaS de configuration et commande de panneaux bois desti
 CutX_plateform/
 ├── cutx-frontend/          # Next.js 15 + Tailwind + shadcn/ui (Netlify)
 ├── cutx-api/               # NestJS + Prisma + PostgreSQL (Railway)
-├── cutx-sketchup/          # Plugin SketchUp Ruby (futur)
 ├── .claude/                # Contexte pour Claude
 └── docs/                   # Documentation
+
+C:\CutX/                    # Plugin SketchUp Ruby (projet séparé)
 ```
 
 ## Déploiement Production
@@ -128,11 +129,11 @@ NODE_ENV=production
 - Version mobile responsive
 
 ### À faire 🚧
-- Stripe payments
 - Multi-tenant (organisations)
 - Historique commandes
 - Suivi production
-- Wallet prépayé
+- Stripe payments (plus tard)
+- Wallet prépayé (plus tard)
 
 ## État Actuel
 
@@ -149,9 +150,9 @@ NODE_ENV=production
   - [x] 4 services API
   - [x] Design system CSS
 - [x] Redirection home → /configurateur
-- [ ] Stripe (paiements)
-- [ ] Import catalogues dynamiques depuis DB
-- [ ] Plugin SketchUp
+- [x] Plugin SketchUp (C:\CutX)
+- [x] Catalogues importés dans PostgreSQL
+- [ ] Stripe (paiements) - à faire plus tard
 
 ## Commandes Utiles
 
@@ -196,6 +197,7 @@ git add . && git commit -m "message" && git push origin main
 - "L'API" → `cutx-api/src/`
 - "La DB" → PostgreSQL via Prisma
 - "Ajoute un endpoint" → Créer controller/service dans cutx-api
+- "Le plugin SketchUp" → `C:\CutX/` (projet séparé)
 
 ### Attention
 - Ne pas confondre avec La_Manufacture_de_la_finition
@@ -205,8 +207,9 @@ git add . && git commit -m "message" && git push origin main
 
 ## Prochaines Étapes Possibles
 
-1. **Stripe** - Paiements et abonnements
-2. **Catalogues dynamiques** - Importer depuis DB au lieu de fichiers statiques
-3. **Multi-tenant** - Organisations avec plusieurs utilisateurs
-4. **Plugin SketchUp** - Connecter au nouveau backend
-5. **Dashboard admin** - Gestion catalogues, users, commandes
+1. **Multi-tenant** - Organisations avec plusieurs utilisateurs
+2. **Dashboard admin** - Gestion catalogues, users, commandes
+3. **Historique commandes** - Suivi des devis et commandes
+4. **Suivi production** - État des commandes en cours
+5. **Stripe** - Paiements et abonnements (plus tard)
+6. **Wallet prépayé** - Système de crédits (plus tard)

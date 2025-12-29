@@ -291,3 +291,22 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
 }
+
+// ============================================
+// CUTX IMPORT SESSIONS (Plugin SketchUp)
+// ============================================
+
+model CutxImportSession {
+  id              String    @id @default(cuid())
+  data            String    // JSON des panneaux (dimensions, chants, finition, DXF...)
+  projectName     String?
+  sketchupVersion String?
+  pluginVersion   String?
+  ipAddress       String?
+  expiresAt       DateTime  // TTL de 1 heure
+  usedAt          DateTime? // Marqué quand récupéré
+  createdAt       DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([createdAt])
+}

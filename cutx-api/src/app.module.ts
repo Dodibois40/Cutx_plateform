@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CataloguesModule } from './catalogues/catalogues.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { CutxImportModule } from './cutx-import/cutx-import.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     UsersModule,
     CataloguesModule,
     WebhooksModule,
+    CutxImportModule,
   ],
   controllers: [AppController],
   providers: [AppService],
