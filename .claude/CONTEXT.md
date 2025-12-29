@@ -163,6 +163,7 @@ NODE_ENV=production
 - [x] Plugin SketchUp (C:\CutX)
 - [x] Intégration Plugin ↔ Plateforme (API + redirect)
 - [x] Catalogues importés dans PostgreSQL
+- [x] Claude Code configuré (MCP servers, commands, rules)
 - [ ] Stripe (paiements) - à faire plus tard
 
 ## Commandes Utiles
@@ -193,6 +194,42 @@ git add . && git commit -m "message" && git push origin main
 - **Railway Dashboard**: https://railway.app
 - **Netlify Dashboard**: https://app.netlify.com
 - **Ancien projet**: C:\Users\doria\Desktop\La_Manufacture_de_la_finition
+
+## Outils Claude Code
+
+### MCP Servers Disponibles
+
+| Server | Utilisation | Quand l'utiliser |
+|--------|-------------|------------------|
+| **context7** | Docs à jour (Next.js 15, NestJS 11, Prisma 6) | Toujours pour générer du code avec les dernières APIs |
+| **sequential-thinking** | Raisonnement step-by-step | Architecture complexe, debugging difficile |
+| **github** | PRs, issues, workflows | Créer PR, issues, voir CI/CD |
+
+### Slash Commands
+
+| Commande | Description |
+|----------|-------------|
+| `/build` | Build frontend + backend |
+| `/lint` | TypeScript + ESLint checks |
+| `/deploy` | Push + monitor Netlify/Railway |
+| `/test-api` | Tester les endpoints API |
+| `/db` | Prisma studio, migrations |
+| `/status` | Vue d'ensemble plateforme |
+
+### Rules Automatiques
+
+| Rule | S'applique à | Fichier |
+|------|--------------|---------|
+| NestJS | `*.controller.ts`, `*.service.ts` | `.claude/rules/nestjs-conventions.md` |
+| Next.js | `app/**/*.tsx`, components | `.claude/rules/nextjs-conventions.md` |
+| Prisma | `*.prisma`, queries | `.claude/rules/prisma-conventions.md` |
+
+### Instructions pour Claude
+
+1. **Utiliser context7** automatiquement pour tout code Next.js/NestJS/Prisma
+2. **Utiliser sequential-thinking** pour les tâches d'architecture ou debugging complexe
+3. **Respecter les rules** lors de l'édition de fichiers
+4. **Proposer /build ou /lint** après modifications importantes
 
 ## Notes pour Claude
 
