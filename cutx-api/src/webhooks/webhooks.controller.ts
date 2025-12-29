@@ -2,12 +2,12 @@ import {
   Controller,
   Post,
   Headers,
-  RawBodyRequest,
   Req,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 import { Webhook } from 'svix';
 import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from './webhooks.service';
