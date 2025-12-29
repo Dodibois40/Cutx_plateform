@@ -119,10 +119,13 @@ export async function searchCatalogues(params: SearchParams = {}): Promise<Searc
   if (params.q) queryParams.append('q', params.q);
   if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
 
-  // Appeler la nouvelle API CutX
-  const response = await apiCall<{ panels: ApiPanel[] }>(
-    `/api/catalogues/search?${queryParams}`
-  );
+  // Utiliser l'endpoint bouney/panels (search ne fonctionne pas sans query)
+  // Si on a un terme de recherche, utiliser search, sinon panels
+  const endpoint = params.q
+    ? `/api/catalogues/search?${queryParams}`
+    : `/api/catalogues/bouney/panels?${queryParams}`;
+
+  const response = await apiCall<{ panels: ApiPanel[] }>(endpoint);
 
   // Transformer les panels en produits
   const produits = (response.panels || []).map(transformPanel);
