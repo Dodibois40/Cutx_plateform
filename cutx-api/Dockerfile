@@ -7,17 +7,19 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install all dependencies (including devDependencies for build)
-RUN npm ci --ignore-scripts
+# Install all dependencies (need scripts for nest cli to work)
+RUN npm ci
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Copy source code
-COPY . .
+# Copy source code and config files
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
+COPY src ./src/
 
 # Build the NestJS application
-RUN npm run build
+RUN npx nest build
+
+# Verify build output exists
+RUN ls -la dist/ && test -f dist/main.js
 
 # Production stage
 FROM node:20-alpine AS production
