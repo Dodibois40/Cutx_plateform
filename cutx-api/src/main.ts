@@ -11,6 +11,7 @@ async function bootstrap() {
       'http://localhost:3000',
       'https://app.cutx.ai',
       'https://cutx.ai',
+      'https://cutxplateform-production.up.railway.app',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
