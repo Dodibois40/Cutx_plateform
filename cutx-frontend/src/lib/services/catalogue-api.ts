@@ -157,8 +157,8 @@ export async function getCatalogueStats(): Promise<CatalogueStats> {
  * Récupérer toutes les marques disponibles
  */
 export async function getMarquesDisponibles(): Promise<string[]> {
-  // Route n'existe pas encore - retourner les marques connues
-  return ['Egger', 'Finsa', 'Kronospan', 'Pfleiderer', 'Sonae'];
+  // Marques réelles du catalogue Bouney
+  return ['B comme Bois', 'Egger', 'Fenix', 'Formica', 'Nebodesign', 'Pfleiderer', 'Polyrey', 'Rehau Rauvisio', 'Unilin'];
 }
 
 /**
