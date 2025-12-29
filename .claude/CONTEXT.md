@@ -57,6 +57,7 @@ cutx-api/
 │   │   └── guards/         # ClerkAuthGuard
 │   ├── users/              # CRUD utilisateurs
 │   ├── catalogues/         # Catalogues + Panneaux
+│   ├── cutx-import/        # Import depuis plugin SketchUp
 │   ├── webhooks/           # Webhook Clerk (sync users)
 │   ├── prisma/             # PrismaService (global)
 │   └── main.ts             # Bootstrap + CORS
@@ -75,6 +76,8 @@ cutx-api/
 | GET | `/api/catalogues/:slug/categories` | Non | Catégories d'un catalogue |
 | GET | `/api/catalogues/:slug/panels` | Non | Panneaux d'un catalogue |
 | GET | `/api/catalogues/search?q=` | Non | Recherche panneaux |
+| POST | `/api/cutx/import` | Non | Crée session import SketchUp (retourne importId) |
+| GET | `/api/cutx/import/:id` | Non | Récupère données import (panneaux + projetNom) |
 | POST | `/api/webhooks/clerk` | Svix | Webhook Clerk (user sync) |
 
 ## Modèles de Données (Prisma)
@@ -93,6 +96,9 @@ cutx-api/
 - Devis (reference, status, clientInfo, totalHT/TTC, lines[])
 - DevisLine (panelRef, dimensions, chants, prix)
 - Order (reference, status, stripePaymentId, delivery)
+
+// Import SketchUp
+- CutxImportSession (data JSON, projectName, expiresAt, usedAt) - TTL 1h
 ```
 
 ## Variables d'Environnement
@@ -120,7 +126,11 @@ NODE_ENV=production
 
 ### Implémentées ✅
 - Import Excel (multiples formats : Bouney, IdeaBois, Debit, etc.)
-- Import depuis SketchUp via plugin CutX
+- Import depuis SketchUp via plugin CutX (intégration complète)
+  - Plugin envoie POST /api/cutx/import → reçoit importId
+  - Plugin ouvre navigateur: https://app.cutx.ai/configurateur?import={importId}
+  - Configurateur récupère les panneaux via GET /api/cutx/import/{id}
+  - Session stockée en PostgreSQL avec TTL 1 heure
 - Sélection panneaux (catalogue Bouney)
 - Chants (ABS, placage, etc.)
 - Finitions (laque RAL, teinte, vernis)
@@ -151,6 +161,7 @@ NODE_ENV=production
   - [x] Design system CSS
 - [x] Redirection home → /configurateur
 - [x] Plugin SketchUp (C:\CutX)
+- [x] Intégration Plugin ↔ Plateforme (API + redirect)
 - [x] Catalogues importés dans PostgreSQL
 - [ ] Stripe (paiements) - à faire plus tard
 
@@ -198,6 +209,7 @@ git add . && git commit -m "message" && git push origin main
 - "La DB" → PostgreSQL via Prisma
 - "Ajoute un endpoint" → Créer controller/service dans cutx-api
 - "Le plugin SketchUp" → `C:\CutX/` (projet séparé)
+- "L'import SketchUp" → `cutx-api/src/cutx-import/` + `cutx-frontend/.../page.tsx?import=`
 
 ### Attention
 - Ne pas confondre avec La_Manufacture_de_la_finition
