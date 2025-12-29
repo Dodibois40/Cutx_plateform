@@ -3,25 +3,15 @@
 // Import des styles CutX (variables CSS nécessaires pour le configurateur)
 import '@/app/styles/cutx.css';
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Plus, AlertTriangle, ShoppingCart, CheckCircle, XCircle, Tag, Lightbulb, Save, Trash2 } from 'lucide-react';
-import type { LignePrestationV3, ConfigurateurV3State, ModalCopieState, TypeFinition } from '@/lib/configurateur/types';
+import { Plus, AlertTriangle, CheckCircle, XCircle, Tag, Lightbulb, Save, Trash2 } from 'lucide-react';
+import { REGLES } from '@/lib/configurateur/constants';
+import { validerLigne } from '@/lib/configurateur/validation';
 import {
-  creerNouvelleLigne,
-  creerLigneFinition,
-  PLACEHOLDERS,
-  REGLES,
-} from '@/lib/configurateur/constants';
-import { getPanneauxDisponibles, type PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
-import {
-  mettreAJourCalculsLigne,
-  calculerTotaux,
-  formaterPrix,
-} from '@/lib/configurateur/calculs';
-import { validerConfigurateur, validerLigne } from '@/lib/configurateur/validation';
-import { estimerTraitsScie, estimerPrixChants } from '@/lib/configurateur';
-import { parseExcelAuto } from '@/lib/configurateur/import';
-import type { DonneesImportees } from '@/lib/configurateur/import';
+  ConfigurateurProvider,
+  useConfigurateur,
+  type DevisSubmitData,
+  type InitialData,
+} from '@/contexts/ConfigurateurContext';
 import ConfigurateurHeader from './ConfigurateurHeader';
 import TableauPrestations from './TableauPrestations';
 import RecapitulatifTotal from './recap/RecapitulatifTotal';
@@ -30,534 +20,90 @@ import ModalCopie from './dialogs/ModalCopie';
 import ModalEtiquettes from './dialogs/ModalEtiquettes';
 import WelcomeModal from './WelcomeModal';
 import { PopupOptimiseur } from './optimiseur';
-import type { ColonneDuplicable } from './TableauPrestations';
 
-// Type pour les toasts de notification
-interface ToastMessage {
-  type: 'success' | 'error' | 'warning';
-  message: string;
-  details?: string[];
-}
-
-// Clé localStorage pour la sauvegarde automatique
-const STORAGE_KEY = 'configurateur-autosave';
-
-// Interface pour les données sauvegardées
-interface SavedData {
-  referenceChantier: string;
-  lignes: LignePrestationV3[];
-  savedAt: string;
-}
-
-// Interface pour les données envoyées à l'API
-interface DevisSubmitData {
-  referenceChantier: string;
-  title: string;
-  description: string;
-  surface: number;
-  quantity: number;
-  estimatedPrice: number;
-  devisData: string;
-  devisResult: string;
-  proposedEndDate: string | null;
-  proposedEndDateComment: string | null;
-}
-
-// Interface pour les données initiales (mode édition)
-interface InitialData {
-  referenceChantier: string;
-  lignes: LignePrestationV3[];
-}
+// Re-export types for external usage
+export type { DevisSubmitData, InitialData };
 
 // Props du composant
 interface ConfigurateurV3Props {
   isClientMode?: boolean;
   onSubmit?: (data: DevisSubmitData) => void;
   onBack?: () => void;
-  // Props pour le mode édition
   initialData?: InitialData;
   devisId?: string;
   isEditing?: boolean;
 }
 
-export default function ConfigurateurV3({
-  isClientMode = false,
-  onSubmit,
-  onBack,
-  initialData,
-  devisId,
-  isEditing = false,
-}: ConfigurateurV3Props) {
-  // === STATE ===
-  const [referenceChantier, setReferenceChantier] = useState('');
-  const [lignes, setLignes] = useState<LignePrestationV3[]>([creerNouvelleLigne()]);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [isRestored, setIsRestored] = useState(false);
-  const isInitialMount = useRef(true);
-  // V3: Panneau global sélectionné (UN seul panneau par configuration)
-  const [panneauGlobal, setPanneauGlobal] = useState<PanneauCatalogue | null>(null);
+/**
+ * Composant principal du Configurateur V3
+ * Utilise le ConfigurateurProvider pour la gestion d'état
+ */
+export default function ConfigurateurV3(props: ConfigurateurV3Props) {
+  return (
+    <ConfigurateurProvider
+      isClientMode={props.isClientMode}
+      onSubmit={props.onSubmit}
+      onBack={props.onBack}
+      initialData={props.initialData}
+      devisId={props.devisId}
+      isEditing={props.isEditing}
+    >
+      <ConfigurateurContent />
+    </ConfigurateurProvider>
+  );
+}
 
-  const [modalCopie, setModalCopie] = useState<ModalCopieState>({
-    open: false,
-    ligneSource: null,
-    nouvelleReference: '',
-  });
-  const [isImporting, setIsImporting] = useState(false);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [modalEtiquettes, setModalEtiquettes] = useState(false);
-  // Track la dernière colonne modifiée pour afficher le tooltip
-  const [highlightedColumn, setHighlightedColumn] = useState<ColonneDuplicable | null>(null);
-  // Contrôle du modal de bienvenue (Guide button)
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  // Popup optimiseur de débit
-  const [showOptimiseur, setShowOptimiseur] = useState(false);
-
-  // === PANNEAUX CATALOGUE (V3 - chargé depuis API) ===
-  const [panneauxCatalogue, setPanneauxCatalogue] = useState<PanneauCatalogue[]>([]);
-  const [panneauxLoading, setPanneauxLoading] = useState(true);
-
-  // Charger les panneaux depuis l'API au montage
-  useEffect(() => {
-    const loadPanneaux = async () => {
-      try {
-        setPanneauxLoading(true);
-        const panneaux = await getPanneauxDisponibles();
-        setPanneauxCatalogue(panneaux);
-      } catch (error) {
-        console.error('Erreur chargement panneaux:', error);
-        // En cas d'erreur API, laisser le catalogue vide
-        setPanneauxCatalogue([]);
-      } finally {
-        setPanneauxLoading(false);
-      }
-    };
-    loadPanneaux();
-  }, []);
-
-  // === CALCULS ===
-  const totaux = useMemo(() => {
-    return calculerTotaux(lignes);
-  }, [lignes]);
-
-  // === CALCUL TARIFS DÉCOUPE & CHANTS (V3) ===
-  const tarifsDecoupeChants = useMemo(() => {
-    // Filtrer les lignes panneau avec dimensions valides
-    const lignesPanneau = lignes.filter(l =>
-      l.typeLigne === 'panneau' &&
-      l.dimensions.longueur > 0 &&
-      l.dimensions.largeur > 0
-    );
-
-    if (lignesPanneau.length === 0) {
-      return { decoupe: null, chants: null };
-    }
-
-    // Préparer les données pour l'estimation
-    const debits = lignesPanneau.map(l => ({
-      longueur: l.dimensions.longueur,
-      largeur: l.dimensions.largeur,
-      chants: l.chants,
-      dimensions: l.dimensions,
-    }));
-
-    // Estimation des traits de scie
-    const decoupe = estimerTraitsScie(debits);
-
-    // Estimation du placage de chants
-    // TODO: Ajouter le prix du chant depuis le catalogue quand disponible
-    const chants = estimerPrixChants(debits, { prixMlChant: 0.80 }); // 0.80€/ml chant ABS estimation
-
-    return { decoupe, chants };
-  }, [lignes]);
-
-  const state: ConfigurateurV3State = useMemo(() => ({
+/**
+ * Contenu du configurateur - utilise le Context
+ */
+function ConfigurateurContent() {
+  const {
+    // State
     referenceChantier,
+    setReferenceChantier,
     lignes,
-    totalFournitureHT: totaux.totalFournitureHT,
-    totalPrestationHT: totaux.totalPrestationHT,
-    totalHT: totaux.totalHT,
-    totalTVA: totaux.totalTVA,
-    totalTTC: totaux.totalTTC,
-    isValid: false,
-    erreurs: [],
-  }), [referenceChantier, lignes, totaux]);
+    lastSaved,
+    panneauGlobal,
+    setPanneauGlobal,
+    panneauxCatalogue,
+    isImporting,
+    toast,
+    modalCopie,
+    setModalCopie,
+    modalEtiquettes,
+    setModalEtiquettes,
+    highlightedColumn,
+    showWelcomeModal,
+    setShowWelcomeModal,
+    showOptimiseur,
+    setShowOptimiseur,
 
-  const validation = useMemo(() => {
-    return validerConfigurateur(state);
-  }, [state]);
+    // Computed
+    totaux,
+    tarifsDecoupeChants,
+    validation,
 
-  // === CHARGEMENT: initialData (mode édition ou import CutX) OU localStorage (nouveau devis) ===
-  useEffect(() => {
-    // Mode édition OU import CutX : utiliser initialData
-    if (initialData) {
-      console.log('[ConfigurateurV3] Chargement initialData:', initialData.lignes.length, 'lignes');
-      setReferenceChantier(initialData.referenceChantier || '');
-      // Recalculer les prix pour chaque ligne (au cas où les tarifs ont changé)
-      const lignesRestaurees = initialData.lignes.map(l => mettreAJourCalculsLigne(l));
-      setLignes(lignesRestaurees);
-      setIsRestored(true);
-      isInitialMount.current = false;
-      return;
-    }
+    // Handlers
+    handleAjouterLigne,
+    handleSupprimerLigne,
+    handleUpdateLigne,
+    handleCopierLigne,
+    handleConfirmerCopie,
+    handleAnnulerCopie,
+    handleCreerLigneFinition,
+    handleSupprimerLigneFinition,
+    showToast,
+    handleApplyToColumn,
+    handleClearSave,
+    handleImportExcel,
+    handleAjouterAuPanier,
 
-    // Mode création : charger depuis localStorage
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const data: SavedData = JSON.parse(saved);
-        // Vérifier que les données sont valides
-        if (data.lignes && Array.isArray(data.lignes) && data.lignes.length > 0) {
-          setReferenceChantier(data.referenceChantier || '');
-          // Recalculer les prix pour chaque ligne (au cas où les tarifs ont changé)
-          const lignesRestaurees = data.lignes.map(l => mettreAJourCalculsLigne(l));
-          setLignes(lignesRestaurees);
-          setLastSaved(new Date(data.savedAt));
-          setIsRestored(true);
-        }
-      }
-    } catch (error) {
-      console.warn('Erreur lors de la restauration de la sauvegarde:', error);
-    }
-    isInitialMount.current = false;
-  }, [isEditing, initialData]);
+    // Config
+    isClientMode,
+    isEditing,
+    onBack,
+  } = useConfigurateur();
 
-  // === AUTO-SAVE: Sauvegarder à chaque modification (uniquement en mode création sans import) ===
-  useEffect(() => {
-    // Ne pas sauvegarder au premier rendu (avant la restauration)
-    if (isInitialMount.current) return;
-
-    // Ne pas sauvegarder en mode édition ou avec import CutX (on ne veut pas écraser le localStorage)
-    if (isEditing || initialData) return;
-
-    // Debounce: attendre 500ms après la dernière modification
-    const timeoutId = setTimeout(() => {
-      try {
-        const dataToSave: SavedData = {
-          referenceChantier,
-          lignes,
-          savedAt: new Date().toISOString(),
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-        setLastSaved(new Date());
-      } catch (error) {
-        console.warn('Erreur lors de la sauvegarde:', error);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [referenceChantier, lignes, isEditing]);
-
-  // === HANDLER: Effacer la sauvegarde et recommencer ===
-  const handleClearSave = useCallback(() => {
-    if (window.confirm('Êtes-vous sûr de vouloir effacer votre configuration et recommencer à zéro ?')) {
-      localStorage.removeItem(STORAGE_KEY);
-      setReferenceChantier('');
-      setLignes([creerNouvelleLigne()]);
-      setLastSaved(null);
-      setIsRestored(false);
-    }
-  }, []);
-
-  // === HANDLERS ===
-  const handleAjouterLigne = useCallback(() => {
-    setLignes(prev => [...prev, creerNouvelleLigne()]);
-  }, []);
-
-  const handleSupprimerLigne = useCallback((id: string) => {
-    setLignes(prev => {
-      const filtered = prev.filter(l => l.id !== id);
-      // Toujours garder au moins une ligne
-      return filtered.length > 0 ? filtered : [creerNouvelleLigne()];
-    });
-  }, []);
-
-  // Colonnes qui peuvent être dupliquées (V3 : seulement percage sur lignes panneau)
-  const COLONNES_DUPLICABLES: ColonneDuplicable[] = ['percage'];
-
-  const handleUpdateLigne = useCallback((id: string, updates: Partial<LignePrestationV3>) => {
-    setLignes(prev => prev.map(ligne => {
-      if (ligne.id !== id) return ligne;
-      const updated = { ...ligne, ...updates };
-      return mettreAJourCalculsLigne(updated);
-    }));
-
-    // Détecter si une colonne duplicable a été modifiée avec une valeur non vide
-    const colonneModifiee = COLONNES_DUPLICABLES.find(col => {
-      const key = col as keyof typeof updates;
-      if (!(key in updates)) return false;
-      const value = updates[key];
-      // Pour les booléens (poncage), on considère true comme une valeur valide
-      if (typeof value === 'boolean') return value === true;
-      // Pour les strings, on vérifie que ce n'est pas null/vide
-      return value !== null && value !== '';
-    });
-
-    if (colonneModifiee && lignes.length > 1) {
-      setHighlightedColumn(colonneModifiee);
-      // Auto-clear après 4 secondes
-      setTimeout(() => setHighlightedColumn(null), 4000);
-    }
-  }, [lignes.length]);
-
-  const handleCopierLigne = useCallback((id: string) => {
-    const ligneSource = lignes.find(l => l.id === id);
-    if (!ligneSource) return;
-
-    setModalCopie({
-      open: true,
-      ligneSource,
-      nouvelleReference: '',
-    });
-  }, [lignes]);
-
-  const handleConfirmerCopie = useCallback(() => {
-    if (!modalCopie.ligneSource) return;
-    if (!modalCopie.nouvelleReference.trim()) {
-      alert('La référence est obligatoire');
-      return;
-    }
-
-    const nouvelleLigne: LignePrestationV3 = {
-      ...modalCopie.ligneSource,
-      id: crypto.randomUUID(),
-      reference: modalCopie.nouvelleReference.trim(),
-    };
-
-    setLignes(prev => [...prev, mettreAJourCalculsLigne(nouvelleLigne)]);
-    setModalCopie({ open: false, ligneSource: null, nouvelleReference: '' });
-  }, [modalCopie]);
-
-  const handleAnnulerCopie = useCallback(() => {
-    setModalCopie({ open: false, ligneSource: null, nouvelleReference: '' });
-  }, []);
-
-  // === HANDLERS FINITION (V3) ===
-  const handleCreerLigneFinition = useCallback((lignePanneauId: string, typeFinition: TypeFinition) => {
-    setLignes(prev => {
-      // Trouver la ligne panneau
-      const lignePanneau = prev.find(l => l.id === lignePanneauId);
-      if (!lignePanneau) return prev;
-
-      // Mettre à jour la ligne panneau avec avecFinition et typeFinition
-      const updatedPanneau: LignePrestationV3 = {
-        ...lignePanneau,
-        avecFinition: true,
-        typeFinition,
-      };
-
-      // Créer la ligne finition
-      const ligneFinition = creerLigneFinition(updatedPanneau);
-
-      // Insérer la ligne finition juste après le panneau
-      const index = prev.findIndex(l => l.id === lignePanneauId);
-      const newLignes = [...prev];
-      newLignes[index] = updatedPanneau;
-      newLignes.splice(index + 1, 0, mettreAJourCalculsLigne(ligneFinition));
-
-      return newLignes;
-    });
-  }, []);
-
-  const handleSupprimerLigneFinition = useCallback((lignePanneauId: string) => {
-    setLignes(prev => {
-      // Supprimer la ligne finition liée au panneau
-      const filteredLignes = prev.filter(l => !(l.typeLigne === 'finition' && l.ligneParentId === lignePanneauId));
-
-      // Mettre à jour la ligne panneau pour désactiver la finition
-      return filteredLignes.map(l => {
-        if (l.id === lignePanneauId) {
-          return {
-            ...l,
-            avecFinition: false,
-            typeFinition: null,
-          };
-        }
-        return l;
-      });
-    });
-  }, []);
-
-  // === TOAST ===
-  const showToast = useCallback((toastData: ToastMessage) => {
-    setToast(toastData);
-    // Auto-hide après 5 secondes
-    setTimeout(() => setToast(null), 5000);
-  }, []);
-
-  // === DUPLICATION DE VALEUR SUR COLONNE (V3: seulement lignes panneau) ===
-  const handleApplyToColumn = useCallback((colonne: ColonneDuplicable, valeur: string | boolean | null) => {
-    setLignes(prev => prev.map(ligne => {
-      // Ne modifier que les lignes panneau
-      if (ligne.typeLigne !== 'panneau') return ligne;
-
-      // Créer les updates selon la colonne
-      const updates: Partial<LignePrestationV3> = {};
-
-      switch (colonne) {
-        case 'percage':
-          updates.percage = valeur as boolean;
-          break;
-      }
-
-      const updated = { ...ligne, ...updates };
-      return mettreAJourCalculsLigne(updated);
-    }));
-
-    // Afficher un toast de confirmation
-    const nbLignesPanneau = lignes.filter(l => l.typeLigne === 'panneau').length;
-    showToast({
-      type: 'success',
-      message: `Valeur appliquée à ${nbLignesPanneau} ligne${nbLignesPanneau > 1 ? 's' : ''}`,
-    });
-
-    // Masquer le tooltip
-    setHighlightedColumn(null);
-  }, [lignes, showToast]);
-
-  const handleAjouterAuPanier = useCallback(() => {
-    if (!validation.isValid) {
-      alert('Veuillez corriger les erreurs avant de continuer :\n\n' + validation.erreurs.join('\n'));
-      return;
-    }
-
-    // Mode client OU mode édition : envoi via callback
-    if (isClientMode || isEditing) {
-      // Vérifier les champs obligatoires (sauf en mode édition où ils existent déjà)
-      if (!isEditing && !referenceChantier.trim()) {
-        alert('La référence chantier est obligatoire');
-        return;
-      }
-
-      // Préparer les données pour l'API
-      const lignesValides = lignes.filter(l => l.prixHT > 0);
-      const surfaceTotale = lignesValides.reduce((acc, l) => acc + ((l.surfaceM2 || 0) * (l.nombreFaces || 1)), 0);
-
-      const devisData: DevisSubmitData = {
-        referenceChantier: referenceChantier.trim(),
-        title: referenceChantier.trim(),
-        description: 'Prestation de finition', // Description par défaut
-        surface: surfaceTotale,
-        quantity: lignesValides.length,
-        estimatedPrice: totaux.totalHT,
-        devisData: JSON.stringify({
-          referenceChantier,
-          lignes: lignesValides,
-          sousTotal: totaux.totalHT,
-          totalHT: totaux.totalHT,
-          tva: totaux.totalTVA,
-          totalTTC: totaux.totalTTC,
-        }),
-        devisResult: JSON.stringify({
-          totalHT: totaux.totalHT,
-          tva: totaux.totalTVA,
-          totalTTC: totaux.totalTTC,
-        }),
-        // Note: dates gérées par ModalCommande dans la page parent (mode création)
-        // En mode édition, on ne change pas les dates
-        proposedEndDate: null,
-        proposedEndDateComment: null,
-      };
-
-      // Appeler le callback parent
-      if (onSubmit) {
-        onSubmit(devisData);
-      }
-      return;
-    }
-
-    // Mode admin (non-édition) : fonctionnalité en attente
-    alert('Fonctionnalité en cours de développement');
-  }, [validation, referenceChantier, lignes, totaux, isClientMode, isEditing, onSubmit]);
-
-  // === IMPORT EXCEL ===
-  const handleImportExcel = useCallback(async (file: File) => {
-    setIsImporting(true);
-    setToast(null);
-
-    try {
-      const result = await parseExcelAuto(file);
-
-      if (!result.success || !result.donnees) {
-        showToast({
-          type: 'error',
-          message: result.erreur || 'Erreur lors de l\'import',
-          details: result.avertissements,
-        });
-        setIsImporting(false);
-        return;
-      }
-
-      const { donnees } = result;
-
-      // Mettre à jour la référence chantier si présente et si vide
-      if (donnees.referenceChantier && !referenceChantier) {
-        setReferenceChantier(donnees.referenceChantier);
-      }
-
-      // Créer les nouvelles lignes
-      const nouvellesLignes: LignePrestationV3[] = [];
-
-      for (const ligneImport of donnees.lignes) {
-        // Créer N lignes selon la quantité
-        for (let i = 1; i <= ligneImport.quantite; i++) {
-          const suffixe = ligneImport.quantite > 1 ? ` (${i}/${ligneImport.quantite})` : '';
-          const nouvelleLigne = creerNouvelleLigne();
-
-          nouvelleLigne.reference = `${ligneImport.reference}${suffixe}`;
-          nouvelleLigne.dimensions = {
-            longueur: ligneImport.longueur,
-            largeur: ligneImport.largeur,
-            epaisseur: donnees.epaisseur,
-          };
-          nouvelleLigne.chants = { ...ligneImport.chants };
-
-          // Appliquer le matériau de la ligne si détecté
-          if (ligneImport.materiau) {
-            nouvelleLigne.materiau = ligneImport.materiau;
-          } else if (donnees.materiau) {
-            // Fallback sur le matériau global si pas de matériau par ligne
-            nouvelleLigne.materiau = donnees.materiau;
-          }
-
-          // Recalculer les prix
-          nouvellesLignes.push(mettreAJourCalculsLigne(nouvelleLigne));
-        }
-      }
-
-      // Ajouter les lignes (garder les existantes si elles ont du contenu)
-      setLignes(prev => {
-        // Filtrer les lignes vides existantes
-        const lignesExistantes = prev.filter(l =>
-          l.reference.trim() !== '' ||
-          l.materiau !== null ||
-          l.finition !== null ||
-          l.dimensions.longueur > 0 ||
-          l.dimensions.largeur > 0
-        );
-
-        return [...lignesExistantes, ...nouvellesLignes];
-      });
-
-      // Afficher le toast de succès
-      const nbLignesCrees = nouvellesLignes.length;
-      showToast({
-        type: result.avertissements.length > 0 ? 'warning' : 'success',
-        message: `${nbLignesCrees} ligne${nbLignesCrees > 1 ? 's' : ''} importée${nbLignesCrees > 1 ? 's' : ''} depuis "${file.name}"`,
-        details: result.avertissements.length > 0 ? result.avertissements : undefined,
-      });
-
-    } catch (error) {
-      showToast({
-        type: 'error',
-        message: 'Erreur inattendue lors de l\'import',
-        details: [error instanceof Error ? error.message : 'Erreur inconnue'],
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  }, [referenceChantier, showToast]);
-
-  // === RENDER ===
   return (
     <div className="configurateur">
       {/* Header avec référence chantier + sélection panneau global */}
@@ -634,7 +180,7 @@ export default function ConfigurateurV3({
               )}
             </div>
             <button
-              onClick={() => setToast(null)}
+              onClick={() => showToast({ type: 'success', message: '' })}
               style={{
                 background: 'none',
                 border: 'none',
@@ -764,7 +310,7 @@ export default function ConfigurateurV3({
               panneaux: [],
               totalMetresLineaires: tarifsDecoupeChants.decoupe.metresLineaires,
               totalPrixDecoupe: tarifsDecoupeChants.decoupe.prixDecoupe,
-              nombrePanneaux: 1, // Estimation
+              nombrePanneaux: 1,
             } : null}
             chants={tarifsDecoupeChants.chants ? {
               panneaux: [],

@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { CataloguesModule } from './catalogues/catalogues.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { CutxImportModule } from './cutx-import/cutx-import.module';
+import { DevisModule } from './devis/devis.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CutxImportModule } from './cutx-import/cutx-import.module';
     CataloguesModule,
     WebhooksModule,
     CutxImportModule,
+    DevisModule,
   ],
   controllers: [AppController],
   providers: [AppService],
