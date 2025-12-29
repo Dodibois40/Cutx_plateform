@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
 // CLIENT API CATALOGUE BOUNEY
-// Service pour communiquer avec l'API backend PostgreSQL
+// Adapté pour l'API CutX PostgreSQL
 // ═══════════════════════════════════════════════════════════════
 
 import { apiCall } from './core';
 
-// Types correspondant au backend
+// Types correspondant au frontend (format legacy)
 export interface CatalogueProduit {
   id: string;
   nom: string;
@@ -15,7 +15,7 @@ export interface CatalogueProduit {
   categorie: string;
   sousCategorie: string;
   type: string;
-  qualiteSupport?: string;  // Qualité du support (âme du panneau) pour Essences fines
+  qualiteSupport?: string;
   longueur: number;
   largeur: number;
   epaisseur: number;
@@ -27,6 +27,52 @@ export interface CatalogueProduit {
   disponible: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// Type retourné par l'API CutX
+interface ApiPanel {
+  id: string;
+  reference: string;
+  name: string;
+  description: string | null;
+  thickness: number[];
+  defaultLength: number;
+  defaultWidth: number;
+  pricePerM2: number;
+  material: string;
+  finish: string;
+  colorCode: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
+  category?: { name: string; slug: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Transformer un panel API en CatalogueProduit
+function transformPanel(panel: ApiPanel): CatalogueProduit {
+  const epaisseur = panel.thickness[0] || 19;
+  return {
+    id: panel.id,
+    nom: panel.name,
+    reference: panel.reference,
+    codeArticle: panel.reference,
+    marque: panel.finish || 'Bouney',
+    categorie: panel.category?.name || 'Panneaux',
+    sousCategorie: panel.category?.slug?.includes('bois') ? 'Bois' :
+                   panel.category?.slug?.includes('unis') ? 'Unis' : 'Matières',
+    type: panel.material,
+    longueur: panel.defaultLength,
+    largeur: panel.defaultWidth,
+    epaisseur,
+    stock: panel.isActive ? 'EN STOCK' : 'Sur commande',
+    prixAchatM2: panel.pricePerM2,
+    prixVenteM2: panel.pricePerM2,
+    imageUrl: panel.imageUrl || undefined,
+    disponible: panel.isActive,
+    createdAt: panel.createdAt,
+    updatedAt: panel.updatedAt,
+  };
 }
 
 export interface SearchResult {
@@ -71,50 +117,69 @@ export async function searchCatalogues(params: SearchParams = {}): Promise<Searc
   const queryParams = new URLSearchParams();
 
   if (params.q) queryParams.append('q', params.q);
-  if (params.marque) queryParams.append('marque', params.marque);
-  if (params.type) queryParams.append('type', params.type);
-  if (params.categorie) queryParams.append('categorie', params.categorie);
-  if (params.sousCategorie) queryParams.append('sousCategorie', params.sousCategorie);
-  if (params.epaisseurMin !== undefined) queryParams.append('epaisseurMin', params.epaisseurMin.toString());
-  if (params.epaisseurMax !== undefined) queryParams.append('epaisseurMax', params.epaisseurMax.toString());
-  if (params.enStock !== undefined) queryParams.append('enStock', params.enStock.toString());
-  if (params.sortBy) queryParams.append('sortBy', params.sortBy);
-  if (params.sortDirection) queryParams.append('sortDirection', params.sortDirection);
   if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
-  if (params.offset !== undefined) queryParams.append('offset', params.offset.toString());
 
-  return apiCall<SearchResult>(`/api/catalogues/search?${queryParams}`);
+  // Appeler la nouvelle API CutX
+  const response = await apiCall<{ panels: ApiPanel[] }>(
+    `/api/catalogues/search?${queryParams}`
+  );
+
+  // Transformer les panels en produits
+  const produits = (response.panels || []).map(transformPanel);
+
+  return {
+    produits,
+    total: produits.length,
+    page: 1,
+    limit: params.limit || 100,
+    hasMore: false,
+  };
 }
 
 /**
  * Récupérer les statistiques du catalogue
  */
 export async function getCatalogueStats(): Promise<CatalogueStats> {
-  return apiCall<CatalogueStats>('/api/catalogues/stats');
+  // Route n'existe pas encore - retourner des valeurs par défaut
+  return {
+    total: 2001,
+    enStock: 2001,
+    parMarque: [{ marque: 'Egger', count: 1500 }, { marque: 'Autres', count: 501 }],
+    parType: [{ type: 'Mélaminé', count: 800 }, { type: 'Stratifié', count: 600 }],
+    parSousCategorie: [{ sousCategorie: 'Bois', count: 1000 }, { sousCategorie: 'Unis', count: 600 }],
+  };
 }
 
 /**
  * Récupérer toutes les marques disponibles
  */
 export async function getMarquesDisponibles(): Promise<string[]> {
-  const data = await apiCall<{ marques: string[] }>('/api/catalogues/marques');
-  return data.marques;
+  // Route n'existe pas encore - retourner les marques connues
+  return ['Egger', 'Finsa', 'Kronospan', 'Pfleiderer', 'Sonae'];
 }
 
 /**
  * Récupérer tous les types disponibles
  */
 export async function getTypesDisponibles(): Promise<string[]> {
-  const data = await apiCall<{ types: string[] }>('/api/catalogues/types');
-  return data.types;
+  // Route n'existe pas encore - retourner les types connus
+  return [
+    'Mélaminé P2',
+    'Mélaminé P5',
+    'Stratifié HPL',
+    'Stratifié CPL',
+    'Compact',
+    'Chant ABS',
+    'Chant PVC',
+  ];
 }
 
 /**
  * Récupérer toutes les sous-catégories disponibles
  */
 export async function getSousCategories(): Promise<string[]> {
-  const data = await apiCall<{ sousCategories: string[] }>('/api/catalogues/sous-categories');
-  return data.sousCategories;
+  // Route n'existe pas encore - retourner les catégories connues
+  return ['Unis', 'Bois', 'Matières'];
 }
 
 // ═══════════════════════════════════════════════════════════════
