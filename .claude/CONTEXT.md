@@ -217,6 +217,105 @@ git add . && git commit -m "message" && git push origin main
 - CORS déjà configuré pour app.cutx.ai
 - Les webhooks Clerk doivent avoir `rawBody: true`
 
+## Communication avec CutX Plugin (C:\CutX)
+
+> Le plugin SketchUp est développé séparément. Voici le contrat d'API à respecter.
+
+### Contrat API - Import SketchUp
+
+**Endpoint:** `POST /api/cutx/import`
+
+```typescript
+// Request Body (envoyé par le plugin)
+{
+  panneaux: Array<{
+    entityId: number;           // ID SketchUp de l'entité
+    reference: string;          // Nom du composant/groupe
+    longueur: number;           // mm (dimension la plus grande)
+    largeur: number;            // mm (dimension moyenne)
+    epaisseur: number;          // mm (dimension la plus petite)
+    bounds?: { width, depth, height };  // Dimensions brutes
+    sensDuFil?: 'longueur' | 'largeur';
+    panneau?: {                 // Si panneau catalogue sélectionné
+      id: string;
+      nom: string;
+      marque?: string;
+      prixM2?: number;
+    };
+    chants?: { A: boolean, B: boolean, C: boolean, D: boolean };
+    finition?: {
+      type: 'vernis' | 'teinte_vernis' | 'laque' | null;
+      teinte?: string;
+      couleurRAL?: string;
+      brillance?: string;
+      faces?: 1 | 2;
+    };
+    usinages?: {
+      percage?: boolean;
+      liste?: Array<{ type: string; description?: string; quantite?: number }>;
+    };
+    dxf?: { filename: string; data: string }; // Base64
+  }>;
+  projetNom?: string;
+  sketchupVersion?: string;
+  pluginVersion?: string;
+}
+
+// Response (201 Created)
+{ importId: string }  // CUID, ex: "cm5abc123..."
+```
+
+**Endpoint:** `GET /api/cutx/import/:id`
+
+```typescript
+// Response (200 OK)
+{
+  panneaux: [...],    // Mêmes données que le POST
+  projetNom?: string
+}
+
+// Erreurs possibles:
+// 404 - Session non trouvée
+// 410 - Session expirée (TTL 1 heure)
+```
+
+### Flux d'intégration
+
+```
+┌─────────────────┐    POST /api/cutx/import     ┌─────────────────┐
+│  Plugin CutX    │ ─────────────────────────────│  CutX API       │
+│  (SketchUp)     │                              │  (Railway)      │
+│                 │ ◄────── { importId } ────────│                 │
+└────────┬────────┘                              └────────┬────────┘
+         │                                                │
+         │ UI.openURL(SITE_URL/configurateur?import=id)   │
+         ▼                                                │
+┌─────────────────┐    GET /api/cutx/import/:id  ┌────────┴────────┐
+│  Navigateur     │ ─────────────────────────────│  CutX Frontend  │
+│  (Chrome, etc)  │                              │  (Netlify)      │
+│                 │ ◄────── { panneaux } ────────│                 │
+└─────────────────┘                              └─────────────────┘
+```
+
+### Si le plugin demande des changements
+
+1. **Nouveau champ dans panneaux** → Ajouter dans `CreateImportDto` (cutx-import.service.ts)
+2. **Nouveau endpoint** → Créer dans cutx-import.controller.ts
+3. **Changer le TTL** → Modifier `expiresAt` dans createImportSession()
+4. **Changer la route frontend** → Modifier page.tsx et informer le plugin
+
+### URLs de configuration plugin
+
+```ruby
+# Production (config.rb du plugin)
+SITE_URL = "https://app.cutx.ai"
+API_URL = "https://cutxplateform-production.up.railway.app"
+
+# Dev local
+SITE_URL = "http://localhost:3000"
+API_URL = "http://localhost:3001"
+```
+
 ## Prochaines Étapes Possibles
 
 1. **Multi-tenant** - Organisations avec plusieurs utilisateurs
