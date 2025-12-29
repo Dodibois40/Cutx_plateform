@@ -3,20 +3,18 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy ALL config files first (needed for postinstall which runs nest build)
 COPY package*.json ./
 COPY prisma ./prisma/
-
-# Install all dependencies (need scripts for nest cli to work)
-RUN npm ci
-
-# Copy source code and config files
 COPY tsconfig*.json ./
 COPY nest-cli.json ./
+
+# Install all dependencies (postinstall will run prisma generate + nest build)
+# But we need src first for the build
 COPY src ./src/
 
-# Build the NestJS application
-RUN npx nest build
+# Now install - postinstall will generate prisma client and build
+RUN npm ci
 
 # Verify build output exists
 RUN ls -la dist/ && test -f dist/main.js
