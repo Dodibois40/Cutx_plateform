@@ -1,0 +1,14 @@
+# Nixpacks configuration for Railway
+# This ensures the build step runs correctly for NestJS
+
+[phases.setup]
+nixPkgs = ["nodejs_18"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npx prisma generate", "npm run build"]
+
+[start]
+cmd = "node dist/main"
