@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CataloguesModule } from './catalogues/catalogues.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CataloguesModule } from './catalogues/catalogues.module';
     AuthModule,
     UsersModule,
     CataloguesModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
