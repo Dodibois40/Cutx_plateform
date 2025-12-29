@@ -224,12 +224,26 @@ git add . && git commit -m "message" && git push origin main
 | Next.js | `app/**/*.tsx`, components | `.claude/rules/nextjs-conventions.md` |
 | Prisma | `*.prisma`, queries | `.claude/rules/prisma-conventions.md` |
 
+### Agents Spécialisés
+
+| Agent | Rôle | Modèle | Quand l'utiliser |
+|-------|------|--------|------------------|
+| **code-reviewer** | Review qualité, sécurité | Sonnet | Après features, avant commits |
+| **nextjs-developer** | Frontend Next.js 15 | Sonnet | Composants React, pages, UI |
+| **nestjs-developer** | Backend NestJS 11 | Sonnet | Endpoints API, services |
+| **api-tester** | Tests endpoints API | Haiku | Validation des APIs |
+| **architect** | Architecture système | Opus | Décisions techniques complexes |
+| **debugger** | Debug et résolution | Sonnet | Erreurs, bugs, problèmes |
+| **prisma-expert** | Base de données | Sonnet | Schema, queries, migrations |
+
 ### Instructions pour Claude
 
 1. **Utiliser context7** automatiquement pour tout code Next.js/NestJS/Prisma
 2. **Utiliser sequential-thinking** pour les tâches d'architecture ou debugging complexe
-3. **Respecter les rules** lors de l'édition de fichiers
-4. **Proposer /build ou /lint** après modifications importantes
+3. **Utiliser les agents** selon le type de tâche (voir tableau ci-dessus)
+4. **Respecter les rules** lors de l'édition de fichiers
+5. **Proposer /build ou /lint** après modifications importantes
+6. **Lancer code-reviewer** après chaque feature significative
 
 ## Notes pour Claude
 
