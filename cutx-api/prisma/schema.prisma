@@ -1,0 +1,293 @@
+// CutX Platform - Prisma Schema
+// PostgreSQL database on Railway
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USERS & ORGANIZATIONS
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  clerkId       String    @unique // Clerk user ID
+  email         String    @unique
+  firstName     String?
+  lastName      String?
+  phone         String?
+  company       String?
+  role          UserRole  @default(USER)
+
+  // Relations
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  devis          Devis[]
+  orders         Order[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([clerkId])
+  @@index([email])
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  siret       String?
+  address     String?
+  city        String?
+  postalCode  String?
+  country     String   @default("FR")
+
+  // Relations
+  users       User[]
+  devis       Devis[]
+  orders      Order[]
+
+  // Subscription
+  plan        PlanType @default(FREE)
+  stripeCustomerId String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PlanType {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+// ============================================
+// CATALOGUES & PANELS
+// ============================================
+
+model Catalogue {
+  id          String   @id @default(cuid())
+  name        String   // "Bouney", "Egger", etc.
+  slug        String   @unique
+  description String?
+  logoUrl     String?
+  isActive    Boolean  @default(true)
+
+  // Relations
+  categories  Category[]
+  panels      Panel[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   // "Mélaminés", "Stratifiés", etc.
+  slug        String
+  parentId    String?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
+
+  // Relations
+  catalogueId String
+  catalogue   Catalogue @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  panels      Panel[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([catalogueId, slug])
+  @@index([catalogueId])
+}
+
+model Panel {
+  id              String   @id @default(cuid())
+  reference       String   // Code produit fournisseur
+  name            String   // Nom commercial
+  description     String?
+
+  // Dimensions disponibles
+  thickness       Float[]  // Épaisseurs dispo en mm [8, 16, 19, 22]
+  defaultLength   Int      // Longueur standard en mm
+  defaultWidth    Int      // Largeur standard en mm
+
+  // Prix
+  pricePerM2      Float?   // Prix au m²
+  pricePerPanel   Float?   // Prix par panneau
+
+  // Caractéristiques
+  material        String?  // MDF, Agglo, Contreplaqué, etc.
+  finish          String?  // Mat, Brillant, Texturé, etc.
+  colorCode       String?  // Code couleur RAL, NCS, etc.
+  imageUrl        String?
+
+  isActive        Boolean  @default(true)
+
+  // Relations
+  catalogueId     String
+  catalogue       Catalogue @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id])
+  devisLines      DevisLine[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([catalogueId, reference])
+  @@index([catalogueId])
+  @@index([reference])
+}
+
+// ============================================
+// DEVIS (QUOTES)
+// ============================================
+
+model Devis {
+  id              String      @id @default(cuid())
+  reference       String      @unique // DEV-2024-001
+  name            String?     // Nom du projet
+  status          DevisStatus @default(DRAFT)
+
+  // Client info
+  clientName      String?
+  clientEmail     String?
+  clientPhone     String?
+  clientAddress   String?
+
+  // Totals
+  totalHT         Float       @default(0)
+  totalTVA        Float       @default(0)
+  totalTTC        Float       @default(0)
+  tvaRate         Float       @default(20)
+
+  // Metadata
+  notes           String?
+  validUntil      DateTime?
+
+  // Relations
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  lines           DevisLine[]
+  order           Order?
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
+}
+
+model DevisLine {
+  id              String   @id @default(cuid())
+
+  // Panel info (snapshot at creation time)
+  panelReference  String
+  panelName       String
+  thickness       Float    // Épaisseur choisie
+
+  // Dimensions pièce
+  length          Int      // Longueur en mm
+  width           Int      // Largeur en mm
+  quantity        Int      @default(1)
+
+  // Chants
+  chantHaut       String?  // Type de chant (ABS 1mm, etc.)
+  chantBas        String?
+  chantGauche     String?
+  chantDroit      String?
+
+  // Prix
+  unitPriceHT     Float
+  totalHT         Float
+
+  // Position
+  position        Int      @default(0)
+
+  // Relations
+  devisId         String
+  devis           Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
+  panelId         String?
+  panel           Panel?   @relation(fields: [panelId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([devisId])
+}
+
+enum DevisStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+// ============================================
+// ORDERS
+// ============================================
+
+model Order {
+  id              String      @id @default(cuid())
+  reference       String      @unique // ORD-2024-001
+  status          OrderStatus @default(PENDING)
+
+  // Amounts
+  totalHT         Float
+  totalTVA        Float
+  totalTTC        Float
+
+  // Payment
+  stripePaymentId String?
+  paidAt          DateTime?
+
+  // Delivery
+  deliveryAddress String?
+  deliveryNotes   String?
+  estimatedDelivery DateTime?
+  deliveredAt     DateTime?
+
+  // Relations
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  devisId         String      @unique
+  devis           Devis       @relation(fields: [devisId], references: [id])
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
