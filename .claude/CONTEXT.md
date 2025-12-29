@@ -224,17 +224,17 @@ git add . && git commit -m "message" && git push origin main
 | Next.js | `app/**/*.tsx`, components | `.claude/rules/nextjs-conventions.md` |
 | Prisma | `*.prisma`, queries | `.claude/rules/prisma-conventions.md` |
 
-### Agents Spécialisés
+### Agents Spécialisés (tous en Opus pour performance maximale)
 
-| Agent | Rôle | Modèle | Quand l'utiliser |
-|-------|------|--------|------------------|
-| **code-reviewer** | Review qualité, sécurité | Sonnet | Après features, avant commits |
-| **nextjs-developer** | Frontend Next.js 15 | Sonnet | Composants React, pages, UI |
-| **nestjs-developer** | Backend NestJS 11 | Sonnet | Endpoints API, services |
-| **api-tester** | Tests endpoints API | Haiku | Validation des APIs |
-| **architect** | Architecture système | Opus | Décisions techniques complexes |
-| **debugger** | Debug et résolution | Sonnet | Erreurs, bugs, problèmes |
-| **prisma-expert** | Base de données | Sonnet | Schema, queries, migrations |
+| Agent | Rôle | Quand l'utiliser |
+|-------|------|------------------|
+| **code-reviewer** | Review qualité, sécurité | Après features, avant commits |
+| **nextjs-developer** | Frontend Next.js 15 | Composants React, pages, UI |
+| **nestjs-developer** | Backend NestJS 11 | Endpoints API, services |
+| **api-tester** | Tests endpoints API | Validation des APIs |
+| **architect** | Architecture système | Décisions techniques complexes |
+| **debugger** | Debug et résolution | Erreurs, bugs, problèmes |
+| **prisma-expert** | Base de données | Schema, queries, migrations |
 
 ### Instructions pour Claude
 

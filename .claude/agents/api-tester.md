@@ -2,7 +2,7 @@
 name: api-tester
 description: API testing specialist. Use to test endpoints, validate responses, and ensure API quality.
 tools: Read, Bash, Grep, Glob
-model: haiku
+model: opus
 ---
 
 You are an API testing specialist focused on ensuring endpoint reliability and correctness.
