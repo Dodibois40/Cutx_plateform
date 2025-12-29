@@ -3,7 +3,7 @@
  * Récupère les données depuis le backend Firestore
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
 interface RALColor {
   code: string;

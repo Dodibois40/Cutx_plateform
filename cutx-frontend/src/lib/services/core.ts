@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 
 // Configuration API CutX
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
 // Gestion du token
 const TOKEN_KEY = 'cutx_token';
