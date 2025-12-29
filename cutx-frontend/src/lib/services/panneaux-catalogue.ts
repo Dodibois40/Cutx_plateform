@@ -1,7 +1,7 @@
 import { apiCall } from './core';
 import type { CategoriePanneau } from '../configurateur/types';
 
-// Types pour le catalogue de panneaux
+// Types pour le catalogue de panneaux (format frontend)
 export interface PanneauCatalogue {
   id: string;
   nom: string;
@@ -17,6 +17,71 @@ export interface PanneauCatalogue {
   updatedAt: string;
   // Champ optionnel pour l'image (vient du catalogue produits)
   imageUrl?: string;
+}
+
+// Type retourné par l'API backend (format PostgreSQL)
+interface ApiPanel {
+  id: string;
+  reference: string;
+  name: string;
+  description: string | null;
+  thickness: number[];
+  defaultLength: number;
+  defaultWidth: number;
+  pricePerM2: number;
+  pricePerPanel: number | null;
+  material: string;
+  finish: string;
+  colorCode: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Mapping material -> categorie
+function mapMaterialToCategorie(material: string): CategoriePanneau {
+  const materialLower = material.toLowerCase();
+  if (materialLower.includes('mdf') && materialLower.includes('hydro')) return 'mdf_hydro';
+  if (materialLower.includes('mdf')) return 'mdf';
+  if (materialLower.includes('aggloméré') || materialLower.includes('agglo')) {
+    if (materialLower.includes('plaqué')) return 'agglo_plaque';
+    return 'agglo_brut';
+  }
+  if (materialLower.includes('contreplaqué') || materialLower.includes('cp')) return 'cp';
+  if (materialLower.includes('massif')) return 'bois_massif';
+  // Par défaut pour mélaminé, stratifié, etc.
+  return 'agglo_plaque';
+}
+
+// Transformer un panel API en PanneauCatalogue frontend
+function transformApiPanel(panel: ApiPanel): PanneauCatalogue {
+  // Créer prixM2 par épaisseur
+  const prixM2: Record<string, number> = {};
+  for (const ep of panel.thickness) {
+    prixM2[ep.toString()] = panel.pricePerM2;
+  }
+
+  return {
+    id: panel.id,
+    nom: panel.name,
+    categorie: mapMaterialToCategorie(panel.material),
+    essence: panel.colorCode || panel.finish || null,
+    epaisseurs: panel.thickness,
+    prixM2,
+    fournisseur: panel.finish || null,
+    disponible: panel.isActive,
+    description: panel.description,
+    ordre: 0,
+    createdAt: panel.createdAt,
+    updatedAt: panel.updatedAt,
+    imageUrl: panel.imageUrl || undefined,
+  };
 }
 
 export interface CreatePanneauData {
@@ -44,11 +109,17 @@ export interface UpdatePanneauData {
 }
 
 /**
- * Récupère les panneaux disponibles (route publique)
+ * Récupère les panneaux disponibles depuis le catalogue Bouney
  * Pour le configurateur client
  */
 export async function getPanneauxDisponibles(): Promise<PanneauCatalogue[]> {
-  return apiCall<PanneauCatalogue[]>('/api/panneaux-catalogue/disponibles');
+  // Appeler l'API catalogues (nouvelle route PostgreSQL)
+  const response = await apiCall<{ panels: ApiPanel[]; total: number }>(
+    '/api/catalogues/bouney/panels?limit=500'
+  );
+
+  // Transformer les données au format attendu par le frontend
+  return response.panels.map(transformApiPanel);
 }
 
 /**
