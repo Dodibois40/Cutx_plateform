@@ -6,7 +6,6 @@ import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import LignePanneau from './LignePanneau';
 import InfoBulle, { INFOBULLES_CONTENU } from './InfoBulle';
 
-// Colonnes qu'on peut dupliquer sur toutes les lignes
 export type ColonneDuplicable = 'percage';
 
 interface TableauPrestationsProps {
@@ -21,7 +20,6 @@ interface TableauPrestationsProps {
   highlightedColumn?: ColonneDuplicable | null;
 }
 
-// Récupère la première valeur non vide d'une colonne
 function getFirstValueForColumn(lignes: LignePrestationV3[], colonne: ColonneDuplicable): string | boolean | null {
   for (const ligne of lignes) {
     if (ligne.typeLigne !== 'panneau') continue;
@@ -34,7 +32,6 @@ function getFirstValueForColumn(lignes: LignePrestationV3[], colonne: ColonneDup
   return null;
 }
 
-// Bouton pour appliquer une valeur à toute la colonne
 function ApplyColumnButton({
   colonne,
   lignes,
@@ -47,15 +44,14 @@ function ApplyColumnButton({
   isHighlighted?: boolean;
 }) {
   const firstValue = getFirstValueForColumn(lignes, colonne);
-
   if (firstValue === null || firstValue === undefined || !onApply) return null;
 
   return (
     <button
       type="button"
-      className={`btn-apply-col ${isHighlighted ? 'highlighted' : ''}`}
+      className={`apply-col-btn ${isHighlighted ? 'apply-col-btn--highlighted' : ''}`}
       onClick={() => onApply(colonne, firstValue)}
-      title="Appliquer à toutes les lignes"
+      title="Appliquer a toutes les lignes"
     >
       <ArrowDownToLine size={10} strokeWidth={2.5} />
     </button>
@@ -73,58 +69,87 @@ export default function TableauPrestations({
   onApplyToColumn,
   highlightedColumn,
 }: TableauPrestationsProps) {
-  // Séparer les lignes panneau et finition
   const lignesPanneau = lignes.filter(l => l.typeLigne === 'panneau');
 
-  // Pour chaque ligne panneau, trouver sa ligne finition associée
   const getLigneFinition = (panneauId: string) =>
     lignes.find(l => l.typeLigne === 'finition' && l.ligneParentId === panneauId);
 
   return (
-    <div className="tableau-container">
-      <div className="tableau-scroll">
-        <table className="tableau-prestations">
+    <div className="table-wrapper">
+      <div className="table-scroll">
+        <table className="data-table">
           <thead>
             <tr>
               {/* GROUPE 1: Identification */}
-              <th className="col-etat group-id">
-                <span className="th-content">État<InfoBulle {...INFOBULLES_CONTENU.etat} /></span>
-              </th>
-              <th className="col-panneau group-id">
-                <span className="th-content">Panneau<InfoBulle titre="Panneau" contenu="Rappel du panneau sélectionné pour cette configuration." /></span>
-              </th>
-              <th className="col-reference group-id group-end-sticky">
-                <span className="th-content">Référence<InfoBulle {...INFOBULLES_CONTENU.reference} /></span>
-              </th>
-              {/* GROUPE 2: Débit (panneau global sélectionné dans le header) */}
-              <th className="col-dimensions group-panneau">
-                <span className="th-content">Dimensions<InfoBulle {...INFOBULLES_CONTENU.dimensions} /></span>
-              </th>
-              <th className="col-chants group-panneau">
-                <span className="th-content">Chants<InfoBulle {...INFOBULLES_CONTENU.chants} /></span>
-              </th>
-              <th className="col-usinages group-panneau">
-                <span className="th-content">Usinages<InfoBulle {...INFOBULLES_CONTENU.usinages} /></span>
-              </th>
-              <th className="col-percage group-panneau group-end">
+              <th className="col-etat">
                 <span className="th-content">
-                  Perçage<InfoBulle titre="Perçage" contenu="Cochez si le panneau nécessite des perçages (charnières, poignées...)." />
-                  <ApplyColumnButton colonne="percage" lignes={lignes} onApply={onApplyToColumn} isHighlighted={highlightedColumn === 'percage'} />
+                  Etat
+                  <InfoBulle {...INFOBULLES_CONTENU.etat} />
                 </span>
               </th>
-              {/* GROUPE 3: Finition optionnelle */}
-              <th className="col-finition-opt group-finition group-end">
+              <th className="col-panneau">
                 <span className="th-content">
-                  <Paintbrush size={12} className="mr-1" />
-                  Finition ?<InfoBulle titre="Finition optionnelle" contenu="Cochez pour ajouter une finition (vernis, teinte+vernis ou laque). Une ligne de finition sera créée sous le panneau." />
+                  Panneau
+                  <InfoBulle titre="Panneau" contenu="Rappel du panneau selectionne pour cette configuration." />
                 </span>
               </th>
+              <th className="col-reference">
+                <span className="th-content">
+                  Reference
+                  <InfoBulle {...INFOBULLES_CONTENU.reference} />
+                </span>
+              </th>
+
+              {/* GROUPE 2: Debit */}
+              <th className="col-dimensions">
+                <span className="th-content">
+                  Dimensions
+                  <InfoBulle {...INFOBULLES_CONTENU.dimensions} />
+                </span>
+              </th>
+              <th className="col-chants">
+                <span className="th-content">
+                  Chants
+                  <InfoBulle {...INFOBULLES_CONTENU.chants} />
+                </span>
+              </th>
+              <th className="col-usinages">
+                <span className="th-content">
+                  Usinages
+                  <InfoBulle {...INFOBULLES_CONTENU.usinages} />
+                </span>
+              </th>
+              <th className="col-percage">
+                <span className="th-content">
+                  Percage
+                  <InfoBulle titre="Percage" contenu="Cochez si le panneau necessite des percages (charnieres, poignees...)." />
+                  <ApplyColumnButton
+                    colonne="percage"
+                    lignes={lignes}
+                    onApply={onApplyToColumn}
+                    isHighlighted={highlightedColumn === 'percage'}
+                  />
+                </span>
+              </th>
+
+              {/* GROUPE 3: Finition */}
+              <th className="col-finition">
+                <span className="th-content">
+                  <Paintbrush size={11} />
+                  Finition
+                  <InfoBulle titre="Finition optionnelle" contenu="Cochez pour ajouter une finition (vernis, teinte+vernis ou laque). Une ligne de finition sera creee sous le panneau." />
+                </span>
+              </th>
+
               {/* GROUPE 4: Prix */}
-              <th className="col-prix group-prix">
-                <span className="th-content">Tarif HT<InfoBulle {...INFOBULLES_CONTENU.prix} /></span>
+              <th className="col-prix">
+                <span className="th-content">
+                  Tarif HT
+                  <InfoBulle {...INFOBULLES_CONTENU.prix} />
+                </span>
               </th>
-              <th className="col-actions group-prix">
-                <span className="th-content">Actions<InfoBulle {...INFOBULLES_CONTENU.actions} /></span>
+              <th className="col-actions">
+                <span className="th-content">Actions</span>
               </th>
             </tr>
           </thead>
@@ -152,123 +177,97 @@ export default function TableauPrestations({
         </table>
       </div>
 
-      <div className="scroll-indicator">← scroll →</div>
-
       <style jsx>{`
-        .tableau-container {
-          position: relative;
-          background: var(--admin-bg-card);
-          border: 1px solid var(--admin-border-subtle);
-          border-radius: var(--admin-radius-xl);
+        .table-wrapper {
+          background: var(--cx-surface-1);
+          border: 1px solid var(--cx-border-subtle);
+          border-radius: var(--cx-radius-xl);
           overflow: hidden;
         }
 
-        .tableau-scroll {
+        .table-scroll {
           width: 100%;
           overflow-x: auto;
-          overflow-y: visible;
           -webkit-overflow-scrolling: touch;
         }
 
-        .tableau-scroll::-webkit-scrollbar {
-          height: 8px;
+        .table-scroll::-webkit-scrollbar {
+          height: 6px;
         }
 
-        .tableau-scroll::-webkit-scrollbar-track {
-          background: var(--admin-bg-tertiary);
+        .table-scroll::-webkit-scrollbar-track {
+          background: var(--cx-surface-2);
         }
 
-        .tableau-scroll::-webkit-scrollbar-thumb {
-          background: var(--admin-border-default);
-          border-radius: 4px;
+        .table-scroll::-webkit-scrollbar-thumb {
+          background: var(--cx-border-strong);
+          border-radius: 3px;
         }
 
-        .tableau-scroll::-webkit-scrollbar-thumb:hover {
-          background: var(--admin-border-strong);
+        .table-scroll::-webkit-scrollbar-thumb:hover {
+          background: var(--cx-text-muted);
         }
 
-        .tableau-prestations {
+        .data-table {
           min-width: 1400px;
           width: 100%;
-          border-collapse: separate;
-          border-spacing: 0;
+          border-collapse: collapse;
         }
 
-        .tableau-prestations thead th {
+        /* Headers */
+        .data-table thead th {
           position: sticky;
           top: 0;
-          background: var(--admin-bg-elevated);
           z-index: 10;
-          padding: 0.75rem 0.5rem;
-          font-size: 0.6875rem;
-          font-weight: 700;
+          padding: 12px 16px;
+          font-size: var(--cx-text-xs);
+          font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--admin-text-tertiary);
-          border-bottom: 1px solid var(--admin-border-default);
-          border-right: 1px solid var(--admin-border-default);
+          color: var(--cx-text-tertiary);
+          background: var(--cx-surface-2);
+          border-bottom: 1px solid var(--cx-border-default);
           text-align: left;
           white-space: nowrap;
-        }
-
-        .tableau-prestations thead th:last-child {
-          border-right: none;
         }
 
         .th-content {
           display: inline-flex;
           align-items: center;
-          gap: 2px;
+          gap: 4px;
         }
 
-        .mr-1 {
-          margin-right: 4px;
-        }
-
-        /* Bouton flèche pour appliquer à toute la colonne */
-        .th-content :global(.btn-apply-col) {
+        /* Apply column button */
+        .th-content :global(.apply-col-btn) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 14px;
-          height: 14px;
-          padding: 0;
+          width: 16px;
+          height: 16px;
           margin-left: 2px;
+          padding: 0;
           background: transparent;
           border: none;
           border-radius: 3px;
-          color: var(--admin-text-muted);
+          color: var(--cx-text-muted);
           cursor: pointer;
           opacity: 0.5;
-          transition: all 0.15s;
+          transition: all var(--cx-transition-fast);
         }
 
-        .th-content :global(.btn-apply-col:hover) {
+        .th-content :global(.apply-col-btn:hover) {
           opacity: 1;
-          color: var(--admin-olive);
-          background: var(--admin-olive-bg);
+          color: var(--cx-accent);
+          background: var(--cx-accent-subtle);
         }
 
-        /* Animation quand la colonne vient d'être modifiée */
-        .th-content :global(.btn-apply-col.highlighted) {
+        .th-content :global(.apply-col-btn--highlighted) {
           opacity: 1;
-          color: white;
-          background: var(--admin-olive);
-          animation: pulse-highlight 1s ease-in-out infinite;
+          color: #000;
+          background: var(--cx-accent);
         }
 
-        @keyframes pulse-highlight {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(139, 157, 81, 0.6);
-            transform: scale(1);
-          }
-          50% {
-            box-shadow: 0 0 0 6px rgba(139, 157, 81, 0.3);
-            transform: scale(1.15);
-          }
-        }
-
-        /* Colonnes sticky */
+        /* Column widths */
         .col-etat {
           position: sticky;
           left: 0;
@@ -278,14 +277,41 @@ export default function TableauPrestations({
         }
 
         .col-panneau {
-          width: 220px;
+          width: 200px;
         }
 
         .col-reference {
           position: sticky;
           left: 50px;
           z-index: 15;
-          width: 140px;
+          width: 130px;
+        }
+
+        .col-dimensions {
+          width: 380px;
+        }
+
+        .col-chants {
+          width: 180px;
+        }
+
+        .col-usinages {
+          width: 80px;
+          text-align: center !important;
+        }
+
+        .col-percage {
+          width: 70px;
+          text-align: center !important;
+        }
+
+        .col-finition {
+          width: 150px;
+        }
+
+        .col-prix {
+          width: 100px;
+          text-align: right !important;
         }
 
         .col-actions {
@@ -296,33 +322,38 @@ export default function TableauPrestations({
           text-align: center !important;
         }
 
-        /* Largeurs des colonnes */
-        .col-dimensions { width: 400px; }
-        .col-chants { width: 200px; }
-        .col-usinages { width: 80px; text-align: center !important; }
-        .col-percage { width: 70px; text-align: center !important; }
-        .col-finition-opt { width: 160px; }
-        .col-prix { width: 90px; text-align: right !important; }
-
-        .scroll-indicator {
-          position: absolute;
-          bottom: 8px;
-          right: 12px;
-          font-size: 0.6875rem;
-          color: var(--admin-text-muted);
-          opacity: 0;
-          transition: opacity 0.2s;
-          pointer-events: none;
+        /* Sticky column backgrounds */
+        .col-etat,
+        .col-reference,
+        .col-actions {
+          background: var(--cx-surface-2);
         }
 
-        .tableau-container:hover .scroll-indicator {
-          opacity: 0.7;
+        /* Body rows */
+        .data-table :global(tbody tr) {
+          transition: background var(--cx-transition-fast);
         }
 
-        @media (min-width: 1500px) {
-          .scroll-indicator {
-            display: none;
-          }
+        .data-table :global(tbody tr:hover) {
+          background: rgba(255, 255, 255, 0.02);
+        }
+
+        .data-table :global(tbody tr:hover .col-etat),
+        .data-table :global(tbody tr:hover .col-reference),
+        .data-table :global(tbody tr:hover .col-actions) {
+          background: var(--cx-surface-3);
+        }
+
+        .data-table :global(tbody td) {
+          padding: 10px 16px;
+          font-size: var(--cx-text-base);
+          color: var(--cx-text-primary);
+          border-bottom: 1px solid var(--cx-border-subtle);
+          vertical-align: middle;
+        }
+
+        .data-table :global(tbody tr:last-child td) {
+          border-bottom: none;
         }
       `}</style>
     </div>

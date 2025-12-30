@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Layers, Building2, Upload, ArrowLeft, AlertTriangle, Package, ChevronDown } from 'lucide-react';
+import { Upload, ArrowLeft, ChevronDown, Package, FileSpreadsheet } from 'lucide-react';
 import { formaterPrix } from '@/lib/configurateur/calculs';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
@@ -14,7 +14,6 @@ interface ConfigurateurHeaderProps {
   isImporting?: boolean;
   isClientMode?: boolean;
   onBack?: () => void;
-  // V3: Panneau global
   panneauGlobal?: PanneauCatalogue | null;
   panneauxCatalogue?: PanneauCatalogue[];
   onSelectPanneau?: (panneau: PanneauCatalogue | null) => void;
@@ -34,8 +33,8 @@ export default function ConfigurateurHeader({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPanneauPopup, setShowPanneauPopup] = useState(false);
 
-  // Calcul du prix du panneau brut
-  const DIMENSIONS_PANNEAU_BRUT = { longueur: 2800, largeur: 2070 }; // mm
+  // Panel price calculation
+  const DIMENSIONS_PANNEAU_BRUT = { longueur: 2800, largeur: 2070 };
   const surfacePanneauM2 = (DIMENSIONS_PANNEAU_BRUT.longueur * DIMENSIONS_PANNEAU_BRUT.largeur) / 1_000_000;
   const epaisseurDefaut = panneauGlobal?.epaisseurs?.[0]?.toString() || '19';
   const prixM2 = panneauGlobal?.prixM2?.[epaisseurDefaut] || 0;
@@ -46,7 +45,6 @@ export default function ConfigurateurHeader({
     if (file && onImportExcel) {
       onImportExcel(file);
     }
-    // Reset input pour permettre de réimporter le même fichier
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -56,318 +54,326 @@ export default function ConfigurateurHeader({
     fileInputRef.current?.click();
   };
 
-  // Styles inline pour garantir l'affichage
-  const headerStyle: React.CSSProperties = {
-    background: '#1a1a18',
-    borderBottom: '1px solid #8B9A4B',
-    padding: '1rem 1.5rem',
-    position: 'relative',
-    minHeight: '60px',
-  };
-
-  const headerContentStyle: React.CSSProperties = {
-    maxWidth: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '2rem',
-  };
-
-  const headerLeftStyle: React.CSSProperties = {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-  };
-
-  const backButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    padding: '0.5rem 0.875rem',
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    color: '#E0DFDA',
-    background: 'transparent',
-    border: '1px solid #2A2826',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  };
-
   const isReferenceEmpty = !referenceChantier.trim();
-
-  const inputWrapperStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.625rem',
-    background: '#252523',
-    border: '1px solid #3a3a38',
-    borderRadius: '8px',
-    padding: '0.5rem 0.875rem',
-  };
-
-  const inputStyle: React.CSSProperties = {
-    background: 'transparent',
-    border: 'none',
-    outline: 'none',
-    fontSize: '0.875rem',
-    color: '#f5f5f3',
-    width: '220px',
-  };
-
-  const headerCenterStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-  };
-
-  const titleBadgeStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '36px',
-    height: '36px',
-    background: 'linear-gradient(135deg, #8B9A4B 0%, #5a5a3a 100%)',
-    borderRadius: '10px',
-    color: 'white',
-  };
-
-  const headerRightStyle: React.CSSProperties = {
-    flex: 1,
-    display: 'flex',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: '0.75rem',
-  };
-
-  const importButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    padding: '0.5rem 0.875rem',
-    fontSize: '0.8125rem',
-    fontWeight: 600,
-    color: '#8B9A4B',
-    background: 'rgba(139, 154, 75, 0.12)',
-    border: '1px solid rgba(139, 154, 75, 0.25)',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  };
-
-  const modeBadgeStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '0.6875rem',
-    fontWeight: 600,
-    color: '#6B6A66',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    padding: '0.375rem 0.75rem',
-    background: '#151413',
-    borderRadius: '6px',
-    border: '1px solid #1E1D1B',
-  };
+  const isPanneauEmpty = !panneauGlobal;
 
   return (
-    <header style={headerStyle}>
-        <div style={headerContentStyle}>
-        {/* Gauche: Bouton retour (client mode) + Référence chantier */}
-        <div style={headerLeftStyle}>
-          {isClientMode && onBack && (
-            <button onClick={onBack} style={backButtonStyle}>
-              <ArrowLeft size={18} />
-              <span>Retour</span>
-            </button>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={inputWrapperStyle}>
-              <Building2 size={16} style={{ color: '#7a7a78', flexShrink: 0 }} />
-              <input
-                id="reference-chantier"
-                type="text"
-                value={referenceChantier}
-                onChange={(e) => onReferenceChange(e.target.value)}
-                onFocus={(e) => e.target.select()}
-                placeholder="Votre référence chantier"
-                style={inputStyle}
-              />
-            </div>
-            {isReferenceEmpty && (
-              <span title="Veuillez renseigner une référence chantier">
-                <AlertTriangle
-                  size={18}
-                  className="blink-icon"
-                  style={{ color: '#8B9A4B' }}
-                />
-              </span>
-            )}
-          </div>
+    <header className="cx-header">
+      {/* LEFT SECTION: Back + Reference */}
+      <div className="cx-header-section">
+        {isClientMode && onBack && (
+          <button onClick={onBack} className="cx-btn cx-btn--ghost">
+            <ArrowLeft size={16} />
+            <span>Retour</span>
+          </button>
+        )}
 
-          {/* Séparateur */}
-          <div style={{ width: '1px', height: '32px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }} />
+        {isClientMode && onBack && <div className="cx-header-divider" />}
 
-          {/* Sélection Panneau Global */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {/* Image du panneau sélectionné */}
-            {panneauGlobal && panneauGlobal.imageUrl && (
-              <img
-                src={panneauGlobal.imageUrl}
-                alt={panneauGlobal.nom}
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '8px',
-                  objectFit: 'cover',
-                  border: '2px solid #8B9A4B',
-                  flexShrink: 0,
-                }}
-              />
-            )}
-            {/* Placeholder si pas d'image */}
-            {panneauGlobal && !panneauGlobal.imageUrl && (
-              <div
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '8px',
-                  background: '#252523',
-                  border: '2px dashed #3a3a38',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Package size={20} style={{ color: '#5a5a58' }} />
-              </div>
-            )}
-            <button
-              onClick={() => setShowPanneauPopup(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 0.75rem',
-                background: panneauGlobal ? 'rgba(139, 154, 75, 0.15)' : '#252523',
-                border: panneauGlobal ? '1px solid rgba(139, 154, 75, 0.5)' : '1px solid #8B9A4B',
-                borderRadius: '8px',
-                color: panneauGlobal ? '#F5F4F1' : '#A5A49F',
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                animation: !panneauGlobal ? 'pulse-border 2s ease-in-out infinite' : 'none',
-              }}
-            >
-              {!panneauGlobal && <Package size={16} style={{ color: '#8B9A4B' }} />}
-              <span style={{ fontWeight: 500, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {panneauGlobal ? panneauGlobal.nom : 'Sélectionner panneau...'}
-              </span>
-              <ChevronDown size={14} style={{ color: '#7a7a78' }} />
-            </button>
-
-            {/* Détails du panneau sélectionné */}
-            {panneauGlobal && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.75rem', color: '#A5A49F' }}>
-                <span><strong style={{ color: '#E0DFDA' }}>{DIMENSIONS_PANNEAU_BRUT.longueur}×{DIMENSIONS_PANNEAU_BRUT.largeur}</strong> mm</span>
-                <span><strong style={{ color: '#E0DFDA' }}>{panneauGlobal.epaisseurs.join('/')}</strong> mm</span>
-                <span style={{ color: '#8B9A4B', fontWeight: 600 }}>{formaterPrix(prixPanneauBrut)}/panneau</span>
-              </div>
-            )}
-
-            {!panneauGlobal && (
-              <span title="Veuillez sélectionner un panneau">
-                <AlertTriangle
-                  size={18}
-                  className="blink-icon"
-                  style={{ color: '#8B9A4B' }}
-                />
-              </span>
-            )}
-
-            {/* Popup de sélection */}
-            <PopupSelectionPanneau
-              open={showPanneauPopup}
-              panneauxCatalogue={panneauxCatalogue}
-              selectedPanneauId={panneauGlobal?.id || null}
-              epaisseurActuelle={19}
-              onSelect={() => {}}
-              onSelectCatalogue={(produit: ProduitCatalogue) => {
-                if (onSelectPanneau) {
-                  // Le produit vient de l'API et a un id (cast pour TypeScript)
-                  const produitAvecId = produit as ProduitCatalogue & { id: string };
-                  // Convertir le produit catalogue en PanneauCatalogue
-                  const panneau: PanneauCatalogue = {
-                    id: produitAvecId.id || produit.reference,
-                    nom: `${produit.nom} (${produit.reference})`,
-                    categorie: 'agglo_plaque' as const, // Tous les panneaux du catalogue sont des mélaminés/stratifiés
-                    essence: null,
-                    epaisseurs: produit.epaisseur ? [produit.epaisseur] : [19],
-                    prixM2: produit.epaisseur
-                      ? { [produit.epaisseur.toString()]: produit.prixVenteM2 || produit.prixAchatM2 || 0 }
-                      : { '19': produit.prixVenteM2 || produit.prixAchatM2 || 0 },
-                    fournisseur: produit.marque || 'BOUNEY',
-                    disponible: produit.stock === 'EN STOCK',
-                    description: `${produit.marque} - ${produit.type}`,
-                    ordre: 0,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    imageUrl: produit.imageUrl,
-                  };
-                  onSelectPanneau(panneau);
-                }
-                setShowPanneauPopup(false);
-              }}
-              onClose={() => setShowPanneauPopup(false)}
+        {/* Reference Input */}
+        <div className="header-field">
+          <label className="header-field-label">Reference</label>
+          <div className={`header-input-wrapper ${isReferenceEmpty ? 'header-input-wrapper--warning' : ''}`}>
+            <input
+              type="text"
+              value={referenceChantier}
+              onChange={(e) => onReferenceChange(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              placeholder="Ref. chantier"
+              className="header-input"
             />
           </div>
         </div>
+      </div>
 
-        {/* Centre: Titre (masqué en mode client) */}
-        {!isClientMode && (
-          <div style={headerCenterStyle}>
-            <div style={titleBadgeStyle}>
-              <Layers size={18} />
+      {/* CENTER SECTION: Panel Selection */}
+      <div className="cx-header-section panel-section">
+        <div className="header-field header-field--panel">
+          <label className="header-field-label">Panneau</label>
+          <button
+            onClick={() => setShowPanneauPopup(true)}
+            className={`panel-selector ${panneauGlobal ? 'panel-selector--selected' : 'panel-selector--empty'}`}
+          >
+            {panneauGlobal?.imageUrl ? (
+              <img
+                src={panneauGlobal.imageUrl}
+                alt={panneauGlobal.nom}
+                className="panel-selector-image"
+              />
+            ) : (
+              <div className="panel-selector-placeholder">
+                <Package size={16} />
+              </div>
+            )}
+            <div className="panel-selector-content">
+              <span className="panel-selector-name">
+                {panneauGlobal ? panneauGlobal.nom : 'Selectionner un panneau'}
+              </span>
+              {panneauGlobal && (
+                <span className="panel-selector-meta">
+                  {DIMENSIONS_PANNEAU_BRUT.longueur} x {DIMENSIONS_PANNEAU_BRUT.largeur} mm | {panneauGlobal.epaisseurs.join('/')} mm
+                </span>
+              )}
             </div>
-            <div>
-              <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#F5F4F1', margin: 0 }}>
-                Configurateur <span style={{ fontSize: '0.6875rem', color: '#8B9A4B', background: 'rgba(139, 154, 75, 0.12)', padding: '0.125rem 0.375rem', borderRadius: '4px' }}>V2</span>
-              </h1>
-              <p style={{ fontSize: '0.75rem', color: '#A5A49F', margin: '0.125rem 0 0 0' }}>Saisie multi-lignes pour commandes volumineuses</p>
+            <ChevronDown size={14} className="panel-selector-chevron" />
+          </button>
+          {panneauGlobal && (
+            <div className="panel-price">
+              <span className="panel-price-value">{formaterPrix(prixPanneauBrut)}</span>
+              <span className="panel-price-unit">/panneau</span>
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* Panel Selection Popup */}
+        <PopupSelectionPanneau
+          open={showPanneauPopup}
+          panneauxCatalogue={panneauxCatalogue}
+          selectedPanneauId={panneauGlobal?.id || null}
+          epaisseurActuelle={19}
+          onSelect={() => {}}
+          onSelectCatalogue={(produit: ProduitCatalogue) => {
+            if (onSelectPanneau) {
+              const produitAvecId = produit as ProduitCatalogue & { id: string };
+              const panneau: PanneauCatalogue = {
+                id: produitAvecId.id || produit.reference,
+                nom: `${produit.nom} (${produit.reference})`,
+                categorie: 'agglo_plaque' as const,
+                essence: null,
+                epaisseurs: produit.epaisseur ? [produit.epaisseur] : [19],
+                prixM2: produit.epaisseur
+                  ? { [produit.epaisseur.toString()]: produit.prixVenteM2 || produit.prixAchatM2 || 0 }
+                  : { '19': produit.prixVenteM2 || produit.prixAchatM2 || 0 },
+                fournisseur: produit.marque || 'BOUNEY',
+                disponible: produit.stock === 'EN STOCK',
+                description: `${produit.marque} - ${produit.type}`,
+                ordre: 0,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                imageUrl: produit.imageUrl,
+              };
+              onSelectPanneau(panneau);
+            }
+            setShowPanneauPopup(false);
+          }}
+          onClose={() => setShowPanneauPopup(false)}
+        />
+      </div>
+
+      {/* RIGHT SECTION: Actions */}
+      <div className="cx-header-section">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+
+        {/* Import Button */}
+        {onImportExcel && (
+          <button
+            onClick={handleImportClick}
+            disabled={isImporting}
+            className="cx-btn cx-btn--secondary"
+            title="Importer une feuille de debits Excel"
+          >
+            <FileSpreadsheet size={15} />
+            <span>{isImporting ? 'Import...' : 'Import Excel'}</span>
+          </button>
         )}
 
-        {/* Droite: Import + Badge Mode */}
-        <div style={headerRightStyle}>
-          {/* Input file caché */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
-
-          {/* Bouton Import Excel */}
-          {onImportExcel && (
-            <button
-              onClick={handleImportClick}
-              disabled={isImporting}
-              style={importButtonStyle}
-              title="Importer une feuille de débits Excel (format Bouney)"
-            >
-              <Upload size={16} />
-              <span>{isImporting ? 'Import...' : 'Importer Excel'}</span>
-            </button>
-          )}
-
-          <div style={modeBadgeStyle}>
-            <span style={{ width: '6px', height: '6px', background: '#8B9A4B', borderRadius: '50%' }}></span>
-            <span>Mode tableur</span>
-          </div>
+        {/* Mode Badge */}
+        <div className="mode-badge">
+          <span className="cx-status-dot cx-status-dot--success" />
+          <span>Tableur</span>
         </div>
       </div>
+
+      <style jsx>{`
+        .header-field {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .header-field-label {
+          font-size: var(--cx-text-xs);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--cx-text-muted);
+        }
+
+        .header-input-wrapper {
+          display: flex;
+          align-items: center;
+          background: var(--cx-surface-2);
+          border: 1px solid var(--cx-border-default);
+          border-radius: var(--cx-radius-md);
+          transition: all var(--cx-transition-fast);
+        }
+
+        .header-input-wrapper:focus-within {
+          border-color: var(--cx-accent);
+          box-shadow: 0 0 0 2px var(--cx-accent-muted);
+        }
+
+        .header-input-wrapper--warning {
+          border-color: var(--cx-warning);
+          background: var(--cx-warning-muted);
+        }
+
+        .header-input {
+          width: 160px;
+          padding: 8px 12px;
+          font-family: var(--cx-font-mono);
+          font-size: var(--cx-text-sm);
+          color: var(--cx-text-primary);
+          background: transparent;
+          border: none;
+          outline: none;
+        }
+
+        .header-input::placeholder {
+          color: var(--cx-text-muted);
+          font-family: var(--cx-font-sans);
+        }
+
+        /* Panel Section */
+        .panel-section {
+          flex: 1;
+          justify-content: center;
+        }
+
+        .header-field--panel {
+          flex-direction: row;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .header-field--panel .header-field-label {
+          min-width: 60px;
+        }
+
+        .panel-selector {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 12px 6px 6px;
+          min-width: 280px;
+          background: var(--cx-surface-2);
+          border: 1px solid var(--cx-border-default);
+          border-radius: var(--cx-radius-lg);
+          cursor: pointer;
+          transition: all var(--cx-transition-fast);
+        }
+
+        .panel-selector:hover {
+          border-color: var(--cx-border-strong);
+          background: var(--cx-surface-3);
+        }
+
+        .panel-selector--selected {
+          border-color: var(--cx-border-accent);
+        }
+
+        .panel-selector--selected:hover {
+          border-color: var(--cx-accent);
+        }
+
+        .panel-selector--empty {
+          border-style: dashed;
+          border-color: var(--cx-warning);
+          background: var(--cx-warning-muted);
+        }
+
+        .panel-selector-image {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--cx-radius-md);
+          object-fit: cover;
+          border: 1px solid var(--cx-border-subtle);
+        }
+
+        .panel-selector-placeholder {
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--cx-surface-3);
+          border-radius: var(--cx-radius-md);
+          color: var(--cx-text-muted);
+        }
+
+        .panel-selector-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          text-align: left;
+          min-width: 0;
+        }
+
+        .panel-selector-name {
+          font-size: var(--cx-text-sm);
+          font-weight: 500;
+          color: var(--cx-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .panel-selector-meta {
+          font-size: var(--cx-text-xs);
+          font-family: var(--cx-font-mono);
+          color: var(--cx-text-tertiary);
+        }
+
+        .panel-selector-chevron {
+          color: var(--cx-text-muted);
+          flex-shrink: 0;
+        }
+
+        .panel-price {
+          display: flex;
+          align-items: baseline;
+          gap: 4px;
+          padding: 6px 10px;
+          background: var(--cx-accent-subtle);
+          border-radius: var(--cx-radius-md);
+        }
+
+        .panel-price-value {
+          font-family: var(--cx-font-mono);
+          font-size: var(--cx-text-md);
+          font-weight: 600;
+          color: var(--cx-accent);
+        }
+
+        .panel-price-unit {
+          font-size: var(--cx-text-xs);
+          color: var(--cx-text-tertiary);
+        }
+
+        /* Mode Badge */
+        .mode-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          font-size: var(--cx-text-xs);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--cx-text-tertiary);
+          background: var(--cx-surface-2);
+          border-radius: var(--cx-radius-md);
+          border: 1px solid var(--cx-border-subtle);
+        }
+      `}</style>
     </header>
   );
 }
