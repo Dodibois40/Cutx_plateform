@@ -55,6 +55,29 @@ export class CataloguesService {
     });
   }
 
+  /**
+   * Get all parent categories from all active catalogues
+   * Used for global search filters
+   */
+  async findAllParentCategories(): Promise<{ name: string; slug: string; catalogueName: string }[]> {
+    const categories = await this.prisma.category.findMany({
+      where: {
+        parentId: null,
+        catalogue: { isActive: true },
+      },
+      include: {
+        catalogue: { select: { name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return categories.map((cat) => ({
+      name: cat.name,
+      slug: cat.slug,
+      catalogueName: cat.catalogue.name,
+    }));
+  }
+
   // ============================================
   // PANELS
   // ============================================
@@ -107,7 +130,13 @@ export class CataloguesService {
         skip,
         take: limit,
         orderBy: { name: 'asc' },
-        include: { category: true },
+        include: {
+          category: {
+            include: {
+              parent: true, // Inclure la catégorie parente pour le filtrage
+            },
+          },
+        },
       }),
       this.prisma.panel.count({ where }),
     ]);
@@ -137,7 +166,7 @@ export class CataloguesService {
   async searchPanels(
     query: string,
     limit: number = 20,
-  ): Promise<Panel[]> {
+  ) {
     return this.prisma.panel.findMany({
       where: {
         isActive: true,
@@ -147,8 +176,113 @@ export class CataloguesService {
         ],
       },
       take: limit,
-      include: { catalogue: true, category: true },
+      include: {
+        catalogue: true,
+        category: {
+          include: {
+            parent: true, // Inclure la catégorie parente
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     });
+  }
+
+  /**
+   * Get panels from ALL active catalogues (for unified search)
+   * Supports server-side filtering for better performance
+   */
+  async findAllPanels(options?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    // Filtres additionnels pour éviter le filtrage côté client
+    sousCategorie?: string;
+    marque?: string;
+    epaisseur?: number;
+    enStock?: boolean;
+  }): Promise<{ panels: Panel[]; total: number }> {
+    const where: Prisma.PanelWhereInput = {
+      isActive: true,
+      catalogue: { isActive: true },
+    };
+
+    // Search by name or reference
+    if (options?.search) {
+      where.OR = [
+        { name: { contains: options.search, mode: 'insensitive' } },
+        { reference: { contains: options.search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Filtre par sous-catégorie (parent category name)
+    if (options?.sousCategorie) {
+      where.category = {
+        OR: [
+          { name: options.sousCategorie },
+          { parent: { name: options.sousCategorie } },
+        ],
+      };
+    }
+
+    // Filtre par marque (finish field)
+    if (options?.marque) {
+      where.finish = { contains: options.marque, mode: 'insensitive' };
+    }
+
+    // Filtre par épaisseur
+    if (options?.epaisseur) {
+      where.thickness = { has: options.epaisseur };
+    }
+
+    // Filtre par stock
+    if (options?.enStock) {
+      where.stockStatus = 'EN STOCK';
+    }
+
+    const page = options?.page || 1;
+    const limit = options?.limit || 10000; // Pas de limite si non spécifié
+    const skip = (page - 1) * limit;
+
+    const [panels, total] = await Promise.all([
+      this.prisma.panel.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { name: 'asc' },
+        // Optimisation: select only needed fields instead of full include
+        select: {
+          id: true,
+          reference: true,
+          name: true,
+          description: true,
+          thickness: true,
+          defaultLength: true,
+          defaultWidth: true,
+          pricePerM2: true,
+          material: true,
+          finish: true,
+          imageUrl: true,
+          isActive: true,
+          stockStatus: true,
+          createdAt: true,
+          updatedAt: true,
+          catalogue: {
+            select: { name: true },
+          },
+          category: {
+            select: {
+              name: true,
+              parent: {
+                select: { name: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.panel.count({ where }),
+    ]);
+
+    return { panels: panels as unknown as Panel[], total };
   }
 }

@@ -44,7 +44,12 @@ interface ApiPanel {
   colorCode: string | null;
   imageUrl: string | null;
   isActive: boolean;
-  category?: { name: string; slug: string };
+  stockStatus: string | null;
+  category?: {
+    name: string;
+    slug: string;
+    parent?: { name: string; slug: string } | null;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -52,20 +57,30 @@ interface ApiPanel {
 // Transformer un panel API en CatalogueProduit
 function transformPanel(panel: ApiPanel): CatalogueProduit {
   const epaisseur = panel.thickness[0] || 19;
+
+  // Déterminer la sous-catégorie pour le filtrage:
+  // - Si la catégorie a un parent, utiliser le nom du parent (ex: "Panneaux Basiques & Techniques")
+  // - Sinon, utiliser le nom de la catégorie directement (ex: "Panneaux Déco")
+  const sousCategorie = panel.category?.parent?.name
+    || panel.category?.name
+    || 'Matières';
+
+  // Pour la catégorie détaillée (affichage), utiliser le nom exact
+  const categorie = panel.category?.name || 'Panneaux';
+
   return {
     id: panel.id,
     nom: panel.name,
     reference: panel.reference,
     codeArticle: panel.reference,
     marque: panel.finish || 'Bouney',
-    categorie: panel.category?.name || 'Panneaux',
-    sousCategorie: panel.category?.slug?.includes('bois') ? 'Bois' :
-                   panel.category?.slug?.includes('unis') ? 'Unis' : 'Matières',
+    categorie,
+    sousCategorie,
     type: panel.material,
     longueur: panel.defaultLength,
     largeur: panel.defaultWidth,
     epaisseur,
-    stock: panel.isActive ? 'EN STOCK' : 'Sur commande',
+    stock: panel.stockStatus === 'EN STOCK' ? 'EN STOCK' : 'Sur commande',
     prixAchatM2: panel.pricePerM2,
     prixVenteM2: panel.pricePerM2,
     imageUrl: panel.imageUrl || undefined,
@@ -112,27 +127,32 @@ export interface CatalogueStats {
 
 /**
  * Rechercher dans le catalogue avec filtres
+ * Utilise /api/catalogues/panels pour récupérer les panels de TOUS les catalogues
+ * Supporte le filtrage côté serveur pour de meilleures performances
  */
 export async function searchCatalogues(params: SearchParams = {}): Promise<SearchResult> {
   const queryParams = new URLSearchParams();
 
-  if (params.q) queryParams.append('q', params.q);
+  // Filtres envoyés au backend
+  if (params.q) queryParams.append('search', params.q);
   if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+  if (params.offset !== undefined) queryParams.append('page', String(Math.floor(params.offset / (params.limit || 100)) + 1));
+  if (params.sousCategorie) queryParams.append('sousCategorie', params.sousCategorie);
+  if (params.marque) queryParams.append('marque', params.marque);
+  if (params.epaisseurMin) queryParams.append('epaisseur', params.epaisseurMin.toString());
+  if (params.enStock) queryParams.append('enStock', 'true');
 
-  // Utiliser l'endpoint bouney/panels (search ne fonctionne pas sans query)
-  // Si on a un terme de recherche, utiliser search, sinon panels
-  const endpoint = params.q
-    ? `/api/catalogues/search?${queryParams}`
-    : `/api/catalogues/bouney/panels?${queryParams}`;
+  // Utiliser l'endpoint unifié /panels qui retourne tous les catalogues
+  const endpoint = `/api/catalogues/panels?${queryParams}`;
 
-  const response = await apiCall<{ panels: ApiPanel[] }>(endpoint);
+  const response = await apiCall<{ panels: ApiPanel[]; total: number }>(endpoint);
 
   // Transformer les panels en produits
   const produits = (response.panels || []).map(transformPanel);
 
   return {
     produits,
-    total: produits.length,
+    total: response.total || produits.length,
     page: 1,
     limit: params.limit || 100,
     hasMore: false,
@@ -178,11 +198,22 @@ export async function getTypesDisponibles(): Promise<string[]> {
 }
 
 /**
- * Récupérer toutes les sous-catégories disponibles
+ * Récupérer toutes les catégories disponibles depuis l'API
+ * Déduplique automatiquement car les catégories peuvent exister dans plusieurs catalogues
  */
 export async function getSousCategories(): Promise<string[]> {
-  // Route n'existe pas encore - retourner les catégories connues
-  return ['Unis', 'Bois', 'Matières'];
+  try {
+    const response = await apiCall<{
+      categories: { name: string; slug: string; catalogueName: string }[]
+    }>('/api/catalogues/categories');
+
+    // Dédupliquer les noms de catégories (peuvent exister dans plusieurs catalogues)
+    return [...new Set(response.categories.map(cat => cat.name))];
+  } catch (error) {
+    console.error('Erreur chargement catégories:', error);
+    // Fallback vers les catégories connues
+    return ['Unis', 'Bois', 'Matières', 'Panneaux Déco', 'Panneaux Basiques & Techniques'];
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════

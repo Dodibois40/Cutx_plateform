@@ -121,27 +121,46 @@ model Category {
 
 model Panel {
   id              String   @id @default(cuid())
-  reference       String   // Code produit fournisseur
-  name            String   // Nom commercial
+  reference       String   // Code fournisseur (79133)
+  name            String   // Nom commercial complet
   description     String?
+
+  // Identification fabricant
+  manufacturerRef String?  // Référence fabricant (005)
+  supplierCode    String?  // Code fournisseur (redondant avec reference pour clarté)
 
   // Dimensions disponibles
   thickness       Float[]  // Épaisseurs dispo en mm [8, 16, 19, 22]
+  defaultThickness Float?  // Épaisseur par défaut
   defaultLength   Int      // Longueur standard en mm
   defaultWidth    Int      // Largeur standard en mm
+  isVariableLength Boolean @default(false) // Pour les chants avec longueur variable
 
   // Prix
   pricePerM2      Float?   // Prix au m²
+  pricePerMl      Float?   // Prix au mètre linéaire (chants)
+  pricePerUnit    Float?   // Prix unitaire
   pricePerPanel   Float?   // Prix par panneau
 
-  // Caractéristiques
+  // Caractéristiques techniques
   material        String?  // MDF, Agglo, Contreplaqué, etc.
-  finish          String?  // Mat, Brillant, Texturé, etc.
-  colorCode       String?  // Code couleur RAL, NCS, etc.
+  supportQuality  String?  // "panneau de particules standard P2", "hpl", etc.
+  finish          String?  // Mat, Brillant, Texturé, FA, etc.
+  productType     String?  // MELAMINE, STRATIFIE, BANDE_DE_CHANT, COMPACT
+
+  // Décor et couleur
+  decor           String?  // Décor/Essence (unis, bois, matières)
+  colorCode       String?  // Code couleur (005)
+  colorChoice     String?  // Coloris/Choix descriptif
+
+  // Certification et qualité
+  certification   String?  // "PEFC 70%", "FSC", etc.
+
   imageUrl        String?
 
-  // Stock
-  stockStatus     String?  // "EN_STOCK", "SUR_COMMANDE", null
+  // Stock détaillé
+  stockStatus     String?  // "EN STOCK", "Sur commande"
+  stockLocations  String?  // JSON: [{"location":"Bouney, Anglet","inStock":true}]
 
   isActive        Boolean  @default(true)
 
