@@ -8,6 +8,7 @@ import type { ProduitCatalogue } from '@/lib/catalogues';
 import PopupSelectionPanneau from './PopupSelectionPanneau';
 import PopupMulticouche from './PopupMulticouche';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
+import { LocaleSwitcher } from '@/components/ui/LocaleSwitcher';
 
 interface ConfigurateurHeaderProps {
   referenceChantier: string;
@@ -253,6 +254,9 @@ export default function ConfigurateurHeader({
             <span>{isImporting ? 'Import...' : 'Import Excel'}</span>
           </button>
         )}
+
+        {/* Language & Unit Switcher */}
+        <LocaleSwitcher />
 
         {/* Mode Badge */}
         <div className="mode-badge">
