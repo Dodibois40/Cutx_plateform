@@ -1,18 +1,32 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import createMiddleware from 'next-intl/middleware';
+import { routing } from './i18n/routing';
+
+// Create the next-intl middleware
+const intlMiddleware = createMiddleware(routing);
 
 // Routes publiques (accessibles sans connexion)
+// Updated to include locale prefix
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/:locale",
+  "/:locale/sign-in(.*)",
+  "/:locale/sign-up(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhook(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // Si la route n'est pas publique, on exige une connexion
+  // First, handle i18n routing
+  const response = intlMiddleware(req);
+
+  // If the route is not public, protect it
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
+
+  return response;
 });
 
 export const config = {

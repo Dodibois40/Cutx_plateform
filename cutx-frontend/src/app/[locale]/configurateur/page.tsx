@@ -3,20 +3,21 @@
 /**
  * Page Configurateur V3 - Route directe
  *
- * Cette page permet d'accéder au ConfigurateurV3 directement via /configurateur
+ * Cette page permet d'acceder au ConfigurateurV3 directement via /[locale]/configurateur
  * Utile pour:
- * - Accès direct au configurateur (sans authentification)
+ * - Acces direct au configurateur (sans authentification)
  * - Plugin CutX SketchUp via API + redirect (?import=sessionId)
  * - Plugin CutX SketchUp via postMessage (legacy iframe)
- * - Tests et démo
+ * - Tests et demo
  *
- * Modes de pré-remplissage:
- * 1. URL ?import=sessionId → Fetch API /api/cutx/import/:id
- * 2. postMessage INIT_PLUGIN → Communication iframe directe
+ * Modes de pre-remplissage:
+ * 1. URL ?import=sessionId -> Fetch API /api/cutx/import/:id
+ * 2. postMessage INIT_PLUGIN -> Communication iframe directe
  */
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/i18n/routing';
 import ConfigurateurV3 from '@/components/configurateur/ConfigurateurV3';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import { creerNouvelleLigne } from '@/lib/configurateur/constants';
@@ -24,9 +25,9 @@ import { mettreAJourCalculsLigne } from '@/lib/configurateur/calculs';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
-// ═══════════════════════════════════════════════════════════════
+// ===================================================================
 // TYPES SKETCHUP / CUTX
-// ═══════════════════════════════════════════════════════════════
+// ===================================================================
 
 interface SketchUpPanneau {
   entityId: number;
@@ -62,9 +63,9 @@ interface SketchUpData {
   projetNom: string;
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===================================================================
 // COMMUNICATION SKETCHUP
-// ═══════════════════════════════════════════════════════════════
+// ===================================================================
 
 function sendToSketchUp(type: string, data?: unknown) {
   const message = { type, data };
@@ -74,9 +75,9 @@ function sendToSketchUp(type: string, data?: unknown) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CONVERSION SKETCHUP → CONFIGURATEUR V3
-// ═══════════════════════════════════════════════════════════════
+// ===================================================================
+// CONVERSION SKETCHUP -> CONFIGURATEUR V3
+// ===================================================================
 
 function convertirPanneauxEnLignes(panneaux: SketchUpPanneau[]): LignePrestationV3[] {
   return panneaux.map(panneau => {
@@ -142,9 +143,9 @@ function convertirPanneauxEnLignes(panneaux: SketchUpPanneau[]): LignePrestation
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===================================================================
 // PAGE PRINCIPALE (avec useSearchParams)
-// ═══════════════════════════════════════════════════════════════
+// ===================================================================
 
 function ConfigurateurContent() {
   const router = useRouter();
@@ -155,7 +156,7 @@ function ConfigurateurContent() {
   const [error, setError] = useState<string | null>(null);
   const hasReceivedData = useRef(false);
 
-  // Charger les données depuis l'API si ?import= est présent
+  // Charger les donnees depuis l'API si ?import= est present
   useEffect(() => {
     const importId = searchParams.get('import');
 
@@ -175,19 +176,19 @@ function ConfigurateurContent() {
           return res.json();
         })
         .then((data: { panneaux: SketchUpPanneau[]; projetNom?: string }) => {
-          console.log('[ConfigV3] Données reçues:', data.panneaux?.length, 'panneaux');
+          console.log('[ConfigV3] Donnees recues:', data.panneaux?.length, 'panneaux');
 
           if (data.projetNom) setProjetNom(data.projetNom);
 
           if (data.panneaux?.length > 0) {
             const lignes = convertirPanneauxEnLignes(data.panneaux);
             setInitialLignes(lignes);
-            console.log('[ConfigV3] Lignes pré-remplies:', lignes.length);
+            console.log('[ConfigV3] Lignes pre-remplies:', lignes.length);
           }
         })
         .catch((err) => {
           console.error('[ConfigV3] Erreur import:', err);
-          setError(err.message || 'Erreur lors du chargement des données');
+          setError(err.message || 'Erreur lors du chargement des donnees');
         })
         .finally(() => {
           setIsLoading(false);
@@ -195,13 +196,13 @@ function ConfigurateurContent() {
     }
   }, [searchParams]);
 
-  // Écouter les messages (plugin CutX via iframe ou postMessage - legacy)
+  // Ecouter les messages (plugin CutX via iframe ou postMessage - legacy)
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (!message || typeof message !== 'object') return;
 
-      console.log('[ConfigV3] Message reçu:', message.type);
+      console.log('[ConfigV3] Message recu:', message.type);
 
       if (message.type === 'INIT_PLUGIN' && !hasReceivedData.current) {
         hasReceivedData.current = true;
@@ -212,17 +213,17 @@ function ConfigurateurContent() {
         if (data.panneaux?.length > 0) {
           const lignes = convertirPanneauxEnLignes(data.panneaux);
           setInitialLignes(lignes);
-          console.log('[ConfigV3] Lignes pré-remplies:', lignes.length);
+          console.log('[ConfigV3] Lignes pre-remplies:', lignes.length);
         }
       }
     };
 
     window.addEventListener('message', handleMessage);
 
-    // Signaler que la page est prête (pour iframe)
+    // Signaler que la page est prete (pour iframe)
     setTimeout(() => {
       sendToSketchUp('READY');
-      console.log('[ConfigV3] READY envoyé');
+      console.log('[ConfigV3] READY envoye');
     }, 100);
 
     return () => window.removeEventListener('message', handleMessage);
@@ -251,12 +252,12 @@ function ConfigurateurContent() {
     );
   }
 
-  // Afficher l'erreur si présente
+  // Afficher l'erreur si presente
   if (error) {
     return (
       <div className="min-h-screen bg-[#0F0E0D] flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <div className="text-red-500 text-5xl mb-4">!</div>
           <h2 className="text-white text-xl font-semibold mb-2">Erreur de chargement</h2>
           <p className="text-gray-400 mb-6">{error}</p>
           <button

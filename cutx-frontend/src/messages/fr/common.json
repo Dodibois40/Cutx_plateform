@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "title": "CutX - Configurateur de panneaux",
+    "description": "Plateforme de configuration et commande de panneaux bois pour professionnels"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "add": "Ajouter",
+    "search": "Rechercher",
+    "back": "Retour",
+    "next": "Suivant",
+    "confirm": "Confirmer",
+    "close": "Fermer"
+  },
+  "status": {
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "success": "Operation reussie",
+    "notFound": "Non trouve"
+  },
+  "auth": {
+    "signIn": "Connexion",
+    "signUp": "Inscription",
+    "signOut": "Deconnexion"
+  }
+}
