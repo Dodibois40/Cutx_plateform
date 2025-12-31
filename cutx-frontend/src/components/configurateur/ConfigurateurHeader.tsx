@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, ChevronDown, Package, FileSpreadsheet, Layers } from 'lucide-react';
 import { formaterPrix } from '@/lib/configurateur/calculs';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -38,6 +39,7 @@ export default function ConfigurateurHeader({
   panneauMulticouche,
   onSelectMulticouche,
 }: ConfigurateurHeaderProps) {
+  const t = useTranslations();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPanneauPopup, setShowPanneauPopup] = useState(false);
   const [showMulticouchePopup, setShowMulticouchePopup] = useState(false);
@@ -76,7 +78,7 @@ export default function ConfigurateurHeader({
         {isClientMode && onBack && (
           <button onClick={onBack} className="cx-btn cx-btn--ghost">
             <ArrowLeft size={16} />
-            <span>Retour</span>
+            <span>{t('common.actions.back')}</span>
           </button>
         )}
 
@@ -89,7 +91,7 @@ export default function ConfigurateurHeader({
             value={referenceChantier}
             onChange={(e) => onReferenceChange(e.target.value)}
             onFocus={(e) => e.target.select()}
-            placeholder="Ref. chantier"
+            placeholder={t('configurateur.header.refChantier')}
             className="header-input"
           />
         </div>
@@ -99,7 +101,7 @@ export default function ConfigurateurHeader({
       <div className="cx-header-section panel-section">
         {/* Panneau Classique */}
         <div className="header-field header-field--panel">
-          <label className="header-field-label">Panneau</label>
+          <label className="header-field-label">{t('configurateur.header.panneau')}</label>
           <button
             onClick={() => setShowPanneauPopup(true)}
             className={`panel-selector ${hasPanneauClassique ? 'panel-selector--selected' : ''} ${!hasPanneauClassique && !hasPanneauMulticouche ? 'panel-selector--empty' : ''} ${hasPanneauMulticouche ? 'panel-selector--inactive' : ''}`}
@@ -117,7 +119,7 @@ export default function ConfigurateurHeader({
             )}
             <div className="panel-selector-content">
               <span className="panel-selector-name">
-                {panneauGlobal ? panneauGlobal.nom : 'Sélectionner un panneau'}
+                {panneauGlobal ? panneauGlobal.nom : t('configurateur.header.selectPanel')}
               </span>
               {panneauGlobal && (
                 <span className="panel-selector-meta">
@@ -130,19 +132,19 @@ export default function ConfigurateurHeader({
           {panneauGlobal && (
             <div className="panel-price">
               <span className="panel-price-value">{formaterPrix(prixPanneauBrut)}</span>
-              <span className="panel-price-unit">/panneau</span>
+              <span className="panel-price-unit">{t('configurateur.header.perPanel')}</span>
             </div>
           )}
         </div>
 
         {/* Separator */}
         <div className="panel-separator">
-          <span className="panel-separator-text">ou</span>
+          <span className="panel-separator-text">{t('common.misc.or')}</span>
         </div>
 
         {/* Panneau Multicouche */}
         <div className="header-field header-field--panel">
-          <label className="header-field-label">Panneau Multicouche</label>
+          <label className="header-field-label">{t('configurateur.header.panneauMulticouche')}</label>
           <button
             onClick={() => setShowMulticouchePopup(true)}
             className={`panel-selector panel-selector--multicouche ${hasPanneauMulticouche ? 'panel-selector--selected' : ''} ${!hasPanneauClassique && !hasPanneauMulticouche ? 'panel-selector--empty' : ''} ${hasPanneauClassique ? 'panel-selector--inactive' : ''}`}
@@ -153,12 +155,12 @@ export default function ConfigurateurHeader({
             <div className="panel-selector-content">
               <span className="panel-selector-name">
                 {panneauMulticouche
-                  ? `${panneauMulticouche.couches.length} couches configurées`
-                  : 'Créer un panneau multicouche'}
+                  ? t('configurateur.header.layersConfigured', { count: panneauMulticouche.couches.length })
+                  : t('configurateur.header.createMultilayer')}
               </span>
               {panneauMulticouche && (
                 <span className="panel-selector-meta">
-                  {panneauMulticouche.modeCollage === 'fournisseur' ? 'Collage fournisseur' : 'Collage client (+50mm)'}
+                  {panneauMulticouche.modeCollage === 'fournisseur' ? t('configurateur.header.supplierGluing') : t('configurateur.header.clientGluing')}
                   {' | '}
                   {panneauMulticouche.epaisseurTotale.toFixed(1)}mm
                 </span>
@@ -169,7 +171,7 @@ export default function ConfigurateurHeader({
           {panneauMulticouche && (
             <div className="panel-price panel-price--multicouche">
               <span className="panel-price-value">{formaterPrix(panneauMulticouche.prixEstimeM2)}</span>
-              <span className="panel-price-unit">/m²</span>
+              <span className="panel-price-unit">{t('configurateur.header.perM2')}</span>
             </div>
           )}
         </div>
@@ -248,10 +250,10 @@ export default function ConfigurateurHeader({
             onClick={handleImportClick}
             disabled={isImporting}
             className="cx-btn cx-btn--secondary"
-            title="Importer une feuille de debits Excel"
+            title={t('configurateur.header.importExcel')}
           >
             <FileSpreadsheet size={15} />
-            <span>{isImporting ? 'Import...' : 'Import Excel'}</span>
+            <span>{isImporting ? t('configurateur.header.importing') : t('configurateur.header.importExcel')}</span>
           </button>
         )}
 
@@ -261,7 +263,7 @@ export default function ConfigurateurHeader({
         {/* Mode Badge */}
         <div className="mode-badge">
           <span className="cx-status-dot cx-status-dot--success" />
-          <span>Tableur</span>
+          <span>{t('configurateur.header.spreadsheetMode')}</span>
         </div>
       </div>
 

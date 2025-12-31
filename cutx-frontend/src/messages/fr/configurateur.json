@@ -37,7 +37,8 @@
     "width": "Larg.",
     "thickness": "Ep.",
     "chooseRAL": "Choisir RAL...",
-    "optional": "Optionnel"
+    "optional": "Optionnel",
+    "choose": "Choisir..."
   },
   "tooltips": {
     "reference": "Identifiant unique de la piece (ex: FT1 - Facade tiroir)",
@@ -149,7 +150,10 @@
     "tint": "Teinte",
     "gloss": "Brillance",
     "faces": "Faces",
-    "colorless": "Incolore"
+    "colorless": "Incolore",
+    "addFinish": "+ Ajouter finition...",
+    "removeFinish": "Supprimer la finition",
+    "selectType": "Type"
   },
   "summary": {
     "totalHT": "Total HT",
@@ -180,5 +184,8 @@
     "totalThickness": "Epaisseur totale",
     "supplier": "Fournisseur",
     "client": "Client"
+  },
+  "units": {
+    "euroPerM2": "EUR/m2"
   }
 }

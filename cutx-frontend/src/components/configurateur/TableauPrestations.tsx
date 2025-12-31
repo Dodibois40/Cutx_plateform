@@ -1,11 +1,12 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { ArrowDownToLine, Paintbrush } from 'lucide-react';
 import type { LignePrestationV3, TypeFinition } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import LignePanneau from './LignePanneau';
-import InfoBulle, { INFOBULLES_CONTENU } from './InfoBulle';
+import InfoBulle from './InfoBulle';
 
 export type ColonneDuplicable = 'percage';
 
@@ -39,11 +40,13 @@ function ApplyColumnButton({
   lignes,
   onApply,
   isHighlighted,
+  applyToAllLabel,
 }: {
   colonne: ColonneDuplicable;
   lignes: LignePrestationV3[];
   onApply?: (colonne: ColonneDuplicable, valeur: string | boolean | null) => void;
   isHighlighted?: boolean;
+  applyToAllLabel: string;
 }) {
   const firstValue = getFirstValueForColumn(lignes, colonne);
   if (firstValue === null || firstValue === undefined || !onApply) return null;
@@ -53,7 +56,7 @@ function ApplyColumnButton({
       type="button"
       className={`apply-col-btn ${isHighlighted ? 'apply-col-btn--highlighted' : ''}`}
       onClick={() => onApply(colonne, firstValue)}
-      title="Appliquer a toutes les lignes"
+      title={applyToAllLabel}
     >
       <ArrowDownToLine size={10} strokeWidth={2.5} />
     </button>
@@ -72,6 +75,7 @@ export default function TableauPrestations({
   onApplyToColumn,
   highlightedColumn,
 }: TableauPrestationsProps) {
+  const t = useTranslations();
   const lignesPanneau = lignes.filter(l => l.typeLigne === 'panneau');
 
   const getLigneFinition = (panneauId: string) =>
@@ -86,51 +90,52 @@ export default function TableauPrestations({
               {/* GROUPE 1: Identification */}
               <th className="col-etat">
                 <span className="th-content">
-                  Etat
-                  <InfoBulle {...INFOBULLES_CONTENU.etat} />
+                  {t('configurateur.columns.status')}
+                  <InfoBulle titre={t('configurateur.infobulles.status.title')} contenu={t('configurateur.infobulles.status.content')} />
                 </span>
               </th>
               <th className="col-panneau">
                 <span className="th-content">
-                  Panneau
-                  <InfoBulle titre="Panneau" contenu="Rappel du panneau selectionne pour cette configuration." />
+                  {t('configurateur.columns.panel')}
+                  <InfoBulle titre={t('configurateur.infobulles.panelReminder.title')} contenu={t('configurateur.infobulles.panelReminder.content')} />
                 </span>
               </th>
               <th className="col-reference">
                 <span className="th-content">
-                  Reference
-                  <InfoBulle {...INFOBULLES_CONTENU.reference} />
+                  {t('configurateur.columns.reference')}
+                  <InfoBulle titre={t('configurateur.infobulles.reference.title')} contenu={t('configurateur.infobulles.reference.content')} />
                 </span>
               </th>
 
               {/* GROUPE 2: Debit */}
               <th className="col-dimensions">
                 <span className="th-content">
-                  Dimensions
-                  <InfoBulle {...INFOBULLES_CONTENU.dimensions} />
+                  {t('configurateur.columns.dimensions')}
+                  <InfoBulle titre={t('configurateur.infobulles.dimensions.title')} contenu={t('configurateur.infobulles.dimensions.content')} />
                 </span>
               </th>
               <th className="col-chants">
                 <span className="th-content">
-                  Chants
-                  <InfoBulle {...INFOBULLES_CONTENU.chants} />
+                  {t('configurateur.columns.edges')}
+                  <InfoBulle titre={t('configurateur.infobulles.edges.title')} contenu={t('configurateur.infobulles.edges.content')} />
                 </span>
               </th>
               <th className="col-usinages">
                 <span className="th-content">
-                  Usinages
-                  <InfoBulle {...INFOBULLES_CONTENU.usinages} />
+                  {t('configurateur.columns.machining')}
+                  <InfoBulle titre={t('configurateur.infobulles.machining.title')} contenu={t('configurateur.infobulles.machining.content')} />
                 </span>
               </th>
               <th className="col-percage">
                 <span className="th-content">
-                  Percage
-                  <InfoBulle titre="Percage" contenu="Cochez si le panneau necessite des percages (charnieres, poignees...)." />
+                  {t('configurateur.columns.drilling')}
+                  <InfoBulle titre={t('configurateur.infobulles.drilling.title')} contenu={t('configurateur.infobulles.drilling.content')} />
                   <ApplyColumnButton
                     colonne="percage"
                     lignes={lignes}
                     onApply={onApplyToColumn}
                     isHighlighted={highlightedColumn === 'percage'}
+                    applyToAllLabel={t('configurateur.tooltips.applyToAll')}
                   />
                 </span>
               </th>
@@ -139,20 +144,20 @@ export default function TableauPrestations({
               <th className="col-finition">
                 <span className="th-content">
                   <Paintbrush size={11} />
-                  Finition
-                  <InfoBulle titre="Finition optionnelle" contenu="Cochez pour ajouter une finition (vernis, teinte+vernis ou laque). Une ligne de finition sera creee sous le panneau." />
+                  {t('configurateur.columns.finish')}
+                  <InfoBulle titre={t('configurateur.infobulles.optionalFinish.title')} contenu={t('configurateur.infobulles.optionalFinish.content')} />
                 </span>
               </th>
 
               {/* GROUPE 4: Prix */}
               <th className="col-prix">
                 <span className="th-content">
-                  Tarif HT
-                  <InfoBulle {...INFOBULLES_CONTENU.prix} />
+                  {t('configurateur.columns.priceHT')}
+                  <InfoBulle titre={t('configurateur.infobulles.price.title')} contenu={t('configurateur.infobulles.price.content')} />
                 </span>
               </th>
               <th className="col-actions">
-                <span className="th-content">Actions</span>
+                <span className="th-content">{t('configurateur.columns.actions')}</span>
               </th>
             </tr>
           </thead>

@@ -37,7 +37,8 @@
     "width": "Width",
     "thickness": "Thick.",
     "chooseRAL": "Choose RAL...",
-    "optional": "Optional"
+    "optional": "Optional",
+    "choose": "Choose..."
   },
   "tooltips": {
     "reference": "Unique identifier for the piece (e.g.: FT1 - Drawer front)",
@@ -149,7 +150,10 @@
     "tint": "Tint",
     "gloss": "Gloss",
     "faces": "Faces",
-    "colorless": "Colorless"
+    "colorless": "Colorless",
+    "addFinish": "+ Add finish...",
+    "removeFinish": "Remove finish",
+    "selectType": "Type"
   },
   "summary": {
     "totalHT": "Total excl. VAT",
@@ -180,5 +184,8 @@
     "totalThickness": "Total thickness",
     "supplier": "Supplier",
     "client": "Client"
+  },
+  "units": {
+    "euroPerM2": "EUR/sq.m"
   }
 }

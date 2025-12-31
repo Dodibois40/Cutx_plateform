@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { ShoppingCart, Layers, Ruler, CheckCircle2, Minus, Package, PaintBucket, Maximize2 } from 'lucide-react';
 import { formaterPrix } from '@/lib/configurateur/calculs';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -47,6 +48,7 @@ export default function RecapitulatifTotal({
   panneauGlobal,
   hasPanneauGlobal = false,
 }: RecapitulatifTotalProps) {
+  const t = useTranslations();
   // Afficher la décomposition fourniture/prestation seulement si fourniture > 0
   const showFournitureBreakdown = totalFournitureHT > 0;
   const isAllComplete = lignesCompletes === totalLignes && totalLignes > 0;
@@ -89,7 +91,7 @@ export default function RecapitulatifTotal({
             <Layers size={16} className="stat-icon" />
             <div className="stat-content">
               <span className="stat-value">{nombrePieces}</span>
-              <span className="stat-label">{nombrePieces > 1 ? 'débits' : 'débit'}</span>
+              <span className="stat-label">{nombrePieces > 1 ? t('configurateur.summary.cuts') : t('configurateur.summary.cut')}</span>
             </div>
           </div>
 
@@ -113,7 +115,7 @@ export default function RecapitulatifTotal({
             <Minus size={16} className="stat-icon" />
             <div className="stat-content">
               <span className="stat-value">{metresLineairesChants.toFixed(2)}</span>
-              <span className="stat-label">mL chants</span>
+              <span className="stat-label">{t('configurateur.summary.edgesML')}</span>
             </div>
           </div>
 
@@ -125,7 +127,7 @@ export default function RecapitulatifTotal({
             <CheckCircle2 size={16} className={`stat-icon ${isAllComplete ? 'complete' : ''}`} />
             <div className="stat-content">
               <span className={`stat-value ${isAllComplete ? 'complete' : ''}`}>{lignesCompletes}/{totalLignes}</span>
-              <span className="stat-label">prêtes</span>
+              <span className="stat-label">{t('configurateur.summary.ready')}</span>
             </div>
           </div>
 
@@ -136,10 +138,10 @@ export default function RecapitulatifTotal({
               <button
                 className="btn-optimiseur"
                 onClick={onOpenOptimiseur}
-                title="Visualiser l'optimisation des débits sur les panneaux"
+                title={t('configurateur.summary.optimizeCuts')}
               >
                 <Maximize2 size={16} />
-                <span>Optimiser les débits</span>
+                <span>{t('configurateur.summary.optimizeCuts')}</span>
               </button>
             </>
           )}
@@ -152,7 +154,7 @@ export default function RecapitulatifTotal({
             <div className="total-row subtotal-row">
               <span className="total-label subtotal-label">
                 <Package size={12} className="subtotal-icon" />
-                Fourniture
+                {t('configurateur.summary.supply')}
               </span>
               <span className="total-value subtotal-value">{formaterPrix(totalFournitureHT)}</span>
             </div>
@@ -163,7 +165,7 @@ export default function RecapitulatifTotal({
             <div className="total-row subtotal-row">
               <span className="total-label subtotal-label">
                 <PaintBucket size={12} className="subtotal-icon" />
-                Prestation
+                {t('configurateur.summary.service')}
               </span>
               <span className="total-value subtotal-value">{formaterPrix(totalPrestationHT)}</span>
             </div>
@@ -171,19 +173,19 @@ export default function RecapitulatifTotal({
 
           {/* HT */}
           <div className={`total-row ${showFournitureBreakdown ? 'has-subtotals' : ''}`}>
-            <span className="total-label">Total HT</span>
+            <span className="total-label">{t('configurateur.summary.totalHT')}</span>
             <span className="total-value total-ht">{formaterPrix(totalHT)}</span>
           </div>
 
           {/* TVA */}
           <div className="total-row">
-            <span className="total-label">TVA (20%)</span>
+            <span className="total-label">{t('configurateur.summary.totalTVA')}</span>
             <span className="total-value total-tva">{formaterPrix(totalTVA)}</span>
           </div>
 
           {/* TTC - Mis en avant */}
           <div className="total-row total-ttc-row">
-            <span className="total-label">Total TTC</span>
+            <span className="total-label">{t('configurateur.summary.totalTTC')}</span>
             <span className="total-value total-ttc">{formaterPrix(totalTTC)}</span>
           </div>
         </div>
@@ -195,7 +197,7 @@ export default function RecapitulatifTotal({
           disabled={!isValid}
         >
           <ShoppingCart size={18} />
-          <span>{isEditing ? 'Enregistrer les modifications' : 'Commander ma finition'}</span>
+          <span>{isEditing ? t('configurateur.summary.saveChanges') : t('configurateur.summary.orderMyFinish')}</span>
         </button>
       </div>
 

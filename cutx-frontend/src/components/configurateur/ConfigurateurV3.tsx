@@ -2,6 +2,7 @@
 
 import '@/app/styles/cutx.css';
 
+import { useTranslations } from 'next-intl';
 import { Plus, AlertTriangle, CheckCircle, XCircle, Tag, Lightbulb, Save, RotateCcw, Info } from 'lucide-react';
 import { REGLES } from '@/lib/configurateur/constants';
 import { validerLigne } from '@/lib/configurateur/validation';
@@ -47,6 +48,7 @@ export default function ConfigurateurV3(props: ConfigurateurV3Props) {
 }
 
 function ConfigurateurContent() {
+  const t = useTranslations();
   const {
     referenceChantier,
     setReferenceChantier,
@@ -123,7 +125,7 @@ function ConfigurateurContent() {
                     <li key={i}>{detail}</li>
                   ))}
                   {toast.details.length > 5 && (
-                    <li>... et {toast.details.length - 5} autre(s)</li>
+                    <li>{t('common.misc.andMore', { count: toast.details.length - 5 })}</li>
                   )}
                 </ul>
               )}
@@ -142,7 +144,7 @@ function ConfigurateurContent() {
       <div className="info-banner">
         <Info size={14} />
         <span>
-          Minimum : {REGLES.SURFACE_MINIMUM} m2 facture par face ou {REGLES.MINIMUM_COMMANDE_HT} EUR HT par commande
+          {t('configurateur.summary.orderMinimum', { surface: REGLES.SURFACE_MINIMUM, amount: REGLES.MINIMUM_COMMANDE_HT })}
         </span>
       </div>
 
@@ -167,7 +169,7 @@ function ConfigurateurContent() {
         <div className="action-bar-left">
           <button onClick={handleAjouterLigne} className="cx-btn cx-btn--accent-ghost">
             <Plus size={16} />
-            <span>Ajouter ligne</span>
+            <span>{t('configurateur.lines.addLine')}</span>
           </button>
 
           <button
@@ -175,7 +177,7 @@ function ConfigurateurContent() {
             className="cx-btn cx-btn--ghost"
           >
             <Tag size={15} />
-            <span>Etiquettes</span>
+            <span>{t('configurateur.lines.labels')}</span>
           </button>
 
           <button
@@ -183,7 +185,7 @@ function ConfigurateurContent() {
             className="cx-btn cx-btn--ghost"
           >
             <Lightbulb size={15} />
-            <span>Guide</span>
+            <span>{t('configurateur.lines.guide')}</span>
           </button>
         </div>
 
@@ -193,7 +195,7 @@ function ConfigurateurContent() {
               <div className="save-indicator">
                 <Save size={12} />
                 <span>
-                  Sauvegarde {lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {t('common.time.savedAt', { time: lastSaved.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })}
                 </span>
               </div>
             )}
@@ -201,10 +203,10 @@ function ConfigurateurContent() {
             <button
               onClick={handleClearSave}
               className="cx-btn cx-btn--ghost cx-btn--sm"
-              title="Effacer et recommencer"
+              title={t('configurateur.tooltips.clearAndRestart')}
             >
               <RotateCcw size={14} />
-              <span>Reset</span>
+              <span>{t('configurateur.lines.reset')}</span>
             </button>
           </div>
         )}
@@ -238,7 +240,7 @@ function ConfigurateurContent() {
           <div className="validation-banner">
             <div className="validation-header">
               <AlertTriangle size={14} />
-              <span>Validation requise</span>
+              <span>{t('common.validation.validationRequired')}</span>
             </div>
             <ul className="validation-list">
               {validation.erreurs.map((err, i) => (

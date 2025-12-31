@@ -116,6 +116,7 @@
     "none": "None",
     "all": "All",
     "other": "Other",
-    "andMore": "... and {count} more"
+    "andMore": "... and {count} more",
+    "optional": "Optional"
   }
 }

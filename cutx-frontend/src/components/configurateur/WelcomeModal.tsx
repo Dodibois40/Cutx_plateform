@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lightbulb, ArrowRight } from 'lucide-react';
 import { VIDEOS } from '@/lib/assets';
@@ -24,6 +25,7 @@ interface Props {
 // ============================================================================
 
 export default function WelcomeModal({ onClose, forceOpen, onForceOpenHandled }: Props) {
+  const t = useTranslations('dialogs.welcome');
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -97,19 +99,19 @@ export default function WelcomeModal({ onClose, forceOpen, onForceOpenHandled }:
                   {/* Badge */}
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 bg-[#8B9D51]/10 border border-[#8B9D51]/30 rounded-full text-[#a8bf6a] text-sm font-medium w-fit">
                     <span className="w-2 h-2 rounded-full bg-[#8B9D51] animate-pulse" />
-                    Nouveau Configurateur
+                    {t('badge')}
                   </div>
 
                   {/* Title */}
                   <h1 className="text-2xl md:text-3xl font-bold text-white mb-4 leading-tight">
-                    Bienvenue sur l'Espace
+                    {t('title')}
                     <br />
-                    <span className="text-[#a8bf6a]">Configuration</span>
+                    <span className="text-[#a8bf6a]">{t('titleHighlight')}</span>
                   </h1>
 
                   {/* Description */}
                   <p className="text-white/60 text-base md:text-lg leading-relaxed mb-6">
-                    Ce configurateur a pour but de faciliter la gestion et l'organisation de vos commandes de finition bois.
+                    {t('description')}
                   </p>
 
                   {/* Tip Box */}
@@ -118,9 +120,9 @@ export default function WelcomeModal({ onClose, forceOpen, onForceOpenHandled }:
                       <Lightbulb size={20} className="text-[#a8bf6a]" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white/80 mb-1">Astuce</p>
+                      <p className="text-sm font-medium text-white/80 mb-1">{t('tipTitle')}</p>
                       <p className="text-sm text-white/50 leading-relaxed">
-                        Une question ? Cliquez sur les icônes <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/10 text-[10px] text-white/60 mx-0.5">i</span> à côté de chaque option pour voir les détails techniques.
+                        {t('tipContent')}
                       </p>
                     </div>
                   </div>
@@ -130,7 +132,7 @@ export default function WelcomeModal({ onClose, forceOpen, onForceOpenHandled }:
                     onClick={handleClose}
                     className="group flex items-center justify-center gap-2 w-full md:w-auto px-8 py-4 bg-gradient-to-r from-[#8B9D51] to-[#6d7a3f] hover:from-[#9aad5d] hover:to-[#7d8a4f] text-white font-semibold rounded-xl shadow-lg shadow-[#8B9D51]/20 hover:shadow-[#8B9D51]/30 transition-all duration-300"
                   >
-                    Accéder au configurateur
+                    {t('accessConfigurator')}
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>

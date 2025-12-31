@@ -2,17 +2,18 @@
 
 import { useState, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers } from 'lucide-react';
 import { getRALByCode } from '@/lib/configurateur/ral-colors';
 import type { LignePrestationV3, TypeFinition, Brillance } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import {
-  PLACEHOLDERS,
-  TOOLTIPS,
   ETAT_INDICATEURS,
-  TYPES_FINITION,
-  BRILLANCES,
+  TYPES_FINITION_VALUES,
+  TYPES_FINITION_TRANSLATION_KEYS,
+  BRILLANCES_PRICING,
+  BRILLANCES_TRANSLATION_KEYS,
 } from '@/lib/configurateur/constants';
 import { getEtatLigne, getChampsManquants, formaterPrix } from '@/lib/configurateur/calculs';
 import PopupLaque from './dialogs/PopupLaque';
@@ -47,6 +48,7 @@ export default function LignePanneau({
   onSupprimerFinition,
   canDelete,
 }: LignePanneauProps) {
+  const t = useTranslations();
   const [showEnConstruction, setShowEnConstruction] = useState<'usinages' | 'percage' | null>(null);
   const [showLaque, setShowLaque] = useState(false);
   const [showEtatTooltip, setShowEtatTooltip] = useState(false);
@@ -83,10 +85,10 @@ export default function LignePanneau({
       }}
     >
       <div className="etat-tooltip-content">
-        <strong>{indicateur.label}</strong>
+        <strong>{t(indicateur.labelKey)}</strong>
         {champsManquants.length > 0 && (
           <div className="champs-manquants">
-            Manquants : {champsManquants.join(', ')}
+            {t('configurateur.status.missing', { fields: champsManquants.join(', ') })}
           </div>
         )}
       </div>
@@ -95,7 +97,7 @@ export default function LignePanneau({
   );
 
   // Brillances disponibles pour la finition
-  const brillancesDisponibles = BRILLANCES.filter(b => {
+  const brillancesDisponibles = BRILLANCES_PRICING.filter(b => {
     if (!ligneFinition?.finition) return true;
     if (ligneFinition.finition === 'laque') return b.prixLaque !== null;
     return b.prixVernis !== null;
@@ -132,10 +134,10 @@ export default function LignePanneau({
               </div>
               <div className="panneau-infos">
                 <span className="panneau-nom panneau-nom--multicouche">
-                  Multicouche {panneauMulticouche.couches.length} couches
+                  {t('configurateur.multilayer.layers', { count: panneauMulticouche.couches.length })}
                 </span>
                 <span className="panneau-details">
-                  {panneauMulticouche.epaisseurTotale.toFixed(1)}mm • {panneauMulticouche.modeCollage === 'fournisseur' ? 'Fournisseur' : 'Client'}
+                  {panneauMulticouche.epaisseurTotale.toFixed(1)}mm • {panneauMulticouche.modeCollage === 'fournisseur' ? t('configurateur.multilayer.supplier') : t('configurateur.multilayer.client')}
                 </span>
                 <span className="panneau-couches">
                   {panneauMulticouche.couches.map((c, i) => (
@@ -169,24 +171,24 @@ export default function LignePanneau({
               </div>
             </div>
           ) : (
-            <span className="panneau-vide">Aucun panneau</span>
+            <span className="panneau-vide">{t('configurateur.lines.noPanel')}</span>
           )}
         </td>
 
         {/* Référence */}
-        <td className="cell-reference cell-group-id cell-group-end-sticky" title={TOOLTIPS.reference}>
+        <td className="cell-reference cell-group-id cell-group-end-sticky" title={t('configurateur.tooltips.reference')}>
           <input
             type="text"
             value={ligne.reference}
             onChange={(e) => onUpdate({ reference: e.target.value })}
             onFocus={(e) => e.target.select()}
-            placeholder={PLACEHOLDERS.reference}
+            placeholder={t('configurateur.placeholders.reference')}
             className="input-compact"
           />
         </td>
 
         {/* Dimensions */}
-        <td className="cell-dimensions cell-group-panneau" title={TOOLTIPS.dimensions}>
+        <td className="cell-dimensions cell-group-panneau" title={t('configurateur.tooltips.dimensions')}>
           <div className="dimensions-compact">
             <input
               type="number"
@@ -195,11 +197,11 @@ export default function LignePanneau({
                 dimensions: { ...ligne.dimensions, longueur: Number(e.target.value) || 0 }
               })}
               onFocus={(e) => e.target.select()}
-              placeholder="Long."
+              placeholder={t('configurateur.placeholders.length')}
               className={`input-dim input-dim-large ${!ligne.dimensions.longueur ? 'empty' : ''}`}
               min="0"
             />
-            <span className="dim-x">×</span>
+            <span className="dim-x">x</span>
             <input
               type="number"
               value={ligne.dimensions.largeur || ''}
@@ -207,11 +209,11 @@ export default function LignePanneau({
                 dimensions: { ...ligne.dimensions, largeur: Number(e.target.value) || 0 }
               })}
               onFocus={(e) => e.target.select()}
-              placeholder="Larg."
+              placeholder={t('configurateur.placeholders.width')}
               className={`input-dim input-dim-large ${!ligne.dimensions.largeur ? 'empty' : ''}`}
               min="0"
             />
-            <span className="dim-x">×</span>
+            <span className="dim-x">x</span>
             <input
               type="number"
               value={
@@ -229,16 +231,16 @@ export default function LignePanneau({
                 }
               }}
               onFocus={(e) => e.target.select()}
-              placeholder="Ép."
+              placeholder={t('configurateur.placeholders.thickness')}
               className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
               min="0"
               readOnly={!!(panneauGlobal || panneauMulticouche)}
               title={
                 panneauMulticouche
-                  ? `Épaisseur totale multicouche : ${panneauMulticouche.epaisseurTotale}mm`
+                  ? `${t('configurateur.multilayer.totalThickness')}: ${panneauMulticouche.epaisseurTotale}mm`
                   : panneauGlobal
-                    ? `Épaisseur fixée par le panneau : ${panneauGlobal.epaisseurs[0]}mm`
-                    : 'Épaisseur en mm'
+                    ? `${t('configurateur.placeholders.thickness')}: ${panneauGlobal.epaisseurs[0]}mm`
+                    : t('configurateur.placeholders.thickness')
               }
             />
             <button
@@ -247,16 +249,16 @@ export default function LignePanneau({
               onClick={() => onUpdate({
                 sensDuFil: ligne.sensDuFil === 'longueur' ? 'largeur' : 'longueur'
               })}
-              title={`Cliquez pour changer le sens du fil`}
+              title={t('configurateur.grainDirection.clickToChange')}
             >
-              <span className="fil-icon">{ligne.sensDuFil === 'longueur' ? '↔' : '↕'}</span>
-              <span className="fil-text">Sens du fil : {ligne.sensDuFil === 'longueur' ? 'Longueur' : 'Largeur'}</span>
+              <span className="fil-icon">{ligne.sensDuFil === 'longueur' ? '\u2194' : '\u2195'}</span>
+              <span className="fil-text">{t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}</span>
             </button>
           </div>
         </td>
 
         {/* Chants - Labels séparés + boutons avec bord coloré */}
-        <td className="cell-chants cell-group-panneau" title={TOOLTIPS.chants}>
+        <td className="cell-chants cell-group-panneau" title={t('configurateur.tooltips.edges')}>
           <div className="chants-row">
             <span className="chant-label">L1</span>
             <button
@@ -298,7 +300,7 @@ export default function LignePanneau({
         </td>
 
         {/* Usinages - En construction */}
-        <td className="cell-group-panneau cell-center" title={TOOLTIPS.usinages}>
+        <td className="cell-group-panneau cell-center" title={t('configurateur.tooltips.machining')}>
           <button
             className="btn-usinages btn-construction"
             onClick={() => setShowEnConstruction('usinages')}
@@ -312,7 +314,7 @@ export default function LignePanneau({
           <button
             className="btn-percage-construction"
             onClick={() => setShowEnConstruction('percage')}
-            title="Perçage"
+            title={t('configurateur.columns.drilling')}
           >
             <span className="toggle-empty">–</span>
           </button>
@@ -322,7 +324,7 @@ export default function LignePanneau({
         <PopupEnConstruction
           open={showEnConstruction !== null}
           onClose={() => setShowEnConstruction(null)}
-          titre={showEnConstruction === 'usinages' ? 'Usinages' : 'Perçage'}
+          titre={showEnConstruction === 'usinages' ? t('configurateur.columns.machining') : t('configurateur.columns.drilling')}
         />
 
         {/* Finition optionnelle */}
@@ -340,9 +342,9 @@ export default function LignePanneau({
                   }}
                   className="select-compact select-finition"
                 >
-                  <option value="">+ Ajouter finition...</option>
-                  {TYPES_FINITION.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
+                  <option value="">{t('configurateur.finish.addFinish')}</option>
+                  {TYPES_FINITION_VALUES.map(value => (
+                    <option key={value} value={value}>{t(TYPES_FINITION_TRANSLATION_KEYS[value])}</option>
                   ))}
                 </select>
               </div>
@@ -351,12 +353,12 @@ export default function LignePanneau({
               <div className="finition-resume">
                 <span className="finition-type">
                   <Paintbrush size={12} />
-                  {TYPES_FINITION.find(t => t.value === ligneFinition.typeFinition)?.label || 'Finition'}
+                  {ligneFinition.typeFinition ? t(TYPES_FINITION_TRANSLATION_KEYS[ligneFinition.typeFinition]) : t('configurateur.columns.finish')}
                 </span>
                 <button
                   className="btn-remove-finition"
                   onClick={onSupprimerFinition}
-                  title="Supprimer la finition"
+                  title={t('configurateur.finish.removeFinish')}
                 >
                   <X size={12} />
                 </button>
@@ -373,14 +375,14 @@ export default function LignePanneau({
         {/* Actions */}
         <td className="cell-group-prix cell-actions">
           <div className="actions-group">
-            <button className="btn-action" onClick={onCopier} title="Dupliquer">
+            <button className="btn-action" onClick={onCopier} title={t('common.actions.duplicate')}>
               <Copy size={14} />
             </button>
             <button
               className="btn-action btn-delete"
               onClick={onSupprimer}
               disabled={!canDelete}
-              title="Supprimer"
+              title={t('common.actions.delete')}
             >
               <Trash2 size={14} />
             </button>
@@ -395,14 +397,14 @@ export default function LignePanneau({
           <td className="cell-empty cell-group-id"></td>
           <td className="cell-empty cell-group-id"></td>
           <td className="cell-empty cell-group-id cell-group-end-sticky">
-            <span className="finition-indent">↳ Finition</span>
+            <span className="finition-indent">{'\u21B3'} {t('configurateur.columns.finish')}</span>
           </td>
 
           {/* Teinte/RAL - couvre Dimensions + Chants */}
           <td className="cell-finition-detail" colSpan={2}>
             <div className="finition-field">
               <label>
-                {ligneFinition.finition === 'laque' ? 'Code RAL' : 'Teinte'}
+                {ligneFinition.finition === 'laque' ? t('configurateur.finish.ralCode') : t('configurateur.finish.tint')}
               </label>
               {ligneFinition.finition === 'laque' ? (
                 <div className="color-picker-wrapper">
@@ -411,7 +413,7 @@ export default function LignePanneau({
                     value={ligneFinition.codeCouleurLaque?.replace(/\s*\(#[0-9a-fA-F]+\)/, '') || ''}
                     readOnly
                     onClick={() => setShowLaque(true)}
-                    placeholder="Choisir RAL..."
+                    placeholder={t('configurateur.placeholders.chooseRAL')}
                     className={`input-compact input-with-picker ${!ligneFinition.codeCouleurLaque ? 'field-missing' : ''}`}
                     style={{ cursor: 'pointer' }}
                   />
@@ -430,7 +432,7 @@ export default function LignePanneau({
                   type="text"
                   value={ligneFinition.teinte || ''}
                   onChange={(e) => onUpdateFinition({ teinte: e.target.value || null })}
-                  placeholder={ligneFinition.typeFinition === 'teinte_vernis' ? 'Ex: Chêne naturel' : 'Optionnel'}
+                  placeholder={ligneFinition.typeFinition === 'teinte_vernis' ? t('configurateur.placeholders.tint') : t('common.misc.optional')}
                   className={`input-compact ${ligneFinition.typeFinition === 'teinte_vernis' && !ligneFinition.teinte ? 'field-missing' : ''}`}
                 />
               )}
@@ -446,18 +448,18 @@ export default function LignePanneau({
           {/* Brillance - couvre Usinages + Perçage */}
           <td className="cell-finition-detail cell-group-end" colSpan={2}>
             <div className="finition-field">
-              <label>Brillance</label>
+              <label>{t('configurateur.finish.gloss')}</label>
               <select
                 value={ligneFinition.brillance || ''}
                 onChange={(e) => onUpdateFinition({ brillance: e.target.value as Brillance || null })}
                 className={`select-compact ${!ligneFinition.brillance ? 'field-missing' : ''}`}
               >
-                <option value="">Choisir...</option>
+                <option value="">{t('configurateur.placeholders.choose')}</option>
                 {brillancesDisponibles.map(b => {
                   const prix = ligneFinition.finition === 'laque' ? b.prixLaque : b.prixVernis;
                   return (
                     <option key={b.value} value={b.value}>
-                      {b.label} ({prix}€/m²)
+                      {t(BRILLANCES_TRANSLATION_KEYS[b.value])} ({prix}{t('configurateur.units.euroPerM2')})
                     </option>
                   );
                 })}
@@ -468,7 +470,7 @@ export default function LignePanneau({
           {/* Faces - colonne Finition seule */}
           <td className="cell-finition-detail cell-group-end">
             <div className="finition-field">
-              <label>Faces</label>
+              <label>{t('configurateur.finish.faces')}</label>
               <div className="faces-toggle">
                 <button
                   className={`btn-face ${ligneFinition.nombreFaces === 1 ? 'active' : ''}`}

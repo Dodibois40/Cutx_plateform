@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Scissors,
   Minus,
@@ -33,6 +34,7 @@ export default function RecapTarifsDecoupe({
   mode = 'compact',
   onDetailClick,
 }: RecapTarifsDecoupeProps) {
+  const t = useTranslations('configurateur.pricing');
   const [expanded, setExpanded] = useState(mode === 'detail');
 
   // Calculs des totaux
