@@ -2,10 +2,11 @@
 
 import { useState, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
-import { Copy, Trash2, Wrench, Paintbrush, X, Pipette } from 'lucide-react';
+import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers } from 'lucide-react';
 import { getRALByCode } from '@/lib/configurateur/ral-colors';
 import type { LignePrestationV3, TypeFinition, Brillance } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import {
   PLACEHOLDERS,
   TOOLTIPS,
@@ -21,6 +22,7 @@ interface LignePanneauProps {
   ligne: LignePrestationV3;
   ligneFinition: LignePrestationV3 | null;
   panneauGlobal: PanneauCatalogue | null;
+  panneauMulticouche: PanneauMulticouche | null;
   index: number;
   onUpdate: (updates: Partial<LignePrestationV3>) => void;
   onUpdateFinition?: (updates: Partial<LignePrestationV3>) => void;
@@ -35,6 +37,7 @@ export default function LignePanneau({
   ligne,
   ligneFinition,
   panneauGlobal,
+  panneauMulticouche,
   index,
   onUpdate,
   onUpdateFinition,
@@ -121,7 +124,31 @@ export default function LignePanneau({
 
         {/* Panneau - rappel visuel */}
         <td className="cell-panneau cell-group-id">
-          {panneauGlobal ? (
+          {panneauMulticouche ? (
+            // Affichage Panneau Multicouche
+            <div className="panneau-rappel panneau-multicouche">
+              <div className="panneau-thumb-multicouche">
+                <Layers size={16} />
+              </div>
+              <div className="panneau-infos">
+                <span className="panneau-nom panneau-nom--multicouche">
+                  Multicouche {panneauMulticouche.couches.length} couches
+                </span>
+                <span className="panneau-details">
+                  {panneauMulticouche.epaisseurTotale.toFixed(1)}mm • {panneauMulticouche.modeCollage === 'fournisseur' ? 'Fournisseur' : 'Client'}
+                </span>
+                <span className="panneau-couches">
+                  {panneauMulticouche.couches.map((c, i) => (
+                    <span key={c.id} className="panneau-couche-mini" title={c.panneauNom || c.type}>
+                      {c.epaisseur}mm
+                      {i < panneauMulticouche.couches.length - 1 && ' + '}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            </div>
+          ) : panneauGlobal ? (
+            // Affichage Panneau Classique
             <div className="panneau-rappel">
               {panneauGlobal.imageUrl ? (
                 <img
@@ -187,9 +214,15 @@ export default function LignePanneau({
             <span className="dim-x">×</span>
             <input
               type="number"
-              value={panneauGlobal ? panneauGlobal.epaisseurs[0] : (ligne.dimensions.epaisseur || '')}
+              value={
+                panneauMulticouche
+                  ? panneauMulticouche.epaisseurTotale
+                  : panneauGlobal
+                    ? panneauGlobal.epaisseurs[0]
+                    : (ligne.dimensions.epaisseur || '')
+              }
               onChange={(e) => {
-                if (!panneauGlobal) {
+                if (!panneauGlobal && !panneauMulticouche) {
                   onUpdate({
                     dimensions: { ...ligne.dimensions, epaisseur: Number(e.target.value) || 0 }
                   });
@@ -197,10 +230,16 @@ export default function LignePanneau({
               }}
               onFocus={(e) => e.target.select()}
               placeholder="Ép."
-              className={`input-dim input-ep ${panneauGlobal ? 'input-locked' : ''}`}
+              className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
               min="0"
-              readOnly={!!panneauGlobal}
-              title={panneauGlobal ? `Épaisseur fixée par le panneau : ${panneauGlobal.epaisseurs[0]}mm` : 'Épaisseur en mm'}
+              readOnly={!!(panneauGlobal || panneauMulticouche)}
+              title={
+                panneauMulticouche
+                  ? `Épaisseur totale multicouche : ${panneauMulticouche.epaisseurTotale}mm`
+                  : panneauGlobal
+                    ? `Épaisseur fixée par le panneau : ${panneauGlobal.epaisseurs[0]}mm`
+                    : 'Épaisseur en mm'
+              }
             />
             <button
               type="button"
@@ -560,6 +599,39 @@ export default function LignePanneau({
           flex-shrink: 0;
         }
 
+        .panneau-thumb-multicouche {
+          width: 40px;
+          height: 40px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, var(--cx-accent-subtle), var(--cx-surface-3));
+          border: 1px solid var(--cx-accent-muted);
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--cx-accent);
+        }
+
+        .panneau-multicouche {
+          background: var(--cx-accent-subtle);
+          border-radius: 6px;
+          padding: 4px 8px;
+        }
+
+        .panneau-nom--multicouche {
+          color: var(--cx-accent);
+        }
+
+        .panneau-couches {
+          font-size: 10px;
+          color: var(--cx-text-muted);
+          font-family: var(--cx-font-mono);
+        }
+
+        .panneau-couche-mini {
+          white-space: nowrap;
+        }
+
         .panneau-infos {
           display: flex;
           flex-direction: column;
@@ -825,11 +897,12 @@ export default function LignePanneau({
 
         /* Champ épaisseur verrouillé quand panneau sélectionné */
         .input-locked {
-          background: var(--admin-olive-bg) !important;
-          border-color: var(--admin-olive-border) !important;
-          color: var(--admin-olive) !important;
+          background: var(--admin-bg-tertiary) !important;
+          border-color: var(--admin-border-default) !important;
+          color: var(--admin-text-primary) !important;
           cursor: not-allowed;
-          font-weight: 700;
+          font-weight: 600;
+          opacity: 0.8;
         }
 
         .dim-x {

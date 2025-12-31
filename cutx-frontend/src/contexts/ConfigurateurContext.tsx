@@ -22,6 +22,7 @@ import {
   REGLES,
 } from '@/lib/configurateur/constants';
 import { getPanneauxDisponibles, type PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import {
   mettreAJourCalculsLigne,
   calculerTotaux,
@@ -88,6 +89,8 @@ interface ConfigurateurContextType {
   isRestored: boolean;
   panneauGlobal: PanneauCatalogue | null;
   setPanneauGlobal: (panneau: PanneauCatalogue | null) => void;
+  panneauMulticouche: PanneauMulticouche | null;
+  setPanneauMulticouche: (panneau: PanneauMulticouche | null) => void;
 
   // Catalogue
   panneauxCatalogue: PanneauCatalogue[];
@@ -175,6 +178,7 @@ export function ConfigurateurProvider({
   const isInitialMount = useRef(true);
 
   const [panneauGlobal, setPanneauGlobal] = useState<PanneauCatalogue | null>(null);
+  const [panneauMulticouche, setPanneauMulticouche] = useState<PanneauMulticouche | null>(null);
   const [modalCopie, setModalCopie] = useState<ModalCopieState>({
     open: false,
     ligneSource: null,
@@ -577,6 +581,8 @@ export function ConfigurateurProvider({
     isRestored,
     panneauGlobal,
     setPanneauGlobal,
+    panneauMulticouche,
+    setPanneauMulticouche,
 
     // Catalogue
     panneauxCatalogue,
@@ -631,6 +637,7 @@ export function ConfigurateurProvider({
     lastSaved,
     isRestored,
     panneauGlobal,
+    panneauMulticouche,
     panneauxCatalogue,
     panneauxLoading,
     modalCopie,
@@ -723,6 +730,6 @@ export function useConfigurateurUI() {
 }
 
 export function useConfigurateurCatalogue() {
-  const { panneauxCatalogue, panneauxLoading, panneauGlobal, setPanneauGlobal } = useConfigurateur();
-  return { panneauxCatalogue, panneauxLoading, panneauGlobal, setPanneauGlobal };
+  const { panneauxCatalogue, panneauxLoading, panneauGlobal, setPanneauGlobal, panneauMulticouche, setPanneauMulticouche } = useConfigurateur();
+  return { panneauxCatalogue, panneauxLoading, panneauGlobal, setPanneauGlobal, panneauMulticouche, setPanneauMulticouche };
 }
