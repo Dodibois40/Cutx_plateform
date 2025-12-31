@@ -1,1 +1,184 @@
-{}
+{
+  "title": "Cut Configurator",
+  "header": {
+    "refChantier": "Project ref.",
+    "panneau": "Panel",
+    "panneauMulticouche": "Multilayer Panel",
+    "selectPanel": "Select a panel",
+    "createMultilayer": "Create a multilayer panel",
+    "layersConfigured": "{count} layers configured",
+    "supplierGluing": "Supplier gluing",
+    "clientGluing": "Client gluing (+50mm)",
+    "importExcel": "Import Excel",
+    "importing": "Importing...",
+    "spreadsheetMode": "Spreadsheet",
+    "perPanel": "/panel",
+    "perM2": "/sq.m"
+  },
+  "columns": {
+    "status": "Status",
+    "panel": "Panel",
+    "reference": "Reference",
+    "dimensions": "Dimensions",
+    "edges": "Edges",
+    "machining": "Machining",
+    "drilling": "Drilling",
+    "finish": "Finish",
+    "priceHT": "Price excl. VAT",
+    "actions": "Actions"
+  },
+  "placeholders": {
+    "reference": "Ref: Cut 1",
+    "tint": "E.g.: Natural oak",
+    "lacquerCode": "E.g.: RAL 9010",
+    "projectReference": "E.g.: Kitchen Project",
+    "searchPanel": "Search for a panel...",
+    "length": "Length",
+    "width": "Width",
+    "thickness": "Thick.",
+    "chooseRAL": "Choose RAL...",
+    "optional": "Optional"
+  },
+  "tooltips": {
+    "reference": "Unique identifier for the piece (e.g.: FT1 - Drawer front)",
+    "materials": "Type of substrate to be treated",
+    "finish": "Lacquer = opaque color / Varnish = transparent or tinted",
+    "tint": "Appears for Varnish. Surcharge +10EUR/sq.m for custom tints",
+    "lacquerCode": "RAL code",
+    "gloss": "Gloss level. Price varies by finish",
+    "dimensions": "Length x Width x Thickness in millimeters",
+    "faces": "Number of faces to treat (1 or 2). Price doubled for 2 faces",
+    "edges": "Sides to lacquer/varnish. A and C = lengths, B and D = widths",
+    "machining": "Additional machining options (grooves, moldings...)",
+    "drilling": "Drilling option for your panels. Fee: 2EUR per piece",
+    "copy": "Duplicate the line. You will need to enter a new reference",
+    "minSurface": "Minimum billable: 0.25 sq.m per face",
+    "applyToAll": "Apply to all lines",
+    "clearAndRestart": "Clear and restart"
+  },
+  "infobulles": {
+    "status": {
+      "title": "Line Status",
+      "content": "This indicator shows your entry progress:\n\nEmpty - You haven't started filling this line yet.\n\nIn progress - Some fields are filled but information is missing.\n\nComplete - All required fields are filled, the line is ready.\n\nError - There's an issue to correct (invalid value, missing field...)."
+    },
+    "reference": {
+      "title": "Part Reference",
+      "content": "Give a name or code to this piece for easy identification.\n\nExamples: \"FT1 - Drawer front\", \"Kitchen door\", \"Living room panel\"...\n\nThis reference will appear on your quote and order form."
+    },
+    "material": {
+      "title": "Material Type",
+      "content": "Select the type of substrate you are sending us:\n\nMDF - Fiber board, perfect for lacquering\n\nVeneered panel - Substrate covered with natural veneer\n\nSolid wood - Oak, walnut, beech pieces, etc.\n\nMelamine - Panel with melamine coating"
+    },
+    "finish": {
+      "title": "Finish Type",
+      "content": "Choose between two types of finish:\n\nLACQUER - Opaque paint that completely covers the substrate. You must provide a RAL color code or manufacturer reference.\n\nVARNISH - Transparent or tinted finish that leaves the wood grain visible. Ideal for showcasing noble wood species."
+    },
+    "tint": {
+      "title": "Tint / Color Code",
+      "content": "If you chose VARNISH:\nIndicate the desired tint (Natural oak, Dark walnut, Wenge...). A surcharge of 10EUR/sq.m applies for custom tints.\n\nIf you chose LACQUER:\nEnter the RAL color code (e.g.: RAL 9010) or manufacturer reference (NCS, Pantone...)."
+    },
+    "gloss": {
+      "title": "Gloss Level",
+      "content": "Choose the desired gloss appearance:\n\nSoft Touch - Ultra-matte velvety touch (premium)\n\n0 Gloss Natural - Absolute natural matte (varnish only)\n\n10 Gloss Matte - Matte with slight sheen\n\n30 Gloss Satin - Balanced satin, soft reflections\n\n75 Gloss Brilliant - Pronounced glossy\n\n90 Gloss Polished Mirror - Ultra-glossy mirror effect (premium)\n\nPricing varies by level chosen."
+    },
+    "dimensions": {
+      "title": "Part Dimensions",
+      "content": "Enter your piece dimensions in millimeters:\n\nLength - The longest dimension\n\nWidth - The perpendicular dimension\n\nThickness - Panel thickness (19mm default)\n\nImportant: Minimum billable surface is 0.25 sq.m per face. Small pieces are billed at this minimum."
+    },
+    "faces": {
+      "title": "Number of Faces",
+      "content": "How many faces need to be treated?\n\n1 FACE - Only the visible face will be lacquered/varnished. Choose this if the back is against a wall or hidden.\n\n2 FACES - Both sides will be treated. Necessary for doors, partitions, or elements visible from both sides.\n\nPrice is doubled if you choose 2 faces."
+    },
+    "edges": {
+      "title": "Edges to Treat",
+      "content": "Select the edges to treat:\n\nA and C - The two sides along the length\n\nB and D - The two sides along the width\n\nBy default, all 4 edges are selected. Uncheck those that aren't visible (against a wall for example).\n\nRate: 8EUR per linear meter."
+    },
+    "machining": {
+      "title": "Special Machining",
+      "content": "Additional machining options:\n\nHandle groove - Groove to open without a handle (20EUR/lin.m)\n\nVisible groove - Decorative groove (10EUR/lin.m)\n\nMolding - Decorative molded profile (20EUR/lin.m)\n\nClick the icon to configure machining and indicate quantities in linear meters."
+    },
+    "drilling": {
+      "title": "Drilling",
+      "content": "Drilling option for your panels.\n\nWITH DRILLING:\nWe perform the necessary drilling on your panels according to your specifications.\nFee: 2EUR per piece.\n\nDrilling is done before finishing for a clean, professional result."
+    },
+    "price": {
+      "title": "Price excl. VAT",
+      "content": "Price before tax is calculated automatically based on:\n\nSurface treated (minimum 0.25 sq.m per face)\n\nFinish type (lacquer or varnish)\n\nGloss level chosen\n\nNumber of faces (1 or 2)\n\nEdges selected (8EUR/lin.m)\n\nAny machining\n\nSanding if checked (6EUR/sq.m)"
+    },
+    "actions": {
+      "title": "Actions",
+      "content": "Duplicate - Creates an identical copy of this line. Useful for similar pieces with the same characteristics.\n\nDelete - Removes this line from the quote. Warning, this action is permanent."
+    },
+    "panelReminder": {
+      "title": "Panel",
+      "content": "Reminder of the selected panel for this configuration."
+    },
+    "optionalFinish": {
+      "title": "Optional Finish",
+      "content": "Check to add a finish (varnish, tint+varnish or lacquer). A finish line will be created under the panel."
+    }
+  },
+  "status": {
+    "empty": "Empty",
+    "inProgress": "In progress",
+    "complete": "Complete",
+    "error": "Error",
+    "missing": "Missing: {fields}"
+  },
+  "lines": {
+    "addLine": "Add line",
+    "labels": "Labels",
+    "guide": "Guide",
+    "reset": "Reset",
+    "noPanel": "No panel",
+    "finishLine": "Finish",
+    "addFinish": "+ Add finish...",
+    "removeFinish": "Remove finish"
+  },
+  "grainDirection": {
+    "length": "Length",
+    "width": "Width",
+    "label": "Grain direction: {direction}",
+    "clickToChange": "Click to change grain direction"
+  },
+  "finish": {
+    "varnish": "Varnish",
+    "tintVarnish": "Tint + Varnish",
+    "lacquer": "Lacquer",
+    "ralCode": "RAL Code",
+    "tint": "Tint",
+    "gloss": "Gloss",
+    "faces": "Faces",
+    "colorless": "Colorless"
+  },
+  "summary": {
+    "totalHT": "Total excl. VAT",
+    "totalTVA": "VAT (20%)",
+    "totalTTC": "Total incl. VAT",
+    "supply": "Supply",
+    "service": "Service",
+    "cuts": "cuts",
+    "cut": "cut",
+    "ready": "ready",
+    "edgesML": "lin.m edges",
+    "orderMinimum": "Minimum: {surface} sq.m billed per face or {amount} EUR excl. VAT per order",
+    "optimizeCuts": "Optimize cuts",
+    "orderMyFinish": "Order my finish",
+    "saveChanges": "Save changes"
+  },
+  "pricing": {
+    "cuttingServices": "Cutting",
+    "edgeBanding": "Edges",
+    "linearMeters": "linear meters",
+    "cuttingPrice": "Cutting price",
+    "edgingPrice": "Edging price",
+    "supplyPrice": "Supply price"
+  },
+  "multilayer": {
+    "title": "Multilayer Panel",
+    "layers": "{count} layers",
+    "totalThickness": "Total thickness",
+    "supplier": "Supplier",
+    "client": "Client"
+  }
+}

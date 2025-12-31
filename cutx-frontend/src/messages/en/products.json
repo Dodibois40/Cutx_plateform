@@ -1,1 +1,92 @@
-{}
+{
+  "materials": {
+    "mdf": "MDF",
+    "plaqueBois": "Veneered panel",
+    "boisMassif": "Solid wood",
+    "melamine": "Melamine"
+  },
+  "finishes": {
+    "lacquer": "Lacquer",
+    "varnish": "Varnish"
+  },
+  "finishTypes": {
+    "varnish": "Varnish",
+    "tintVarnish": "Tint + Varnish",
+    "lacquer": "Lacquer"
+  },
+  "gloss": {
+    "softTouch": "Soft Touch",
+    "glossNatural": "0 Gloss Natural",
+    "glossMat": "10 Gloss Matte",
+    "glossSatin": "30 Gloss Satin",
+    "glossBrilliant": "75 Gloss Brilliant",
+    "glossMirror": "90 Gloss Polished Mirror"
+  },
+  "machining": {
+    "handleGroove": "Handle groove",
+    "visibleGroove": "Visible groove",
+    "moulding": "Molding"
+  },
+  "machiningUnits": {
+    "linearMeter": "linear meter"
+  },
+  "panelCategories": {
+    "mdf": "Standard MDF",
+    "mdfHydro": "Moisture-resistant MDF",
+    "chipboardRaw": "Raw chipboard",
+    "chipboardVeneer": "Veneered chipboard",
+    "plywood": "Plywood",
+    "solidWood": "Solid wood"
+  },
+  "edges": {
+    "A": "A",
+    "B": "B",
+    "C": "C",
+    "D": "D",
+    "none": "None",
+    "all": "All",
+    "lengthSides": "A and C (lengths)",
+    "widthSides": "B and D (widths)",
+    "L1": "L1",
+    "L2": "L2",
+    "l1": "l1",
+    "l2": "l2"
+  },
+  "dimensions": {
+    "length": "Length",
+    "width": "Width",
+    "thickness": "Thickness",
+    "height": "Height"
+  },
+  "pricing": {
+    "minimumSurface": "0.25",
+    "minimumOrder": "120",
+    "tintSupplement": "10",
+    "drillingFee": "2",
+    "lacquerEdgePerML": "8",
+    "varnishTintEdgePerML": "6",
+    "varnishEdgePerML": "4",
+    "vatRate": "20"
+  },
+  "pricingLabels": {
+    "minimumSurfaceInfo": "Minimum billable surface: {value} sq.m per face",
+    "minimumOrderInfo": "Minimum order: {value} EUR excl. VAT",
+    "tintSupplementInfo": "Tint surcharge: +{value} EUR/sq.m",
+    "drillingInfo": "Drilling: {value} EUR per piece",
+    "edgePriceInfo": "Edges: {value} EUR/lin.m"
+  },
+  "layerTypes": {
+    "visible": "Visible layer",
+    "structure": "Structural layer",
+    "counterbalance": "Counterbalance"
+  },
+  "suppliers": {
+    "bouney": "BOUNEY",
+    "unknown": "Unknown supplier"
+  },
+  "stock": {
+    "inStock": "IN STOCK",
+    "outOfStock": "OUT OF STOCK",
+    "onOrder": "ON ORDER"
+  }
+}

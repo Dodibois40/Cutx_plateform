@@ -1,1 +1,134 @@
-{}
+{
+  "copy": {
+    "title": "Duplicate Line",
+    "sourceLabel": "Copy of: ",
+    "noReference": "No reference",
+    "newReferenceLabel": "New reference",
+    "required": "*",
+    "hint": "Unique identifier for the piece (e.g.: FT1 - Drawer front)"
+  },
+  "labels": {
+    "title": "Print Labels",
+    "empty": "No complete lines to print.",
+    "emptyHint": "Lines must have a reference and finish to generate a label.",
+    "labelCount": "{count} label(s) to print (50x80mm format)",
+    "finishLabel": "Finish",
+    "ralLabel": "RAL",
+    "tintLabel": "Tint",
+    "glossLabel": "Gloss",
+    "dimensionsLabel": "Dim. (mm)",
+    "facesLabel": "Faces",
+    "edgesLabel": "Edges",
+    "drillingLabel": "Drilling",
+    "withoutRef": "No ref.",
+    "colorless": "Colorless",
+    "brandName": "The Finishing Manufacture"
+  },
+  "order": {
+    "title": "Finalize Your Order",
+    "subtitle": "Choose your date and sign to validate",
+    "desiredEndDate": "Desired completion date",
+    "selectedDate": "Selected date:",
+    "commentOptional": "Comment (optional)",
+    "commentPlaceholder": "E.g.: Project planned for week 12...",
+    "electronicSignature": "Electronic Signature",
+    "totalHT": "Total excl. VAT",
+    "totalTTC": "Total incl. VAT",
+    "yourSignature": "Your signature",
+    "acceptCGV": "I have read and accept the",
+    "cgvLink": "Terms and Conditions",
+    "readAndApproved": "Read and approved - Agreement confirmed",
+    "readAndApprovedDetails": "I acknowledge having reviewed the services and accept the quote.",
+    "legalInfo": "This electronic signature has legal value (eIDAS regulation EU 910/2014). Date, time and IP address will be recorded.",
+    "validating": "Validating..."
+  },
+  "lacquer": {
+    "title": "Lacquer Color Selection",
+    "colorFamilies": {
+      "all": "Palette",
+      "allDesc": "Full spectrum",
+      "whites": "Whites",
+      "whitesDesc": "Whites, creams, ivories",
+      "blacks": "Blacks",
+      "blacksDesc": "Blacks, grays, anthracites",
+      "warm": "Warm",
+      "warmDesc": "Reds, oranges, yellows",
+      "cool": "Cool",
+      "coolDesc": "Blues, greens, purples",
+      "natural": "Natural",
+      "naturalDesc": "Beiges, earth tones, taupes"
+    },
+    "trends2026": "2026 Trends",
+    "trendColors": {
+      "greenEmpire": "Empire Green",
+      "greenEmpireDesc": "Deep verdigris green",
+      "terracotta": "Terracotta",
+      "terracottaDesc": "Muted terracotta",
+      "blueAbyss": "Abyss Blue",
+      "blueAbyssDesc": "Deep teal blue",
+      "wildOcher": "Wild Ocher",
+      "wildOcherDesc": "Refined mustard ocher",
+      "parisianGreige": "Parisian Greige",
+      "parisianGreigeDesc": "Timeless gray-beige",
+      "charcoalBlack": "Charcoal Black",
+      "charcoalBlackDesc": "Matte charcoal black"
+    },
+    "selectedColor": "Selected Color",
+    "searchByRef": "Search by Reference",
+    "searchPlaceholder": "RAL 9010, RT001, Hague Blue...",
+    "ralClassic": "RAL Classic",
+    "manufacturerSwatches": "Manufacturer Swatches",
+    "colorsCount": "{count} colors",
+    "categoriesCount": "{count} categories",
+    "myFavorites": "My Favorites",
+    "favoritesCount": "{current}/{max}",
+    "addToFavorites": "Add to favorites",
+    "removeFromFavorites": "Remove from favorites",
+    "favoritesEmpty": "Click the heart to add favorites",
+    "selectColor": "Select a color",
+    "apply": "Apply {code}",
+    "close": "Close {name}"
+  },
+  "underConstruction": {
+    "title": "{feature}",
+    "message": "This feature is under development.",
+    "submessage": "It will be available soon!"
+  },
+  "welcome": {
+    "badge": "New Configurator",
+    "title": "Welcome to the",
+    "titleHighlight": "Configuration Space",
+    "description": "This configurator is designed to facilitate the management and organization of your wood finishing orders.",
+    "tipTitle": "Tip",
+    "tipContent": "Have a question? Click the (i) icons next to each option to see technical details.",
+    "accessConfigurator": "Access the configurator"
+  },
+  "optimizer": {
+    "title": "Cut Optimizer",
+    "selectPanel": "Select a panel",
+    "panelInfo": "Panel information",
+    "cutsRecap": "Cuts summary",
+    "visualize": "Visualize"
+  },
+  "panelSelection": {
+    "title": "Panel Selection",
+    "searchPlaceholder": "Search by name, reference...",
+    "categories": "Categories",
+    "allCategories": "All categories",
+    "noResults": "No panels found",
+    "selectThisPanel": "Select this panel"
+  },
+  "multilayer": {
+    "title": "Multilayer Panel",
+    "templates": "Templates",
+    "layers": "Layers",
+    "gluingMode": "Gluing mode",
+    "supplierGluing": "Supplier gluing",
+    "clientGluing": "Client gluing",
+    "addLayer": "Add a layer",
+    "removeLayer": "Remove",
+    "totalThickness": "Total thickness",
+    "estimatedPrice": "Estimated price",
+    "validate": "Validate multilayer panel"
+  }
+}

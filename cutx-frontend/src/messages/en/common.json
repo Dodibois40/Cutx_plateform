@@ -12,17 +12,110 @@
     "back": "Back",
     "next": "Next",
     "confirm": "Confirm",
-    "close": "Close"
+    "close": "Close",
+    "duplicate": "Duplicate",
+    "copy": "Copy",
+    "print": "Print",
+    "import": "Import",
+    "export": "Export",
+    "reset": "Reset",
+    "apply": "Apply",
+    "validate": "Validate",
+    "edit": "Edit",
+    "view": "View",
+    "select": "Select",
+    "choose": "Choose",
+    "understood": "Understood",
+    "acceptAndSign": "Accept and Sign",
+    "accessConfigurator": "Access configurator"
   },
   "status": {
     "loading": "Loading...",
     "error": "An error occurred",
     "success": "Operation successful",
-    "notFound": "Not found"
+    "notFound": "Not found",
+    "empty": "Empty",
+    "inProgress": "In progress",
+    "complete": "Complete",
+    "incomplete": "Incomplete",
+    "required": "Required",
+    "optional": "Optional",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "inStock": "In stock",
+    "outOfStock": "Out of stock",
+    "validating": "Validating...",
+    "importing": "Importing..."
   },
   "auth": {
     "signIn": "Sign In",
     "signUp": "Sign Up",
     "signOut": "Sign Out"
+  },
+  "units": {
+    "mm": "mm",
+    "cm": "cm",
+    "m": "m",
+    "m2": "sq.m",
+    "mL": "lin.m",
+    "euro": "EUR",
+    "euroPerM2": "EUR/sq.m",
+    "euroPerML": "EUR/lin.m",
+    "euroPerUnit": "EUR/piece",
+    "piece": "piece",
+    "pieces": "pieces"
+  },
+  "time": {
+    "savedAt": "Saved at {time}",
+    "monday": "Mon",
+    "tuesday": "Tue",
+    "wednesday": "Wed",
+    "thursday": "Thu",
+    "friday": "Fri",
+    "saturday": "Sat",
+    "sunday": "Sun",
+    "january": "January",
+    "february": "February",
+    "march": "March",
+    "april": "April",
+    "may": "May",
+    "june": "June",
+    "july": "July",
+    "august": "August",
+    "september": "September",
+    "october": "October",
+    "november": "November",
+    "december": "December"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidFormat": "Invalid format",
+    "minValue": "Minimum value: {value}",
+    "maxValue": "Maximum value: {value}",
+    "validationRequired": "Validation required"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "network": "Connection error",
+    "unauthorized": "Unauthorized access",
+    "notFound": "Resource not found",
+    "serverError": "Server error"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page",
+    "of": "of",
+    "showingResults": "Showing {start} to {end} of {total} results"
+  },
+  "misc": {
+    "or": "or",
+    "and": "and",
+    "yes": "Yes",
+    "no": "No",
+    "none": "None",
+    "all": "All",
+    "other": "Other",
+    "andMore": "... and {count} more"
   }
 }

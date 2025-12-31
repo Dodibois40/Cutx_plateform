@@ -1,1 +1,184 @@
-{}
+{
+  "title": "Configurateur de decoupe",
+  "header": {
+    "refChantier": "Ref. chantier",
+    "panneau": "Panneau",
+    "panneauMulticouche": "Panneau Multicouche",
+    "selectPanel": "Selectionner un panneau",
+    "createMultilayer": "Creer un panneau multicouche",
+    "layersConfigured": "{count} couches configurees",
+    "supplierGluing": "Collage fournisseur",
+    "clientGluing": "Collage client (+50mm)",
+    "importExcel": "Import Excel",
+    "importing": "Import...",
+    "spreadsheetMode": "Tableur",
+    "perPanel": "/panneau",
+    "perM2": "/m2"
+  },
+  "columns": {
+    "status": "Etat",
+    "panel": "Panneau",
+    "reference": "Reference",
+    "dimensions": "Dimensions",
+    "edges": "Chants",
+    "machining": "Usinages",
+    "drilling": "Percage",
+    "finish": "Finition",
+    "priceHT": "Tarif HT",
+    "actions": "Actions"
+  },
+  "placeholders": {
+    "reference": "Ref: Debit 1",
+    "tint": "Ex: Chene naturel",
+    "lacquerCode": "Ex: RAL 9010",
+    "projectReference": "Ex: Cuisine Dupont",
+    "searchPanel": "Rechercher un panneau...",
+    "length": "Long.",
+    "width": "Larg.",
+    "thickness": "Ep.",
+    "chooseRAL": "Choisir RAL...",
+    "optional": "Optionnel"
+  },
+  "tooltips": {
+    "reference": "Identifiant unique de la piece (ex: FT1 - Facade tiroir)",
+    "materials": "Type de support a traiter",
+    "finish": "Laque = couleur opaque / Vernis = transparent ou teinte",
+    "tint": "Apparait si Vernis. Supplement +10EUR/m2 si teinte personnalisee",
+    "lacquerCode": "Code RAL",
+    "gloss": "Niveau de brillance. Prix variable selon finition",
+    "dimensions": "Longueur x Largeur x Epaisseur en millimetres",
+    "faces": "Nombre de faces a traiter (1 ou 2). Prix multiplie par 2 si 2 faces",
+    "edges": "Cotes a laquer/vernir. A et C = longueurs, B et D = largeurs",
+    "machining": "Options de faconnage supplementaires (rainures, moulures...)",
+    "drilling": "Option de percage pour vos panneaux. Forfait : 2EUR par piece",
+    "copy": "Duplique la ligne. Vous devrez saisir une nouvelle reference",
+    "minSurface": "Minimum facturable : 0.25 m2 par face",
+    "applyToAll": "Appliquer a toutes les lignes",
+    "clearAndRestart": "Effacer et recommencer"
+  },
+  "infobulles": {
+    "status": {
+      "title": "Etat de la ligne",
+      "content": "Cet indicateur vous montre l'avancement de votre saisie :\n\nVide - Vous n'avez pas encore commence a remplir cette ligne.\n\nEn cours - Certains champs sont renseignes mais il manque des informations.\n\nComplete - Tous les champs obligatoires sont renseignes, la ligne est prete.\n\nErreur - Il y a un probleme a corriger (valeur invalide, champ manquant...)."
+    },
+    "reference": {
+      "title": "Reference de la piece",
+      "content": "Donnez un nom ou un code a cette piece pour l'identifier facilement.\n\nExemples : \"FT1 - Facade tiroir\", \"Porte cuisine\", \"Panneau salon\"...\n\nCette reference apparaitra sur votre devis et bon de commande."
+    },
+    "material": {
+      "title": "Type de materiau",
+      "content": "Selectionnez le type de support que vous nous envoyez :\n\nMDF - Panneau de fibres, parfait pour la laque\n\nPanneau plaque bois - Support recouvert d'un placage naturel\n\nBois massif - Pieces en chene, noyer, hetre, etc.\n\nMelamine - Panneau avec revetement melamine"
+    },
+    "finish": {
+      "title": "Type de finition",
+      "content": "Choisissez entre deux types de finition :\n\nLAQUE - Peinture opaque qui recouvre entierement le support. Vous devez nous indiquer un code couleur RAL ou reference fabricant.\n\nVERNIS - Finition transparente ou teintee qui laisse visible le veinage du bois. Ideal pour mettre en valeur les essences nobles."
+    },
+    "tint": {
+      "title": "Teinte / Code couleur",
+      "content": "Si vous avez choisi VERNIS :\nIndiquez la teinte souhaitee (Chene naturel, Noyer fonce, Wenge...). Un supplement de 10EUR/m2 s'applique pour les teintes personnalisees.\n\nSi vous avez choisi LAQUE :\nSaisissez le code couleur RAL (ex: RAL 9010) ou la reference fabricant (NCS, Pantone...)."
+    },
+    "gloss": {
+      "title": "Niveau de brillance",
+      "content": "Choisissez l'aspect de brillance souhaite :\n\nSoft Touch - Ultra-mat veloute au toucher (premium)\n\n0 Gloss Naturel - Mat absolu naturel (vernis uniquement)\n\n10 Gloss Mat - Mat avec leger satine\n\n30 Gloss Satine - Satine equilibre, reflets doux\n\n75 Gloss Brillant - Brillant prononce\n\n90 Gloss Poli Miroir - Ultra-brillant effet miroir (premium)\n\nLe tarif varie selon le niveau choisi."
+    },
+    "dimensions": {
+      "title": "Dimensions de la piece",
+      "content": "Saisissez les dimensions de votre piece en millimetres :\n\nLongueur - La plus grande dimension\n\nLargeur - La dimension perpendiculaire\n\nEpaisseur - L'epaisseur du panneau (19mm par defaut)\n\nImportant : La surface minimum facturee est de 0.25 m2 par face. Les petites pieces sont facturees a ce minimum."
+    },
+    "faces": {
+      "title": "Nombre de faces",
+      "content": "Combien de faces doivent etre traitees ?\n\n1 FACE - Seule la face visible sera laquee/vernie. Choisissez cette option si l'arriere est contre un mur ou cache.\n\n2 FACES - Les deux cotes seront traites. Necessaire pour les portes, cloisons, ou elements visibles des deux cotes.\n\nLe prix est double si vous choisissez 2 faces."
+    },
+    "edges": {
+      "title": "Chants a traiter",
+      "content": "Selectionnez les bords (chants) a traiter :\n\nA et C - Les deux cotes sur la longueur\n\nB et D - Les deux cotes sur la largeur\n\nPar defaut, les 4 chants sont selectionnes. Decochez ceux qui ne sont pas visibles (contre un mur par exemple).\n\nTarif : 8EUR par metre lineaire."
+    },
+    "machining": {
+      "title": "Usinages speciaux",
+      "content": "Options de faconnage supplementaires :\n\nUsinage passe-main - Rainure pour ouvrir sans poignee (20EUR/mL)\n\nRainure visible - Rainure decorative (10EUR/mL)\n\nMoulure - Profil moulure decoratif (20EUR/mL)\n\nCliquez sur l'icone pour configurer les usinages et indiquer les quantites en metres lineaires."
+    },
+    "drilling": {
+      "title": "Percage",
+      "content": "Option de percage pour vos panneaux.\n\nAVEC PERCAGE :\nNous realisons les percages necessaires sur vos panneaux selon vos specifications.\nForfait : 2EUR par piece.\n\nLe percage est realise avant la finition pour un rendu propre et professionnel."
+    },
+    "price": {
+      "title": "Tarif HT",
+      "content": "Le prix hors taxes est calcule automatiquement en fonction de :\n\nLa surface traitee (minimum 0.25 m2 par face)\n\nLe type de finition (laque ou vernis)\n\nLe niveau de brillance choisi\n\nLe nombre de faces (1 ou 2)\n\nLes chants selectionnes (8EUR/mL)\n\nLes usinages eventuels\n\nLe poncage si coche (6EUR/m2)"
+    },
+    "actions": {
+      "title": "Actions",
+      "content": "Dupliquer - Cree une copie identique de cette ligne. Pratique pour des pieces similaires avec les memes caracteristiques.\n\nSupprimer - Retire cette ligne du devis. Attention, cette action est definitive."
+    },
+    "panelReminder": {
+      "title": "Panneau",
+      "content": "Rappel du panneau selectionne pour cette configuration."
+    },
+    "optionalFinish": {
+      "title": "Finition optionnelle",
+      "content": "Cochez pour ajouter une finition (vernis, teinte+vernis ou laque). Une ligne de finition sera creee sous le panneau."
+    }
+  },
+  "status": {
+    "empty": "Vide",
+    "inProgress": "En cours",
+    "complete": "Complete",
+    "error": "Erreur",
+    "missing": "Manquants : {fields}"
+  },
+  "lines": {
+    "addLine": "Ajouter ligne",
+    "labels": "Etiquettes",
+    "guide": "Guide",
+    "reset": "Reset",
+    "noPanel": "Aucun panneau",
+    "finishLine": "Finition",
+    "addFinish": "+ Ajouter finition...",
+    "removeFinish": "Supprimer la finition"
+  },
+  "grainDirection": {
+    "length": "Longueur",
+    "width": "Largeur",
+    "label": "Sens du fil : {direction}",
+    "clickToChange": "Cliquez pour changer le sens du fil"
+  },
+  "finish": {
+    "varnish": "Vernis",
+    "tintVarnish": "Teinte + Vernis",
+    "lacquer": "Laque",
+    "ralCode": "Code RAL",
+    "tint": "Teinte",
+    "gloss": "Brillance",
+    "faces": "Faces",
+    "colorless": "Incolore"
+  },
+  "summary": {
+    "totalHT": "Total HT",
+    "totalTVA": "TVA (20%)",
+    "totalTTC": "Total TTC",
+    "supply": "Fourniture",
+    "service": "Prestation",
+    "cuts": "debits",
+    "cut": "debit",
+    "ready": "pretes",
+    "edgesML": "mL chants",
+    "orderMinimum": "Minimum : {surface} m2 facture par face ou {amount} EUR HT par commande",
+    "optimizeCuts": "Optimiser les debits",
+    "orderMyFinish": "Commander ma finition",
+    "saveChanges": "Enregistrer les modifications"
+  },
+  "pricing": {
+    "cuttingServices": "Decoupe",
+    "edgeBanding": "Chants",
+    "linearMeters": "metres lineaires",
+    "cuttingPrice": "Prix decoupe",
+    "edgingPrice": "Prix placage",
+    "supplyPrice": "Prix fourniture"
+  },
+  "multilayer": {
+    "title": "Panneau Multicouche",
+    "layers": "{count} couches",
+    "totalThickness": "Epaisseur totale",
+    "supplier": "Fournisseur",
+    "client": "Client"
+  }
+}

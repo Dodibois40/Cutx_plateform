@@ -1,1 +1,92 @@
-{}
+{
+  "materials": {
+    "mdf": "MDF",
+    "plaqueBois": "Panneau plaque bois",
+    "boisMassif": "Bois massif",
+    "melamine": "Melamine"
+  },
+  "finishes": {
+    "lacquer": "Laque",
+    "varnish": "Vernis"
+  },
+  "finishTypes": {
+    "varnish": "Vernis",
+    "tintVarnish": "Teinte + Vernis",
+    "lacquer": "Laque"
+  },
+  "gloss": {
+    "softTouch": "Soft Touch",
+    "glossNatural": "0 Gloss Naturel",
+    "glossMat": "10 Gloss Mat",
+    "glossSatin": "30 Gloss Satine",
+    "glossBrilliant": "75 Gloss Brillant",
+    "glossMirror": "90 Gloss Poli Miroir"
+  },
+  "machining": {
+    "handleGroove": "Usinage passe main",
+    "visibleGroove": "Rainure visible",
+    "moulding": "Moulure"
+  },
+  "machiningUnits": {
+    "linearMeter": "metre lineaire"
+  },
+  "panelCategories": {
+    "mdf": "MDF Standard",
+    "mdfHydro": "MDF Hydrofuge",
+    "chipboardRaw": "Agglomere brut",
+    "chipboardVeneer": "Agglomere plaque",
+    "plywood": "Contreplaque",
+    "solidWood": "Bois massif"
+  },
+  "edges": {
+    "A": "A",
+    "B": "B",
+    "C": "C",
+    "D": "D",
+    "none": "Aucun",
+    "all": "Tous",
+    "lengthSides": "A et C (longueurs)",
+    "widthSides": "B et D (largeurs)",
+    "L1": "L1",
+    "L2": "L2",
+    "l1": "l1",
+    "l2": "l2"
+  },
+  "dimensions": {
+    "length": "Longueur",
+    "width": "Largeur",
+    "thickness": "Epaisseur",
+    "height": "Hauteur"
+  },
+  "pricing": {
+    "minimumSurface": "0.25",
+    "minimumOrder": "120",
+    "tintSupplement": "10",
+    "drillingFee": "2",
+    "lacquerEdgePerML": "8",
+    "varnishTintEdgePerML": "6",
+    "varnishEdgePerML": "4",
+    "vatRate": "20"
+  },
+  "pricingLabels": {
+    "minimumSurfaceInfo": "Surface minimum facturable : {value} m2 par face",
+    "minimumOrderInfo": "Commande minimum : {value} EUR HT",
+    "tintSupplementInfo": "Supplement teinte : +{value} EUR/m2",
+    "drillingInfo": "Percage : {value} EUR par piece",
+    "edgePriceInfo": "Chants : {value} EUR/mL"
+  },
+  "layerTypes": {
+    "visible": "Couche visible",
+    "structure": "Couche structure",
+    "counterbalance": "Contrebalancement"
+  },
+  "suppliers": {
+    "bouney": "BOUNEY",
+    "unknown": "Fournisseur inconnu"
+  },
+  "stock": {
+    "inStock": "EN STOCK",
+    "outOfStock": "RUPTURE",
+    "onOrder": "SUR COMMANDE"
+  }
+}

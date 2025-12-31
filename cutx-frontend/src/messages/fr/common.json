@@ -12,17 +12,110 @@
     "back": "Retour",
     "next": "Suivant",
     "confirm": "Confirmer",
-    "close": "Fermer"
+    "close": "Fermer",
+    "duplicate": "Dupliquer",
+    "copy": "Copier",
+    "print": "Imprimer",
+    "import": "Importer",
+    "export": "Exporter",
+    "reset": "Reinitialiser",
+    "apply": "Appliquer",
+    "validate": "Valider",
+    "edit": "Modifier",
+    "view": "Voir",
+    "select": "Selectionner",
+    "choose": "Choisir",
+    "understood": "Compris",
+    "acceptAndSign": "Accepter et signer",
+    "accessConfigurator": "Acceder au configurateur"
   },
   "status": {
     "loading": "Chargement...",
     "error": "Une erreur est survenue",
-    "success": "Opération réussie",
-    "notFound": "Non trouvé"
+    "success": "Operation reussie",
+    "notFound": "Non trouve",
+    "empty": "Vide",
+    "inProgress": "En cours",
+    "complete": "Complete",
+    "incomplete": "Incomplete",
+    "required": "Requis",
+    "optional": "Optionnel",
+    "available": "Disponible",
+    "unavailable": "Indisponible",
+    "inStock": "En stock",
+    "outOfStock": "Rupture de stock",
+    "validating": "Validation...",
+    "importing": "Import..."
   },
   "auth": {
     "signIn": "Connexion",
     "signUp": "Inscription",
-    "signOut": "Déconnexion"
+    "signOut": "Deconnexion"
+  },
+  "units": {
+    "mm": "mm",
+    "cm": "cm",
+    "m": "m",
+    "m2": "m2",
+    "mL": "mL",
+    "euro": "EUR",
+    "euroPerM2": "EUR/m2",
+    "euroPerML": "EUR/mL",
+    "euroPerUnit": "EUR/piece",
+    "piece": "piece",
+    "pieces": "pieces"
+  },
+  "time": {
+    "savedAt": "Sauvegarde {time}",
+    "monday": "Lun",
+    "tuesday": "Mar",
+    "wednesday": "Mer",
+    "thursday": "Jeu",
+    "friday": "Ven",
+    "saturday": "Sam",
+    "sunday": "Dim",
+    "january": "Janvier",
+    "february": "Fevrier",
+    "march": "Mars",
+    "april": "Avril",
+    "may": "Mai",
+    "june": "Juin",
+    "july": "Juillet",
+    "august": "Aout",
+    "september": "Septembre",
+    "october": "Octobre",
+    "november": "Novembre",
+    "december": "Decembre"
+  },
+  "validation": {
+    "required": "Ce champ est requis",
+    "invalidFormat": "Format invalide",
+    "minValue": "Valeur minimum : {value}",
+    "maxValue": "Valeur maximum : {value}",
+    "validationRequired": "Validation requise"
+  },
+  "errors": {
+    "generic": "Une erreur est survenue",
+    "network": "Erreur de connexion",
+    "unauthorized": "Acces non autorise",
+    "notFound": "Ressource introuvable",
+    "serverError": "Erreur serveur"
+  },
+  "pagination": {
+    "previous": "Precedent",
+    "next": "Suivant",
+    "page": "Page",
+    "of": "sur",
+    "showingResults": "Affichage de {start} a {end} sur {total} resultats"
+  },
+  "misc": {
+    "or": "ou",
+    "and": "et",
+    "yes": "Oui",
+    "no": "Non",
+    "none": "Aucun",
+    "all": "Tous",
+    "other": "Autre",
+    "andMore": "... et {count} autre(s)"
   }
 }

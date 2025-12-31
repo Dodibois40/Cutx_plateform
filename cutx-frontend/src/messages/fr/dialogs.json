@@ -1,1 +1,134 @@
-{}
+{
+  "copy": {
+    "title": "Dupliquer la ligne",
+    "sourceLabel": "Copie de : ",
+    "noReference": "Sans reference",
+    "newReferenceLabel": "Nouvelle reference",
+    "required": "*",
+    "hint": "Identifiant unique de la piece (ex: FT1 - Facade tiroir)"
+  },
+  "labels": {
+    "title": "Imprimer les etiquettes",
+    "empty": "Aucune ligne complete a imprimer.",
+    "emptyHint": "Les lignes doivent avoir une reference et une finition pour generer une etiquette.",
+    "labelCount": "{count} etiquette(s) a imprimer (format 50x80mm)",
+    "finishLabel": "Finition",
+    "ralLabel": "RAL",
+    "tintLabel": "Teinte",
+    "glossLabel": "Brillance",
+    "dimensionsLabel": "Dim. (mm)",
+    "facesLabel": "Faces",
+    "edgesLabel": "Chants",
+    "drillingLabel": "Percage",
+    "withoutRef": "Sans ref.",
+    "colorless": "Incolore",
+    "brandName": "La Manufacture de la Finition"
+  },
+  "order": {
+    "title": "Finaliser votre commande",
+    "subtitle": "Choisissez votre date et signez pour valider",
+    "desiredEndDate": "Date de fin souhaitee",
+    "selectedDate": "Date selectionnee :",
+    "commentOptional": "Commentaire (optionnel)",
+    "commentPlaceholder": "Ex: Chantier prevu semaine 12...",
+    "electronicSignature": "Signature electronique",
+    "totalHT": "Total HT",
+    "totalTTC": "Total TTC",
+    "yourSignature": "Votre signature",
+    "acceptCGV": "J'ai lu et j'accepte les",
+    "cgvLink": "Conditions Generales de Vente",
+    "readAndApproved": "Lu et approuve - Bon pour accord",
+    "readAndApprovedDetails": "Je reconnais avoir pris connaissance des prestations et accepte le devis.",
+    "legalInfo": "Cette signature electronique a valeur legale (reglement eIDAS UE 910/2014). Date, heure et adresse IP seront enregistrees.",
+    "validating": "Validation..."
+  },
+  "lacquer": {
+    "title": "Selection Couleur Laque",
+    "colorFamilies": {
+      "all": "Palette",
+      "allDesc": "Spectre complet",
+      "whites": "Blancs",
+      "whitesDesc": "Blancs, cremes, ivoires",
+      "blacks": "Noirs",
+      "blacksDesc": "Noirs, gris, anthracites",
+      "warm": "Chaudes",
+      "warmDesc": "Rouges, oranges, jaunes",
+      "cool": "Froides",
+      "coolDesc": "Bleus, verts, violets",
+      "natural": "Naturelles",
+      "naturalDesc": "Beiges, terres, taupes"
+    },
+    "trends2026": "Tendances 2026",
+    "trendColors": {
+      "greenEmpire": "Vert Empire",
+      "greenEmpireDesc": "Vert de gris profond",
+      "terracotta": "Terre Cuite",
+      "terracottaDesc": "Terracotta eteint",
+      "blueAbyss": "Bleu Abysse",
+      "blueAbyssDesc": "Bleu canard profond",
+      "wildOcher": "Ocre Sauvage",
+      "wildOcherDesc": "Ocre moutarde raffine",
+      "parisianGreige": "Greige Parisien",
+      "parisianGreigeDesc": "Gris-beige intemporel",
+      "charcoalBlack": "Noir Charbon",
+      "charcoalBlackDesc": "Noir charbon mat"
+    },
+    "selectedColor": "Couleur Selectionnee",
+    "searchByRef": "Recherche par Reference",
+    "searchPlaceholder": "RAL 9010, RT001, Hague Blue...",
+    "ralClassic": "RAL Classic",
+    "manufacturerSwatches": "Nuanciers Fabricants",
+    "colorsCount": "{count} couleurs",
+    "categoriesCount": "{count} categories",
+    "myFavorites": "Mes Favoris",
+    "favoritesCount": "{current}/{max}",
+    "addToFavorites": "Ajouter aux favoris",
+    "removeFromFavorites": "Retirer des favoris",
+    "favoritesEmpty": "Cliquez sur le coeur pour ajouter des favoris",
+    "selectColor": "Selectionnez une couleur",
+    "apply": "Appliquer {code}",
+    "close": "Fermer {name}"
+  },
+  "underConstruction": {
+    "title": "{feature}",
+    "message": "Cette fonctionnalite est en cours de developpement.",
+    "submessage": "Elle sera disponible prochainement !"
+  },
+  "welcome": {
+    "badge": "Nouveau Configurateur",
+    "title": "Bienvenue sur l'Espace",
+    "titleHighlight": "Configuration",
+    "description": "Ce configurateur a pour but de faciliter la gestion et l'organisation de vos commandes de finition bois.",
+    "tipTitle": "Astuce",
+    "tipContent": "Une question ? Cliquez sur les icones (i) a cote de chaque option pour voir les details techniques.",
+    "accessConfigurator": "Acceder au configurateur"
+  },
+  "optimizer": {
+    "title": "Optimiseur de debits",
+    "selectPanel": "Selectionner un panneau",
+    "panelInfo": "Information panneau",
+    "cutsRecap": "Recapitulatif des debits",
+    "visualize": "Visualiser"
+  },
+  "panelSelection": {
+    "title": "Selection du panneau",
+    "searchPlaceholder": "Rechercher par nom, reference...",
+    "categories": "Categories",
+    "allCategories": "Toutes les categories",
+    "noResults": "Aucun panneau trouve",
+    "selectThisPanel": "Selectionner ce panneau"
+  },
+  "multilayer": {
+    "title": "Panneau Multicouche",
+    "templates": "Modeles",
+    "layers": "Couches",
+    "gluingMode": "Mode de collage",
+    "supplierGluing": "Collage fournisseur",
+    "clientGluing": "Collage client",
+    "addLayer": "Ajouter une couche",
+    "removeLayer": "Supprimer",
+    "totalThickness": "Epaisseur totale",
+    "estimatedPrice": "Prix estime",
+    "validate": "Valider le panneau multicouche"
+  }
+}
