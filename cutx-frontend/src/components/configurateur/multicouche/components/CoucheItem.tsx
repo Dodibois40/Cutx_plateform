@@ -129,7 +129,7 @@ export default function CoucheItem({
           <div className={styles.coucheFormField}>
             <label>Type de couche</label>
             <div className={styles.fieldWithArrow}>
-              <span className={styles.fieldArrow}>\u21B3</span>
+              <span className={styles.fieldArrow}>↳</span>
               <TypeCoucheDropdown
                 currentType={couche.type}
                 isOpen={openTypeDropdown === couche.id}
@@ -144,7 +144,7 @@ export default function CoucheItem({
           <div className={styles.coucheFormField}>
             <label>Panneau du catalogue</label>
             <div className={styles.fieldWithArrow}>
-              <span className={styles.fieldArrow}>\u21B3</span>
+              <span className={styles.fieldArrow}>↳</span>
               <SelectionPanneauCouche
                 couche={couche}
                 onSelect={onSelectPanneau}
