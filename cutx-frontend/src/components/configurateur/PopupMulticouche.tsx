@@ -10,6 +10,7 @@
  */
 
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { X, Layers, ArrowLeft, FolderOpen } from 'lucide-react';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
@@ -38,6 +39,8 @@ export default function PopupMulticouche({
   onSave,
   onClose,
 }: PopupMulticoucheProps) {
+  const t = useTranslations('dialogs.multilayer');
+
   // Utiliser le hook custom pour toute la logique d'etat
   const state = useMulticoucheState({
     open,
@@ -52,13 +55,13 @@ export default function PopupMulticouche({
   const getTitle = () => {
     switch (state.etape) {
       case 'mode':
-        return 'Panneau Multicouche';
+        return t('title');
       case 'templates':
-        return 'Mes modeles';
+        return t('myTemplates');
       case 'couches':
-        return 'Configurer les couches';
+        return t('configureLayers');
       default:
-        return 'Panneau Multicouche';
+        return t('title');
     }
   };
 
@@ -94,7 +97,7 @@ export default function PopupMulticouche({
                   className={styles.templatesBtn}
                 >
                   <FolderOpen size={16} />
-                  Mes modeles ({state.templates.length})
+                  {t('myTemplates')} ({state.templates.length})
                 </button>
               )}
             <button onClick={onClose} className={styles.closeBtn}>

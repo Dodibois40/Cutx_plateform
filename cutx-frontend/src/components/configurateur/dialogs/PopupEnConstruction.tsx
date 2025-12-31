@@ -1,6 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { Construction } from 'lucide-react';
 
 interface PopupEnConstructionProps {
@@ -10,6 +11,9 @@ interface PopupEnConstructionProps {
 }
 
 export default function PopupEnConstruction({ open, onClose, titre }: PopupEnConstructionProps) {
+  const t = useTranslations('dialogs.underConstruction');
+  const tCommon = useTranslations('common');
+
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
@@ -19,10 +23,10 @@ export default function PopupEnConstruction({ open, onClose, titre }: PopupEnCon
           <Construction size={48} />
         </div>
         <h3>{titre}</h3>
-        <p>Cette fonctionnalité est en cours de développement.</p>
-        <p className="popup-construction-sub">Elle sera disponible prochainement !</p>
+        <p>{t('message')}</p>
+        <p className="popup-construction-sub">{t('submessage')}</p>
         <button className="popup-construction-btn" onClick={onClose}>
-          Compris
+          {tCommon('actions.understood')}
         </button>
       </div>
       <style jsx>{`

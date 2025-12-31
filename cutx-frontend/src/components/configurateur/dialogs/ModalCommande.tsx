@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { X, Calendar, PenTool, Shield, CheckCircle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import SignaturePad from '@/components/signature/SignaturePad';
 
@@ -21,6 +22,10 @@ export default function ModalCommande({
   totalTTC,
   totalHT,
 }: ModalCommandeProps) {
+  const t = useTranslations('dialogs.order');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
+
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [commentaireDate, setCommentaireDate] = useState('');
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -103,8 +108,17 @@ export default function ModalCommande({
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   };
 
-  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const monthNames = [
+    tCommon('time.january'), tCommon('time.february'), tCommon('time.march'),
+    tCommon('time.april'), tCommon('time.may'), tCommon('time.june'),
+    tCommon('time.july'), tCommon('time.august'), tCommon('time.september'),
+    tCommon('time.october'), tCommon('time.november'), tCommon('time.december')
+  ];
+  const dayNames = [
+    tCommon('time.monday'), tCommon('time.tuesday'), tCommon('time.wednesday'),
+    tCommon('time.thursday'), tCommon('time.friday'), tCommon('time.saturday'),
+    tCommon('time.sunday')
+  ];
 
   if (!open) return null;
 
@@ -118,8 +132,8 @@ export default function ModalCommande({
               <PenTool size={20} />
             </div>
             <div>
-              <h2>Finaliser votre commande</h2>
-              <p>Choisissez votre date et signez pour valider</p>
+              <h2>{t('title')}</h2>
+              <p>{t('subtitle')}</p>
             </div>
           </div>
           <button className="btn-close" onClick={onClose} disabled={isSubmitting}>
@@ -133,7 +147,7 @@ export default function ModalCommande({
           <div className="section-calendar">
             <div className="section-title">
               <Calendar size={18} />
-              <span>Date de fin souhaitée</span>
+              <span>{t('desiredEndDate')}</span>
             </div>
 
             <div className="calendar">
@@ -171,18 +185,18 @@ export default function ModalCommande({
 
             {selectedDate && (
               <div className="selected-date-display">
-                <span>Date sélectionnée :</span>
-                <strong>{selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                <span>{t('selectedDate')}</span>
+                <strong>{selectedDate.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
               </div>
             )}
 
             <div className="comment-field">
-              <label>Commentaire (optionnel)</label>
+              <label>{t('commentOptional')}</label>
               <input
                 type="text"
                 value={commentaireDate}
                 onChange={(e) => setCommentaireDate(e.target.value)}
-                placeholder="Ex: Chantier prévu semaine 12..."
+                placeholder={t('commentPlaceholder')}
                 disabled={isSubmitting}
               />
             </div>
@@ -195,24 +209,24 @@ export default function ModalCommande({
           <div className="section-signature">
             <div className="section-title">
               <PenTool size={18} />
-              <span>Signature électronique</span>
+              <span>{t('electronicSignature')}</span>
             </div>
 
             {/* Montant */}
             <div className="amount-box">
               <div className="amount-row">
-                <span>Total HT</span>
+                <span>{t('totalHT')}</span>
                 <span className="amount-ht">{totalHT.toFixed(2)} €</span>
               </div>
               <div className="amount-row main">
-                <span>Total TTC</span>
+                <span>{t('totalTTC')}</span>
                 <span className="amount-ttc">{totalTTC.toFixed(2)} €</span>
               </div>
             </div>
 
             {/* Signature */}
             <div className="signature-area">
-              <label>Votre signature</label>
+              <label>{t('yourSignature')}</label>
               <SignaturePad
                 clientName={clientName}
                 onSignatureChange={setSignatureData}
@@ -230,8 +244,8 @@ export default function ModalCommande({
                   disabled={isSubmitting}
                 />
                 <span>
-                  J'ai lu et j'accepte les{' '}
-                  <a href="/cgv" target="_blank">Conditions Générales de Vente</a>
+                  {t('acceptCGV')}{' '}
+                  <a href="/cgv" target="_blank">{t('cgvLink')}</a>
                 </span>
               </label>
 
@@ -243,8 +257,8 @@ export default function ModalCommande({
                   disabled={isSubmitting}
                 />
                 <span>
-                  <strong>Lu et approuvé - Bon pour accord</strong><br />
-                  Je reconnais avoir pris connaissance des prestations et accepte le devis.
+                  <strong>{t('readAndApproved')}</strong><br />
+                  {t('readAndApprovedDetails')}
                 </span>
               </label>
             </div>
@@ -252,7 +266,7 @@ export default function ModalCommande({
             {/* Legal info */}
             <div className="legal-info">
               <Shield size={14} />
-              <span>Cette signature électronique a valeur légale (règlement eIDAS UE 910/2014). Date, heure et adresse IP seront enregistrées.</span>
+              <span>{t('legalInfo')}</span>
             </div>
           </div>
         </div>
@@ -260,7 +274,7 @@ export default function ModalCommande({
         {/* Footer */}
         <div className="modal-footer">
           <button className="btn-cancel" onClick={onClose} disabled={isSubmitting}>
-            Annuler
+            {tCommon('actions.cancel')}
           </button>
           <button
             className={`btn-submit ${canSubmit ? 'active' : 'disabled'}`}
@@ -270,12 +284,12 @@ export default function ModalCommande({
             {isSubmitting ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Validation...
+                {t('validating')}
               </>
             ) : (
               <>
                 <CheckCircle size={18} />
-                Accepter et signer
+                {tCommon('actions.acceptAndSign')}
               </>
             )}
           </button>

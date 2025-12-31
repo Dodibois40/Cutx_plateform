@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import type { DebitPlace } from '@/lib/configurateur/optimiseur/types';
 
 interface RecapDebitsProps {
@@ -9,8 +10,10 @@ interface RecapDebitsProps {
 
 export default function RecapDebits({
   debits,
-  titre = 'Récapitulatif débit',
+  titre,
 }: RecapDebitsProps) {
+  const t = useTranslations('dialogs.optimizer');
+  const displayTitle = titre || t('cutsRecap');
   // Calculer les totaux
   const surfaceTotale = debits.reduce(
     (sum, d) => sum + (d.longueur * d.largeur) / 1_000_000,
@@ -21,7 +24,7 @@ export default function RecapDebits({
     <div className="recap-container">
       {/* Header */}
       <div className="recap-header">
-        <span className="recap-titre">{titre}</span>
+        <span className="recap-titre">{displayTitle}</span>
       </div>
 
       {/* Tableau */}
@@ -29,9 +32,9 @@ export default function RecapDebits({
         <table className="tableau-debits">
           <thead>
             <tr>
-              <th className="col-ref">Ref</th>
-              <th className="col-dim">Longueur</th>
-              <th className="col-dim">Largeur</th>
+              <th className="col-ref">{t('refColumn')}</th>
+              <th className="col-dim">{t('lengthColumn')}</th>
+              <th className="col-dim">{t('widthColumn')}</th>
             </tr>
           </thead>
           <tbody>
@@ -49,10 +52,10 @@ export default function RecapDebits({
       {/* Footer avec totaux */}
       <div className="recap-footer">
         <div className="footer-stat">
-          <span className="footer-label">{debits.length} pièce{debits.length > 1 ? 's' : ''}</span>
+          <span className="footer-label">{t('piecesCount', { count: debits.length })}</span>
         </div>
         <div className="footer-stat">
-          <span className="footer-value">{surfaceTotale.toFixed(2)} m²</span>
+          <span className="footer-value">{surfaceTotale.toFixed(2)} m2</span>
         </div>
       </div>
 

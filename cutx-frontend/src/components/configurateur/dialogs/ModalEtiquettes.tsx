@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { X, Printer } from 'lucide-react';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import { BRILLANCES } from '@/lib/configurateur/constants';
@@ -13,13 +14,13 @@ interface ModalEtiquettesProps {
 }
 
 // Fonction pour formater les chants sélectionnés
-function formaterChants(chants: { A: boolean; B: boolean; C: boolean; D: boolean }): string {
+function formaterChants(chants: { A: boolean; B: boolean; C: boolean; D: boolean }, noneLabel: string): string {
   const selected = [];
   if (chants.A) selected.push('A');
   if (chants.B) selected.push('B');
   if (chants.C) selected.push('C');
   if (chants.D) selected.push('D');
-  return selected.length > 0 ? selected.join(', ') : 'Aucun';
+  return selected.length > 0 ? selected.join(', ') : noneLabel;
 }
 
 // Fonction pour obtenir le label de brillance
@@ -44,6 +45,8 @@ export default function ModalEtiquettes({
   lignes,
   onClose,
 }: ModalEtiquettesProps) {
+  const t = useTranslations('dialogs.labels');
+  const tCommon = useTranslations('common');
   const printRef = useRef<HTMLDivElement>(null);
 
   // Filtrer les lignes complètes (avec référence et finition)
@@ -69,7 +72,7 @@ export default function ModalEtiquettes({
       {/* Modal */}
       <div className="modal-etiquettes">
         <div className="modal-header">
-          <h2>Imprimer les étiquettes</h2>
+          <h2>{t('title')}</h2>
           <button className="btn-close" onClick={onClose}>
             <X size={20} />
           </button>
@@ -78,14 +81,13 @@ export default function ModalEtiquettes({
         <div className="modal-content">
           {lignesCompletes.length === 0 ? (
             <div className="empty-state">
-              <p>Aucune ligne complète à imprimer.</p>
-              <p className="hint">Les lignes doivent avoir une référence et une finition pour générer une étiquette.</p>
+              <p>{t('empty')}</p>
+              <p className="hint">{t('emptyHint')}</p>
             </div>
           ) : (
             <>
               <p className="info">
-                {lignesCompletes.length} étiquette{lignesCompletes.length > 1 ? 's' : ''} à imprimer
-                (format 50×80mm)
+                {lignesCompletes.length} {lignesCompletes.length > 1 ? 'etiquettes' : 'etiquette'} (format 50x80mm)
               </p>
 
               {/* Zone de prévisualisation */}
@@ -94,58 +96,58 @@ export default function ModalEtiquettes({
                   {lignesCompletes.map((ligne) => (
                     <div key={ligne.id} className="etiquette">
                       <div className="etiquette-header">
-                        <span className="ref-chantier">{referenceChantier || 'Sans réf.'}</span>
+                        <span className="ref-chantier">{referenceChantier || t('withoutRef')}</span>
                       </div>
 
                       <div className="ref-piece">{ligne.reference}</div>
 
                       <div className="etiquette-body">
                         <div className="row">
-                          <span className="label">Finition</span>
-                          <span className="value">{ligne.finition === 'laque' ? 'Laque' : 'Vernis'}</span>
+                          <span className="label">{t('finishLabel')}</span>
+                          <span className="value">{ligne.finition === 'laque' ? t('finishLacquer') : t('finishVarnish')}</span>
                         </div>
 
                         <div className="row">
-                          <span className="label">{ligne.finition === 'laque' ? 'RAL' : 'Teinte'}</span>
+                          <span className="label">{ligne.finition === 'laque' ? t('ralLabel') : t('tintLabel')}</span>
                           <span className="value">
                             {ligne.finition === 'laque'
                               ? (ligne.codeCouleurLaque || '-')
-                              : (ligne.teinte || 'Incolore')}
+                              : (ligne.teinte || t('colorless'))}
                           </span>
                         </div>
 
                         <div className="row">
-                          <span className="label">Brillance</span>
+                          <span className="label">{t('glossLabel')}</span>
                           <span className="value brillance">{getLabelBrillance(ligne.brillance)}</span>
                         </div>
 
                         <div className="row">
-                          <span className="label">Dim. (mm)</span>
+                          <span className="label">{t('dimensionsLabel')}</span>
                           <span className="value dimensions">{formaterDimensions(ligne.dimensions)}</span>
                         </div>
 
                         <div className="row-inline">
                           <div className="col">
-                            <span className="label">Faces</span>
+                            <span className="label">{t('facesLabel')}</span>
                             <span className="value">{ligne.nombreFaces}F</span>
                           </div>
                           <div className="col">
-                            <span className="label">Chants</span>
-                            <span className="value">{formaterChants(ligne.chants)}</span>
+                            <span className="label">{t('edgesLabel')}</span>
+                            <span className="value">{formaterChants(ligne.chants, tCommon('misc.none'))}</span>
                           </div>
                         </div>
 
                         <div className="row percage">
-                          <span className="label">Perçage</span>
+                          <span className="label">{t('drillingLabel')}</span>
                           <span className={`value ${ligne.percage ? 'oui' : 'non'}`}>
-                            {ligne.percage ? 'OUI' : 'NON'}
+                            {ligne.percage ? t('drillingYes') : t('drillingNo')}
                           </span>
                         </div>
                       </div>
 
                       <div className="etiquette-footer">
                         <img src="/logo.png" alt="Logo" className="logo" />
-                        <span className="brand">La Manufacture de la Finition</span>
+                        <span className="brand">{t('brandName')}</span>
                       </div>
                     </div>
                   ))}
@@ -158,11 +160,11 @@ export default function ModalEtiquettes({
         {lignesCompletes.length > 0 && (
           <div className="modal-footer">
             <button className="btn-secondary" onClick={onClose}>
-              Annuler
+              {tCommon('actions.cancel')}
             </button>
             <button className="btn-primary" onClick={handlePrint}>
               <Printer size={18} />
-              Imprimer
+              {tCommon('actions.print')}
             </button>
           </div>
         )}

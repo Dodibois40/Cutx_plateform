@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { X, Copy } from 'lucide-react';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
-import { PLACEHOLDERS, TOOLTIPS } from '@/lib/configurateur/constants';
 
 interface ModalCopieProps {
   open: boolean;
@@ -22,6 +22,8 @@ export default function ModalCopie({
   onConfirmer,
   onAnnuler,
 }: ModalCopieProps) {
+  const t = useTranslations('dialogs.copy');
+  const tCommon = useTranslations('common');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function ModalCopie({
         <div className="modal-header">
           <div className="header-title">
             <Copy size={20} style={{ color: 'var(--admin-olive)' }} />
-            <h3>Dupliquer la ligne</h3>
+            <h3>{t('title')}</h3>
           </div>
           <button className="btn-close" onClick={onAnnuler}>
             <X size={20} />
@@ -59,12 +61,12 @@ export default function ModalCopie({
         {/* Body */}
         <div className="modal-body">
           <p className="source-info">
-            Copie de : <strong>{ligneSource.reference || 'Sans référence'}</strong>
+            {t('sourceLabel')}<strong>{ligneSource.reference || t('noReference')}</strong>
           </p>
 
           <div className="form-group">
             <label htmlFor="nouvelle-reference">
-              Nouvelle référence <span className="required">*</span>
+              {t('newReferenceLabel')} <span className="required">{t('required')}</span>
             </label>
             <input
               ref={inputRef}
@@ -73,17 +75,17 @@ export default function ModalCopie({
               value={nouvelleReference}
               onChange={(e) => onReferenceChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={PLACEHOLDERS.reference}
+              placeholder="Ref: Debit 1"
               className="admin-input"
             />
-            <p className="hint">{TOOLTIPS.reference}</p>
+            <p className="hint">{t('hint')}</p>
           </div>
         </div>
 
         {/* Footer */}
         <div className="modal-footer">
           <button className="btn-cancel" onClick={onAnnuler}>
-            Annuler
+            {tCommon('actions.cancel')}
           </button>
           <button
             className="btn-confirm"
@@ -91,7 +93,7 @@ export default function ModalCopie({
             disabled={!nouvelleReference.trim()}
           >
             <Copy size={16} />
-            <span>Dupliquer</span>
+            <span>{tCommon('actions.duplicate')}</span>
           </button>
         </div>
       </div>

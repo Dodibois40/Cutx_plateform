@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { X, ChevronLeft, ChevronRight, Maximize2, AlertTriangle } from 'lucide-react';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -24,6 +25,8 @@ export default function PopupOptimiseur({
   panneauxCatalogue,
   panneauGlobal,
 }: PopupOptimiseurProps) {
+  const t = useTranslations('dialogs.optimizer');
+
   // Navigation entre panneaux
   const [currentPanneauIndex, setCurrentPanneauIndex] = useState(0);
 
@@ -144,7 +147,7 @@ export default function PopupOptimiseur({
         <div className="popup-header">
           <div className="header-left">
             <Maximize2 size={18} className="header-icon" />
-            <h2 className="popup-title">Optimiseur de débit</h2>
+            <h2 className="popup-title">{t('title')}</h2>
           </div>
 
           {/* Navigation panneaux */}
@@ -158,7 +161,7 @@ export default function PopupOptimiseur({
                 <ChevronLeft size={20} />
               </button>
               <span className="nav-label">
-                Panneau {currentPanneauIndex + 1} / {tousLesPanneaux.length}
+                {t('panelNav', { current: currentPanneauIndex + 1, total: tousLesPanneaux.length })}
               </span>
               <button
                 className="nav-btn"
@@ -180,10 +183,9 @@ export default function PopupOptimiseur({
           {hasNoPanneaux ? (
             <div className="empty-state">
               <AlertTriangle size={48} className="empty-icon" />
-              <h3>Aucun débit à optimiser</h3>
+              <h3>{t('emptyTitle')}</h3>
               <p>
-                Ajoutez des débits avec un panneau sélectionné et des dimensions
-                valides pour voir l'optimisation.
+                {t('emptyMessage')}
               </p>
             </div>
           ) : panneauOptimise ? (
@@ -194,8 +196,8 @@ export default function PopupOptimiseur({
                 <InfoPanneauSelected
                   panneau={panneauOptimise}
                   // TODO: Récupérer les infos du chant depuis le catalogue
-                  chantNom="Chant assorti"
-                  chantDimensions="23 × EP 0.8"
+                  chantNom={t('matchingEdge')}
+                  chantDimensions={t('edgeDimensions')}
                 />
               </div>
 
@@ -223,8 +225,7 @@ export default function PopupOptimiseur({
               <div className="footer-stat">
                 <span className="stat-value">{tousLesPanneaux.length}</span>
                 <span className="stat-label">
-                  panneau{tousLesPanneaux.length > 1 ? 'x' : ''} nécessaire
-                  {tousLesPanneaux.length > 1 ? 's' : ''}
+                  {t('panelsRequired', { count: tousLesPanneaux.length })}
                 </span>
               </div>
               <div className="footer-divider" />
@@ -239,7 +240,7 @@ export default function PopupOptimiseur({
                     )
                     .length}
                 </span>
-                <span className="stat-label">débits</span>
+                <span className="stat-label">{t('cuts')}</span>
               </div>
             </div>
           </div>

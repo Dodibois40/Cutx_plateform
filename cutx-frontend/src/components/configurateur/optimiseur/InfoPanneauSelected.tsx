@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Package } from 'lucide-react';
 import type { PanneauOptimise } from '@/lib/configurateur/optimiseur/types';
 
@@ -18,11 +19,13 @@ export default function InfoPanneauSelected({
   thumbnailUrl,
   thumbnailColor = '#8b4513', // Marron par défaut
 }: InfoPanneauSelectedProps) {
+  const t = useTranslations('dialogs.optimizer');
+
   return (
     <div className="info-panneau-container">
       {/* Header */}
       <div className="info-header">
-        <span className="info-label">Panneau sélectionné</span>
+        <span className="info-label">{t('selectedPanel')}</span>
       </div>
 
       {/* Nom du panneau */}
@@ -31,7 +34,7 @@ export default function InfoPanneauSelected({
       {/* Dimensions dans un cadre */}
       <div className="dimensions-box">
         <span className="dimensions-value">
-          {panneau.dimensions.longueur} × {panneau.dimensions.largeur} × {panneau.dimensions.epaisseur}
+          {panneau.dimensions.longueur} x {panneau.dimensions.largeur} x {panneau.dimensions.epaisseur}
         </span>
       </div>
 
@@ -56,7 +59,7 @@ export default function InfoPanneauSelected({
       {/* Chant sélectionné */}
       {chantNom && (
         <div className="chant-section">
-          <span className="chant-label">Chants Sélectionné</span>
+          <span className="chant-label">{t('matchingEdge')}</span>
           <p className="chant-nom">{chantNom}</p>
           {chantDimensions && (
             <div className="chant-dimensions-box">
@@ -69,19 +72,19 @@ export default function InfoPanneauSelected({
       {/* Stats */}
       <div className="stats-section">
         <div className="stat-row">
-          <span className="stat-label">Débits placés</span>
+          <span className="stat-label">{t('cutsPlaced')}</span>
           <span className="stat-value">{panneau.debitsPlaces.length}</span>
         </div>
         <div className="stat-row">
-          <span className="stat-label">Surface utilisée</span>
-          <span className="stat-value">{panneau.surfaceUtilisee.toFixed(2)} m²</span>
+          <span className="stat-label">{t('usedSurface')}</span>
+          <span className="stat-value">{panneau.surfaceUtilisee.toFixed(2)} m2</span>
         </div>
         <div className="stat-row">
-          <span className="stat-label">Chute</span>
-          <span className="stat-value chute">{panneau.chute.toFixed(2)} m²</span>
+          <span className="stat-label">{t('waste')}</span>
+          <span className="stat-value chute">{panneau.chute.toFixed(2)} m2</span>
         </div>
         <div className="stat-row highlight">
-          <span className="stat-label">Remplissage</span>
+          <span className="stat-label">{t('fillRate')}</span>
           <span className="stat-value">{panneau.tauxRemplissage.toFixed(1)}%</span>
         </div>
       </div>

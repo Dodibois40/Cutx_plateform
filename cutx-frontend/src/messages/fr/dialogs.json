@@ -11,8 +11,10 @@
     "title": "Imprimer les etiquettes",
     "empty": "Aucune ligne complete a imprimer.",
     "emptyHint": "Les lignes doivent avoir une reference et une finition pour generer une etiquette.",
-    "labelCount": "{count} etiquette(s) a imprimer (format 50x80mm)",
+    "labelCount": "{count} etiquette{count, plural, one {} other {s}} a imprimer (format 50x80mm)",
     "finishLabel": "Finition",
+    "finishLacquer": "Laque",
+    "finishVarnish": "Vernis",
     "ralLabel": "RAL",
     "tintLabel": "Teinte",
     "glossLabel": "Brillance",
@@ -20,6 +22,8 @@
     "facesLabel": "Faces",
     "edgesLabel": "Chants",
     "drillingLabel": "Percage",
+    "drillingYes": "OUI",
+    "drillingNo": "NON",
     "withoutRef": "Sans ref.",
     "colorless": "Incolore",
     "brandName": "La Manufacture de la Finition"
@@ -104,22 +108,58 @@
     "accessConfigurator": "Acceder au configurateur"
   },
   "optimizer": {
-    "title": "Optimiseur de debits",
-    "selectPanel": "Selectionner un panneau",
-    "panelInfo": "Information panneau",
-    "cutsRecap": "Recapitulatif des debits",
-    "visualize": "Visualiser"
+    "title": "Optimiseur de debit",
+    "panelNav": "Panneau {current} / {total}",
+    "emptyTitle": "Aucun debit a optimiser",
+    "emptyMessage": "Ajoutez des debits avec un panneau selectionne et des dimensions valides pour voir l'optimisation.",
+    "matchingEdge": "Chant assorti",
+    "edgeDimensions": "23 x EP 0.8",
+    "panelsRequired": "{count} panneau{count, plural, one {} other {x}} necessaire{count, plural, one {} other {s}}",
+    "cuts": "debits",
+    "selectedPanel": "Panneau selectionne",
+    "cutsPlaced": "Debits places",
+    "usedSurface": "Surface utilisee",
+    "waste": "Chute",
+    "fillRate": "Remplissage",
+    "cutsRecap": "Recapitulatif debit",
+    "refColumn": "Ref",
+    "lengthColumn": "Longueur",
+    "widthColumn": "Largeur",
+    "piecesCount": "{count} piece{count, plural, one {} other {s}}"
   },
   "panelSelection": {
-    "title": "Selection du panneau",
-    "searchPlaceholder": "Rechercher par nom, reference...",
-    "categories": "Categories",
-    "allCategories": "Toutes les categories",
-    "noResults": "Aucun panneau trouve",
-    "selectThisPanel": "Selectionner ce panneau"
+    "title": "Selectionner un panneau",
+    "productsCount": "{count} produits",
+    "searchPlaceholder": "Rechercher...",
+    "typeFilter": "Type",
+    "thicknessFilter": "Ep.",
+    "stockFilter": "Stock",
+    "resetFilters": "Reinitialiser",
+    "resultsCount": "{count} resultat{count, plural, one {} other {s}}",
+    "noResults": "Aucun produit trouve avec ces filtres",
+    "noProducts": "Aucun produit",
+    "imageColumn": "Image",
+    "refColumn": "Ref",
+    "nameColumn": "Nom",
+    "typeColumn": "Type",
+    "thicknessColumn": "Ep.",
+    "dimensionsColumn": "Dimensions",
+    "priceColumn": "Prix",
+    "stockColumn": "Stock",
+    "inStock": "Stock",
+    "onOrder": "Cmd",
+    "productTypes": {
+      "MELAMINE": "Melamine",
+      "STRATIFIE": "Stratifie",
+      "PLACAGE": "Placage / Essence Fine",
+      "BANDE_DE_CHANT": "Chant",
+      "COMPACT": "Compact"
+    }
   },
   "multilayer": {
     "title": "Panneau Multicouche",
+    "myTemplates": "Mes modeles",
+    "configureLayers": "Configurer les couches",
     "templates": "Modeles",
     "layers": "Couches",
     "gluingMode": "Mode de collage",
@@ -130,5 +170,12 @@
     "totalThickness": "Epaisseur totale",
     "estimatedPrice": "Prix estime",
     "validate": "Valider le panneau multicouche"
+  },
+  "machining": {
+    "title": "Usinages",
+    "availableOptions": "Options disponibles",
+    "currentSelection": "Selection actuelle",
+    "totalMachining": "Total usinages",
+    "perUnit": "/ unite"
   }
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import {
   X,
   Search,
@@ -11,7 +12,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Loader2,
+  ImageIcon,
 } from 'lucide-react';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
@@ -25,16 +26,57 @@ type SortColumn = 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
 type SortDirection = 'asc' | 'desc';
 
 // Types de produits (basés sur productType en DB)
-const PRODUCT_TYPES = [
-  { value: 'MELAMINE', label: 'Mélaminé' },
-  { value: 'STRATIFIE', label: 'Stratifié' },
-  { value: 'BANDE_DE_CHANT', label: 'Chant' },
-  { value: 'COMPACT', label: 'Compact' },
-] as const;
+const PRODUCT_TYPE_KEYS = ['MELAMINE', 'STRATIFIE', 'PLACAGE', 'BANDE_DE_CHANT', 'COMPACT'] as const;
 
 // Épaisseurs disponibles (basé sur l'analyse de la DB)
 const EPAISSEURS_PANNEAUX = [8, 12, 16, 19, 38];
 const EPAISSEURS_CHANTS = [0.7, 0.8, 0.9, 1, 1.2, 1.5, 2];
+
+// Composant Image avec état de chargement
+function ProductImage({ src, alt }: { src: string | undefined; alt: string }) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  if (!src || hasError) {
+    return <div className="no-image"><ImageIcon size={16} /></div>;
+  }
+
+  return (
+    <div className="image-container">
+      {isLoading && (
+        <div className="image-loading">
+          <div className="image-spinner" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`product-image ${isLoading ? 'loading' : ''}`}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          setIsLoading(false);
+          setHasError(true);
+        }}
+      />
+    </div>
+  );
+}
+
+// Composant Skeleton Loader
+function SkeletonRow() {
+  return (
+    <tr className="skeleton-row">
+      <td><div className="skeleton skeleton-image" /></td>
+      <td><div className="skeleton skeleton-text-sm" /></td>
+      <td><div className="skeleton skeleton-text-lg" /></td>
+      <td><div className="skeleton skeleton-text-sm" /></td>
+      <td><div className="skeleton skeleton-text-xs" /></td>
+      <td><div className="skeleton skeleton-text-sm" /></td>
+      <td><div className="skeleton skeleton-text-sm" /></td>
+      <td><div className="skeleton skeleton-badge" /></td>
+    </tr>
+  );
+}
 
 interface PopupSelectionPanneauProps {
   open: boolean;
@@ -56,6 +98,7 @@ export default function PopupSelectionPanneau({
   initialSearch = '',
   initialSousCategories = [],
 }: PopupSelectionPanneauProps) {
+  const t = useTranslations('dialogs.panelSelection');
   const [mounted, setMounted] = useState(false);
   const [produits, setProduits] = useState<CatalogueProduit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -283,8 +326,8 @@ export default function PopupSelectionPanneau({
         {/* Header */}
         <div className="popup-header">
           <div className="header-title">
-            <h2>Sélectionner un panneau</h2>
-            <span className="total-count">{total} produits</span>
+            <h2>{t('title')}</h2>
+            <span className="total-count">{t('productsCount', { count: total })}</span>
           </div>
           <button className="btn-close" onClick={onClose}>
             <X size={20} />
@@ -298,7 +341,7 @@ export default function PopupSelectionPanneau({
             <Search size={14} className="search-icon" />
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder={t('searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input"
@@ -319,9 +362,9 @@ export default function PopupSelectionPanneau({
             onChange={(e) => setFiltreProductType(e.target.value)}
             className={`filter-select ${filtreProductType ? 'active' : ''}`}
           >
-            <option value="">Type</option>
-            {PRODUCT_TYPES.map(pt => (
-              <option key={pt.value} value={pt.value}>{pt.label}</option>
+            <option value="">{t('typeFilter')}</option>
+            {PRODUCT_TYPE_KEYS.map(key => (
+              <option key={key} value={key}>{t(`productTypes.${key}`)}</option>
             ))}
           </select>
 
@@ -344,7 +387,7 @@ export default function PopupSelectionPanneau({
             onChange={(e) => setFiltreEpaisseur(e.target.value ? Number(e.target.value) : null)}
             className={`filter-select ${filtreEpaisseur ? 'active' : ''}`}
           >
-            <option value="">Ép.</option>
+            <option value="">{t('thicknessFilter')}</option>
             {epaisseurs.map(ep => (
               <option key={ep} value={ep}>{ep}mm</option>
             ))}
@@ -356,12 +399,12 @@ export default function PopupSelectionPanneau({
             className={`filter-toggle ${filtreEnStock ? 'active' : ''}`}
           >
             <CheckCircle2 size={12} />
-            <span>Stock</span>
+            <span>{t('stockFilter')}</span>
           </button>
 
           {/* Reset */}
           {hasFilters && (
-            <button onClick={resetFilters} className="btn-reset" title="Réinitialiser">
+            <button onClick={resetFilters} className="btn-reset" title={t('resetFilters')}>
               <RotateCcw size={12} />
             </button>
           )}
@@ -370,55 +413,71 @@ export default function PopupSelectionPanneau({
 
           {/* Compteur */}
           <span className="result-count">
-            {total} résultat{total > 1 ? 's' : ''}
+            {t('resultsCount', { count: total })}
           </span>
         </div>
 
         {/* Tableau */}
         <div className="table-container">
           {isLoading ? (
-            <div className="loading">
-              <Loader2 className="spinner" />
-            </div>
+            <table className="products-table">
+              <thead>
+                <tr>
+                  <th className="col-image">{t('imageColumn')}</th>
+                  <th className="col-ref">{t('refColumn')}</th>
+                  <th className="col-nom">{t('nameColumn')}</th>
+                  <th className="col-type">{t('typeColumn')}</th>
+                  <th className="col-dim">{t('thicknessColumn')}</th>
+                  <th className="col-dimensions">{t('dimensionsColumn')}</th>
+                  <th className="col-prix">{t('priceColumn')}</th>
+                  <th className="col-stock">{t('stockColumn')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <SkeletonRow key={i} />
+                ))}
+              </tbody>
+            </table>
           ) : error ? (
             <div className="error-message">{error}</div>
           ) : produits.length === 0 ? (
             <div className="no-results">
-              {hasFilters ? 'Aucun produit trouvé avec ces filtres' : 'Aucun produit'}
+              {hasFilters ? t('noResults') : t('noProducts')}
             </div>
           ) : (
             <table className="products-table">
               <thead>
                 <tr>
-                  <th className="col-image">Image</th>
+                  <th className="col-image">{t('imageColumn')}</th>
                   <th className="col-ref sortable" onClick={() => handleSort('reference')}>
-                    <span>Réf</span>
+                    <span>{t('refColumn')}</span>
                     {sortColumn === 'reference' ? (
                       sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
                     ) : <ArrowUpDown size={12} className="sort-inactive" />}
                   </th>
                   <th className="col-nom sortable" onClick={() => handleSort('nom')}>
-                    <span>Nom</span>
+                    <span>{t('nameColumn')}</span>
                     {sortColumn === 'nom' ? (
                       sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
                     ) : <ArrowUpDown size={12} className="sort-inactive" />}
                   </th>
-                  <th className="col-type">Type</th>
+                  <th className="col-type">{t('typeColumn')}</th>
                   <th className="col-dim sortable" onClick={() => handleSort('epaisseur')}>
-                    <span>Ép.</span>
+                    <span>{t('thicknessColumn')}</span>
                     {sortColumn === 'epaisseur' ? (
                       sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
                     ) : <ArrowUpDown size={12} className="sort-inactive" />}
                   </th>
-                  <th className="col-dimensions">Dimensions</th>
+                  <th className="col-dimensions">{t('dimensionsColumn')}</th>
                   <th className="col-prix sortable" onClick={() => handleSort('prix')}>
-                    <span>Prix</span>
+                    <span>{t('priceColumn')}</span>
                     {sortColumn === 'prix' ? (
                       sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
                     ) : <ArrowUpDown size={12} className="sort-inactive" />}
                   </th>
                   <th className="col-stock sortable" onClick={() => handleSort('stock')}>
-                    <span>Stock</span>
+                    <span>{t('stockColumn')}</span>
                     {sortColumn === 'stock' ? (
                       sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
                     ) : <ArrowUpDown size={12} className="sort-inactive" />}
@@ -433,6 +492,23 @@ export default function PopupSelectionPanneau({
                   const prix = prixMl > 0 ? prixMl : prixM2;
                   const prixUnit = prixMl > 0 ? '€/ml' : '€/m²';
 
+                  // Calcul des dimensions - cas spécial pour les chants
+                  const isChant = produit.productType === 'BANDE_DE_CHANT';
+                  const isVariable = produit.longueur === 'Variable' || produit.isVariableLength || isChant;
+
+                  // Pour les chants: largeur en mm (peut être stockée en m, donc × 1000 si < 1)
+                  let largeurDisplay = produit.largeur;
+                  if (isChant && produit.largeur && produit.largeur < 1) {
+                    largeurDisplay = Math.round(produit.largeur * 1000); // Convertir m → mm
+                  }
+
+                  let dimensionsDisplay = '-';
+                  if (isVariable && largeurDisplay) {
+                    dimensionsDisplay = `Var. × ${largeurDisplay}`;
+                  } else if (produit.longueur && produit.largeur) {
+                    dimensionsDisplay = `${produit.longueur} × ${produit.largeur}`;
+                  }
+
                   return (
                     <tr
                       key={produit.id}
@@ -440,35 +516,24 @@ export default function PopupSelectionPanneau({
                       onClick={() => handleSelectProduit(produit)}
                     >
                       <td className="col-image">
-                        {produit.imageUrl ? (
-                          <img
-                            src={produit.imageUrl}
-                            alt={produit.nom}
-                            className="product-image"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="no-image">—</div>
-                        )}
+                        <ProductImage src={produit.imageUrl} alt={produit.nom} />
                       </td>
                       <td className="col-ref">{produit.reference}</td>
                       <td className="col-nom">{produit.nom}</td>
-                      <td className="col-type">{PRODUCT_TYPES.find(pt => pt.value === produit.productType)?.label || produit.productType || '-'}</td>
+                      <td className="col-type">{produit.productType ? t(`productTypes.${produit.productType}`) : '-'}</td>
                       <td className="col-dim">{produit.epaisseur}mm</td>
-                      <td className="col-dimensions">{produit.longueur === 'Variable' ? `Var. × ${produit.largeur}` : (produit.longueur && produit.largeur ? `${produit.longueur} × ${produit.largeur}` : '-')}</td>
+                      <td className="col-dimensions">{dimensionsDisplay}</td>
                       <td className="col-prix">{prix > 0 ? `${prix.toFixed(2)} ${prixUnit}` : '-'}</td>
                       <td className="col-stock">
                         {isEnStock ? (
                           <span className="stock-badge en-stock">
                             <CheckCircle2 size={12} />
-                            Stock
+                            {t('inStock')}
                           </span>
                         ) : (
                           <span className="stock-badge sur-commande">
                             <Clock size={12} />
-                            Cmd
+                            {t('onOrder')}
                           </span>
                         )}
                       </td>
@@ -754,20 +819,6 @@ export default function PopupSelectionPanneau({
             min-height: 0;
           }
 
-          .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-          }
-
-          .spinner {
-            width: 32px;
-            height: 32px;
-            color: var(--admin-olive);
-            animation: spin 1s linear infinite;
-          }
-
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
@@ -873,6 +924,96 @@ export default function PopupSelectionPanneau({
             border: 1px solid var(--admin-border-subtle);
             color: var(--admin-text-muted);
             font-size: 0.75rem;
+          }
+
+          /* Image avec état de chargement */
+          .image-container {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--admin-border-subtle);
+            background: var(--admin-bg-tertiary);
+          }
+
+          .image-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--admin-bg-tertiary);
+          }
+
+          .image-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--admin-border-subtle);
+            border-top-color: var(--admin-olive);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+
+          .image-container .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 1;
+            transition: opacity 0.2s ease;
+          }
+
+          .image-container .product-image.loading {
+            opacity: 0;
+          }
+
+          /* Skeleton Loader */
+          .skeleton-row td {
+            padding: 0.625rem 0.75rem;
+            border-bottom: 1px solid var(--admin-border-subtle);
+          }
+
+          .skeleton {
+            background: linear-gradient(
+              90deg,
+              var(--admin-bg-tertiary) 25%,
+              var(--admin-bg-hover) 50%,
+              var(--admin-bg-tertiary) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+          }
+
+          .skeleton-image {
+            width: 40px;
+            height: 40px;
+          }
+
+          .skeleton-text-xs {
+            width: 40px;
+            height: 14px;
+          }
+
+          .skeleton-text-sm {
+            width: 60px;
+            height: 14px;
+          }
+
+          .skeleton-text-lg {
+            width: 140px;
+            height: 14px;
+          }
+
+          .skeleton-badge {
+            width: 50px;
+            height: 22px;
+            border-radius: 999px;
+          }
+
+          @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
           }
 
           .col-marque {

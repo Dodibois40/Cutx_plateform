@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { X, Wrench, Plus, Minus, Trash2 } from 'lucide-react';
 import type { Usinage } from '@/lib/configurateur/types';
 import { USINAGES_OPTIONS } from '@/lib/configurateur/constants';
@@ -19,6 +20,8 @@ export default function PopupUsinages({
   onUpdate,
   onClose,
 }: PopupUsinagesProps) {
+  const t = useTranslations('dialogs.machining');
+  const tCommon = useTranslations('common');
   const [localUsinages, setLocalUsinages] = useState<Usinage[]>(usinages);
 
   const handleAjouterUsinage = (option: typeof USINAGES_OPTIONS[number]) => {
@@ -82,7 +85,7 @@ export default function PopupUsinages({
         <div className="popup-header">
           <div className="header-title">
             <Wrench size={20} style={{ color: 'var(--admin-ardoise)' }} />
-            <h3>Usinages</h3>
+            <h3>{t('title')}</h3>
           </div>
           <button className="btn-close" onClick={handleAnnuler}>
             <X size={20} />
@@ -93,7 +96,7 @@ export default function PopupUsinages({
         <div className="popup-body">
           {/* Liste des options disponibles */}
           <div className="options-section">
-            <h4>Options disponibles</h4>
+            <h4>{t('availableOptions')}</h4>
             <div className="options-list">
               {USINAGES_OPTIONS.map(option => {
                 const current = localUsinages.find(u => u.type === option.type);
@@ -102,7 +105,7 @@ export default function PopupUsinages({
                     <div className="option-info">
                       <span className="option-label">{option.label}</span>
                       <span className="option-prix">
-                        {option.prix}€ / {option.unite}
+                        {option.prix} EUR {t('perUnit')}
                       </span>
                     </div>
                     <button
@@ -121,7 +124,7 @@ export default function PopupUsinages({
           {/* Usinages sélectionnés */}
           {localUsinages.length > 0 && (
             <div className="selection-section">
-              <h4>Sélection actuelle</h4>
+              <h4>{t('currentSelection')}</h4>
               <div className="selection-list">
                 {localUsinages.map(usinage => (
                   <div key={usinage.type} className="selection-item">
@@ -157,7 +160,7 @@ export default function PopupUsinages({
               </div>
 
               <div className="selection-total">
-                <span>Total usinages</span>
+                <span>{t('totalMachining')}</span>
                 <span className="total-value">{formaterPrix(totalUsinages)}</span>
               </div>
             </div>
@@ -167,10 +170,10 @@ export default function PopupUsinages({
         {/* Footer */}
         <div className="popup-footer">
           <button className="btn-cancel" onClick={handleAnnuler}>
-            Annuler
+            {tCommon('actions.cancel')}
           </button>
           <button className="btn-confirm" onClick={handleValider}>
-            Valider
+            {tCommon('actions.validate')}
           </button>
         </div>
       </div>
