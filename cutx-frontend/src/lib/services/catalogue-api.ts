@@ -121,7 +121,7 @@ export interface SearchResult {
 export interface SearchParams {
   q?: string;
   marque?: string;
-  type?: string;
+  productType?: string; // MELAMINE, STRATIFIE, BANDE_DE_CHANT, COMPACT
   categorie?: string;
   sousCategorie?: string;
   epaisseurMin?: number;
@@ -158,7 +158,7 @@ export async function searchCatalogues(params: SearchParams = {}): Promise<Searc
   if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
   if (params.offset !== undefined) queryParams.append('page', String(Math.floor(params.offset / (params.limit || 100)) + 1));
   if (params.sousCategorie) queryParams.append('sousCategorie', params.sousCategorie);
-  if (params.marque) queryParams.append('marque', params.marque);
+  if (params.productType) queryParams.append('productType', params.productType);
   if (params.epaisseurMin) queryParams.append('epaisseur', params.epaisseurMin.toString());
   if (params.enStock) queryParams.append('enStock', 'true');
 
@@ -194,46 +194,27 @@ export async function getCatalogueStats(): Promise<CatalogueStats> {
 }
 
 /**
- * Récupérer toutes les marques disponibles
+ * Récupérer tous les types de produits disponibles
+ * Basé sur le champ productType en base de données
  */
-export async function getMarquesDisponibles(): Promise<string[]> {
-  // Marques réelles du catalogue Bouney
-  return ['B comme Bois', 'Egger', 'Fenix', 'Formica', 'Nebodesign', 'Pfleiderer', 'Polyrey', 'Rehau Rauvisio', 'Unilin'];
-}
-
-/**
- * Récupérer tous les types disponibles
- */
-export async function getTypesDisponibles(): Promise<string[]> {
-  // Route n'existe pas encore - retourner les types connus
+export async function getTypesDisponibles(): Promise<{ value: string; label: string; count?: number }[]> {
+  // Types réels du catalogue (basés sur productType en DB)
   return [
-    'Mélaminé P2',
-    'Mélaminé P5',
-    'Stratifié HPL',
-    'Stratifié CPL',
-    'Compact',
-    'Chant ABS',
-    'Chant PVC',
+    { value: 'MELAMINE', label: 'Mélaminé' },
+    { value: 'STRATIFIE', label: 'Stratifié' },
+    { value: 'BANDE_DE_CHANT', label: 'Bande de chant' },
+    { value: 'COMPACT', label: 'Compact' },
   ];
 }
 
 /**
  * Récupérer toutes les catégories disponibles depuis l'API
- * Déduplique automatiquement car les catégories peuvent exister dans plusieurs catalogues
+ * Retourne les catégories avec panneaux (sous-catégories où les produits sont réellement stockés)
  */
 export async function getSousCategories(): Promise<string[]> {
-  try {
-    const response = await apiCall<{
-      categories: { name: string; slug: string; catalogueName: string }[]
-    }>('/api/catalogues/categories');
-
-    // Dédupliquer les noms de catégories (peuvent exister dans plusieurs catalogues)
-    return [...new Set(response.categories.map(cat => cat.name))];
-  } catch (error) {
-    console.error('Erreur chargement catégories:', error);
-    // Fallback vers les catégories connues
-    return ['Unis', 'Bois', 'Matières', 'Panneaux Déco', 'Panneaux Basiques & Techniques'];
-  }
+  // Catégories réelles avec panneaux (basé sur l'analyse de la DB)
+  // Ce sont les sous-catégories de "Stratifiés - Mélaminés - Compacts - Chants"
+  return ['Unis', 'Bois', 'Matières', 'Fenix'];
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -247,8 +228,8 @@ export async function getAllProduitsAdmin(params: SearchParams = {}): Promise<Se
   const queryParams = new URLSearchParams();
 
   if (params.q) queryParams.append('q', params.q);
-  if (params.marque) queryParams.append('marque', params.marque);
-  if (params.type) queryParams.append('type', params.type);
+  if (params.productType) queryParams.append('productType', params.productType);
+  if (params.sousCategorie) queryParams.append('sousCategorie', params.sousCategorie);
   if (params.sortBy) queryParams.append('sortBy', params.sortBy);
   if (params.sortDirection) queryParams.append('sortDirection', params.sortDirection);
   if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());

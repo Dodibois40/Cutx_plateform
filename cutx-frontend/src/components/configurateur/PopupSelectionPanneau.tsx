@@ -17,30 +17,24 @@ import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
 import {
   searchCatalogues as searchCataloguesAPI,
-  getMarquesDisponibles as getMarquesAPI,
-  getTypesDisponibles as getTypesAPI,
   getSousCategories as getCategoriesAPI,
   type CatalogueProduit,
 } from '@/lib/services/catalogue-api';
 
-type SortColumn = 'marque' | 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
+type SortColumn = 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
 type SortDirection = 'asc' | 'desc';
 
-// Catégories de types simplifiées
-const CATEGORIES_TYPES_SIMPLES = [
-  { value: 'melamine', label: 'Mélaminé', match: (t: string | null) => t?.toLowerCase().includes('mélaminé') || t?.toLowerCase().includes('melamine') },
-  { value: 'hpl', label: 'Stratifié HPL', match: (t: string | null) => t?.toLowerCase().includes('hpl') || t?.toLowerCase().includes('stratifié') },
-  { value: 'compact', label: 'Compact', match: (t: string | null) => t?.toLowerCase().includes('compact') },
-  { value: 'chant', label: 'Chants', match: (t: string | null) => t?.toLowerCase().includes('chant') },
+// Types de produits (basés sur productType en DB)
+const PRODUCT_TYPES = [
+  { value: 'MELAMINE', label: 'Mélaminé' },
+  { value: 'STRATIFIE', label: 'Stratifié' },
+  { value: 'BANDE_DE_CHANT', label: 'Chant' },
+  { value: 'COMPACT', label: 'Compact' },
 ] as const;
 
-type CategorieType = typeof CATEGORIES_TYPES_SIMPLES[number]['value'] | '';
-
-// Les sous-catégories sont maintenant chargées dynamiquement depuis l'API
-
-// Épaisseurs disponibles
-const EPAISSEURS_PANNEAUX = [8, 10, 12, 16, 18, 19, 22, 25, 28, 30, 38];
-const EPAISSEURS_CHANTS = [0.4, 0.5, 0.8, 1, 1.3, 2, 3];
+// Épaisseurs disponibles (basé sur l'analyse de la DB)
+const EPAISSEURS_PANNEAUX = [8, 12, 16, 19, 38];
+const EPAISSEURS_CHANTS = [0.7, 0.8, 0.9, 1, 1.2, 1.5, 2];
 
 interface PopupSelectionPanneauProps {
   open: boolean;
@@ -69,14 +63,10 @@ export default function PopupSelectionPanneau({
 
   // Recherche et filtres
   const [search, setSearch] = useState(initialSearch);
-  const [filtreMarque, setFiltreMarque] = useState<string>('');
   const [filtreSousCategories, setFiltreSousCategories] = useState<string[]>(initialSousCategories);
-  const [filtreCategorie, setFiltreCategorie] = useState<CategorieType>('');
-  const [filtreSousType, setFiltreSousType] = useState<string>('');
+  const [filtreProductType, setFiltreProductType] = useState<string>('');
   const [filtreEpaisseur, setFiltreEpaisseur] = useState<number | null>(null);
   const [filtreEnStock, setFiltreEnStock] = useState(false);
-  const [marques, setMarques] = useState<string[]>([]);
-  const [types, setTypes] = useState<string[]>([]);
   const [sousCategories, setSousCategories] = useState<string[]>([]);
 
   // Tri (100% côté client)
@@ -86,30 +76,21 @@ export default function PopupSelectionPanneau({
   // Total pour affichage
   const [total, setTotal] = useState(0);
 
-  // Épaisseurs dynamiques selon la catégorie
-  const epaisseurs = filtreCategorie === 'chant' ? EPAISSEURS_CHANTS : EPAISSEURS_PANNEAUX;
+  // Épaisseurs dynamiques selon le type de produit
+  const epaisseurs = filtreProductType === 'BANDE_DE_CHANT' ? EPAISSEURS_CHANTS : EPAISSEURS_PANNEAUX;
 
-  // Sous-types filtrés par catégorie
-  const sousTypes = filtreCategorie
-    ? types.filter(t => {
-        const cat = CATEGORIES_TYPES_SIMPLES.find(c => c.value === filtreCategorie);
-        return cat ? cat.match(t) : false;
-      })
-    : [];
+  const hasFilters = search || filtreSousCategories.length > 0 || filtreProductType || filtreEpaisseur || filtreEnStock;
 
-  const hasFilters = search || filtreMarque || filtreSousCategories.length > 0 || filtreCategorie || filtreSousType || filtreEpaisseur || filtreEnStock;
-
-  // Charger les produits avec filtrage côté serveur pour de meilleures performances
+  // Charger les produits avec filtrage côté serveur
   const loadProduits = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Envoyer les filtres au backend - le serveur retourne seulement les produits filtrés
+      // Envoyer les filtres au backend
       const result = await searchCataloguesAPI({
         q: search || undefined,
-        marque: filtreMarque || undefined,
-        // Envoyer la première sous-catégorie au serveur (le reste filtré côté client si plusieurs)
+        productType: filtreProductType || undefined,
         sousCategorie: filtreSousCategories.length === 1 ? filtreSousCategories[0] : undefined,
         epaisseurMin: filtreEpaisseur || undefined,
         enStock: filtreEnStock || undefined,
@@ -123,27 +104,11 @@ export default function PopupSelectionPanneau({
         filteredProduits = filteredProduits.filter(p => filtreSousCategories.includes(p.sousCategorie));
       }
 
-      // Filtre par type de catégorie (mélaminé, HPL, etc.) - côté client
-      if (filtreCategorie) {
-        const cat = CATEGORIES_TYPES_SIMPLES.find(c => c.value === filtreCategorie);
-        if (cat) {
-          filteredProduits = filteredProduits.filter(p => cat.match(p.type));
-        }
-      }
-
-      // Filtre par sous-type - côté client
-      if (filtreSousType) {
-        filteredProduits = filteredProduits.filter(p => p.type === filtreSousType);
-      }
-
       // Tri côté client
       if (sortColumn) {
         filteredProduits.sort((a, b) => {
           let comparison = 0;
           switch (sortColumn) {
-            case 'marque':
-              comparison = (a.marque || '').localeCompare(b.marque || '');
-              break;
             case 'reference':
               comparison = (a.reference || '').localeCompare(b.reference || '');
               break;
@@ -154,8 +119,8 @@ export default function PopupSelectionPanneau({
               comparison = (a.epaisseur || 0) - (b.epaisseur || 0);
               break;
             case 'prix':
-              const prixA = a.prixVenteM2 || a.prixAchatM2 || 0;
-              const prixB = b.prixVenteM2 || b.prixAchatM2 || 0;
+              const prixA = a.prixVenteM2 || a.prixAchatM2 || a.prixMl || 0;
+              const prixB = b.prixVenteM2 || b.prixAchatM2 || b.prixMl || 0;
               comparison = prixA - prixB;
               break;
             case 'stock':
@@ -170,27 +135,20 @@ export default function PopupSelectionPanneau({
 
       setProduits(filteredProduits);
       setTotal(filteredProduits.length);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Erreur chargement:', err);
-      setError(err.message || 'Erreur lors du chargement des produits');
+      setError(err instanceof Error ? err.message : 'Erreur lors du chargement des produits');
     } finally {
       setIsLoading(false);
     }
-  }, [search, filtreMarque, filtreSousCategories, filtreCategorie, filtreSousType, filtreEpaisseur, filtreEnStock, sortColumn, sortDirection]);
+  }, [search, filtreProductType, filtreSousCategories, filtreEpaisseur, filtreEnStock, sortColumn, sortDirection]);
 
-  // Charger les filtres
+  // Charger les catégories disponibles
   useEffect(() => {
     if (!open) return;
     const loadFilters = async () => {
       try {
-        const [marquesData, typesData, categoriesData] = await Promise.all([
-          getMarquesAPI(),
-          getTypesAPI(),
-          getCategoriesAPI(),
-        ]);
-        // Dédupliquer les valeurs pour éviter les clés dupliquées
-        setMarques([...new Set(marquesData)]);
-        setTypes([...new Set(typesData)]);
+        const categoriesData = await getCategoriesAPI();
         setSousCategories([...new Set(categoriesData)]);
       } catch (err) {
         console.error('Erreur chargement filtres:', err);
@@ -212,9 +170,7 @@ export default function PopupSelectionPanneau({
       // Initialiser avec les valeurs des props
       setSearch(initialSearch);
       setFiltreSousCategories(initialSousCategories);
-      setFiltreMarque('');
-      setFiltreCategorie('');
-      setFiltreSousType('');
+      setFiltreProductType('');
       setFiltreEpaisseur(null);
       setFiltreEnStock(false);
       setSortColumn(null);
@@ -262,10 +218,8 @@ export default function PopupSelectionPanneau({
 
   const resetFilters = () => {
     setSearch(initialSearch);
-    setFiltreMarque('');
     setFiltreSousCategories(initialSousCategories);
-    setFiltreCategorie('');
-    setFiltreSousType('');
+    setFiltreProductType('');
     setFiltreEpaisseur(null);
     setFiltreEnStock(false);
     setSortColumn(null);
@@ -281,11 +235,10 @@ export default function PopupSelectionPanneau({
     );
   };
 
-  // Reset sous-type et épaisseur quand on change de catégorie
+  // Reset épaisseur quand on change de type de produit
   useEffect(() => {
-    setFiltreSousType('');
     setFiltreEpaisseur(null);
-  }, [filtreCategorie]);
+  }, [filtreProductType]);
 
   const handleSelectProduit = (produit: CatalogueProduit) => {
     if (onSelectCatalogue) {
@@ -360,15 +313,15 @@ export default function PopupSelectionPanneau({
 
           <div className="separator" />
 
-          {/* Filtre Marque */}
+          {/* Filtre Type de produit */}
           <select
-            value={filtreMarque}
-            onChange={(e) => setFiltreMarque(e.target.value)}
-            className={`filter-select ${filtreMarque ? 'active' : ''}`}
+            value={filtreProductType}
+            onChange={(e) => setFiltreProductType(e.target.value)}
+            className={`filter-select ${filtreProductType ? 'active' : ''}`}
           >
-            <option value="">Marque</option>
-            {marques.map(m => (
-              <option key={m} value={m}>{m}</option>
+            <option value="">Type</option>
+            {PRODUCT_TYPES.map(pt => (
+              <option key={pt.value} value={pt.value}>{pt.label}</option>
             ))}
           </select>
 
@@ -384,32 +337,6 @@ export default function PopupSelectionPanneau({
               </button>
             ))}
           </div>
-
-          {/* Filtre Type */}
-          <select
-            value={filtreCategorie}
-            onChange={(e) => setFiltreCategorie(e.target.value as CategorieType)}
-            className={`filter-select ${filtreCategorie ? 'active' : ''}`}
-          >
-            <option value="">Type</option>
-            {CATEGORIES_TYPES_SIMPLES.map(cat => (
-              <option key={cat.value} value={cat.value}>{cat.label}</option>
-            ))}
-          </select>
-
-          {/* Filtre Sous-type (conditionnel) */}
-          {filtreCategorie && sousTypes.length > 1 && (
-            <select
-              value={filtreSousType}
-              onChange={(e) => setFiltreSousType(e.target.value)}
-              className={`filter-select filter-sous-type ${filtreSousType ? 'active' : ''}`}
-            >
-              <option value="">Sous-type</option>
-              {sousTypes.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          )}
 
           {/* Filtre Épaisseur */}
           <select
@@ -464,12 +391,6 @@ export default function PopupSelectionPanneau({
               <thead>
                 <tr>
                   <th className="col-image">Image</th>
-                  <th className="col-marque sortable" onClick={() => handleSort('marque')}>
-                    <span>Marque</span>
-                    {sortColumn === 'marque' ? (
-                      sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                    ) : <ArrowUpDown size={12} className="sort-inactive" />}
-                  </th>
                   <th className="col-ref sortable" onClick={() => handleSort('reference')}>
                     <span>Réf</span>
                     {sortColumn === 'reference' ? (
@@ -532,11 +453,10 @@ export default function PopupSelectionPanneau({
                           <div className="no-image">—</div>
                         )}
                       </td>
-                      <td className="col-marque">{produit.marque}</td>
                       <td className="col-ref">{produit.reference}</td>
                       <td className="col-nom">{produit.nom}</td>
-                      <td className="col-type">{produit.type}</td>
-                      <td className="col-dim">{produit.epaisseur}</td>
+                      <td className="col-type">{PRODUCT_TYPES.find(pt => pt.value === produit.productType)?.label || produit.productType || '-'}</td>
+                      <td className="col-dim">{produit.epaisseur}mm</td>
                       <td className="col-dimensions">{produit.longueur === 'Variable' ? `Var. × ${produit.largeur}` : (produit.longueur && produit.largeur ? `${produit.longueur} × ${produit.largeur}` : '-')}</td>
                       <td className="col-prix">{prix > 0 ? `${prix.toFixed(2)} ${prixUnit}` : '-'}</td>
                       <td className="col-stock">
