@@ -28,10 +28,10 @@ type SortDirection = 'asc' | 'desc';
 
 // Catégories de types simplifiées
 const CATEGORIES_TYPES_SIMPLES = [
-  { value: 'melamine', label: 'Mélaminé', match: (t: string) => t.toLowerCase().includes('mélaminé') || t.toLowerCase().includes('melamine') },
-  { value: 'hpl', label: 'Stratifié HPL', match: (t: string) => t.toLowerCase().includes('hpl') || t.toLowerCase().includes('stratifié') },
-  { value: 'compact', label: 'Compact', match: (t: string) => t.toLowerCase().includes('compact') },
-  { value: 'chant', label: 'Chants', match: (t: string) => t.toLowerCase().includes('chant') },
+  { value: 'melamine', label: 'Mélaminé', match: (t: string | null) => t?.toLowerCase().includes('mélaminé') || t?.toLowerCase().includes('melamine') },
+  { value: 'hpl', label: 'Stratifié HPL', match: (t: string | null) => t?.toLowerCase().includes('hpl') || t?.toLowerCase().includes('stratifié') },
+  { value: 'compact', label: 'Compact', match: (t: string | null) => t?.toLowerCase().includes('compact') },
+  { value: 'chant', label: 'Chants', match: (t: string | null) => t?.toLowerCase().includes('chant') },
 ] as const;
 
 type CategorieType = typeof CATEGORIES_TYPES_SIMPLES[number]['value'] | '';
@@ -534,7 +534,7 @@ export default function PopupSelectionPanneau({
                       <td className="col-nom">{produit.nom}</td>
                       <td className="col-type">{produit.type}</td>
                       <td className="col-dim">{produit.epaisseur}</td>
-                      <td className="col-dimensions">{produit.longueur && produit.largeur ? `${produit.longueur} × ${produit.largeur}` : '-'}</td>
+                      <td className="col-dimensions">{produit.longueur === 'Variable' ? `Var. × ${produit.largeur}` : (produit.longueur && produit.largeur ? `${produit.longueur} × ${produit.largeur}` : '-')}</td>
                       <td className="col-prix">{prixM2 > 0 ? prixM2.toFixed(2) : '-'}</td>
                       <td className="col-stock">
                         {isEnStock ? (

@@ -16,11 +16,15 @@ export interface CatalogueProduit {
   sousCategorie: string;
   type: string;
   qualiteSupport?: string;
-  longueur: number;
+  productType?: string; // MELAMINE, STRATIFIE, BANDE_DE_CHANT, COMPACT
+  longueur: number | 'Variable';
   largeur: number;
   epaisseur: number;
+  isVariableLength?: boolean;
   stock: 'EN STOCK' | 'Sur commande';
   prixAchatM2?: number;
+  prixMl?: number; // Prix au mètre linéaire (chants)
+  prixUnit?: number; // Prix unitaire
   marge?: number;
   prixVenteM2?: number;
   imageUrl?: string;
@@ -38,7 +42,12 @@ interface ApiPanel {
   thickness: number[];
   defaultLength: number;
   defaultWidth: number;
-  pricePerM2: number;
+  defaultThickness: number | null;
+  isVariableLength: boolean;
+  pricePerM2: number | null;
+  pricePerMl: number | null;
+  pricePerUnit: number | null;
+  productType: string | null;
   material: string;
   finish: string;
   colorCode: string | null;
@@ -56,17 +65,24 @@ interface ApiPanel {
 
 // Transformer un panel API en CatalogueProduit
 function transformPanel(panel: ApiPanel): CatalogueProduit {
-  const epaisseur = panel.thickness[0] || 19;
+  // Épaisseur: priorité à defaultThickness, sinon premier élément du tableau
+  const epaisseur = panel.defaultThickness || panel.thickness[0] || 19;
 
-  // Déterminer la sous-catégorie pour le filtrage:
-  // - Si la catégorie a un parent, utiliser le nom du parent (ex: "Panneaux Basiques & Techniques")
-  // - Sinon, utiliser le nom de la catégorie directement (ex: "Panneaux Déco")
+  // Déterminer la sous-catégorie pour le filtrage
   const sousCategorie = panel.category?.parent?.name
     || panel.category?.name
     || 'Matières';
 
   // Pour la catégorie détaillée (affichage), utiliser le nom exact
   const categorie = panel.category?.name || 'Panneaux';
+
+  // Longueur: 'Variable' si isVariableLength, sinon la valeur
+  const longueur: number | 'Variable' = panel.isVariableLength ? 'Variable' : panel.defaultLength;
+
+  // Prix: selon le type de produit
+  const prixM2 = panel.pricePerM2 || undefined;
+  const prixMl = panel.pricePerMl || undefined;
+  const prixUnit = panel.pricePerUnit || undefined;
 
   return {
     id: panel.id,
@@ -76,13 +92,17 @@ function transformPanel(panel: ApiPanel): CatalogueProduit {
     marque: panel.finish || 'Bouney',
     categorie,
     sousCategorie,
-    type: panel.material,
-    longueur: panel.defaultLength,
+    type: panel.material || panel.productType || '',
+    productType: panel.productType || undefined,
+    longueur,
     largeur: panel.defaultWidth,
     epaisseur,
+    isVariableLength: panel.isVariableLength,
     stock: panel.stockStatus === 'EN STOCK' ? 'EN STOCK' : 'Sur commande',
-    prixAchatM2: panel.pricePerM2,
-    prixVenteM2: panel.pricePerM2,
+    prixAchatM2: prixM2,
+    prixMl,
+    prixUnit,
+    prixVenteM2: prixM2,
     imageUrl: panel.imageUrl || undefined,
     disponible: panel.isActive,
     createdAt: panel.createdAt,

@@ -133,7 +133,7 @@ export class CataloguesService {
         include: {
           category: {
             include: {
-              parent: true, // Inclure la catégorie parente pour le filtrage
+              parent: true,
             },
           },
         },
@@ -180,7 +180,7 @@ export class CataloguesService {
         catalogue: true,
         category: {
           include: {
-            parent: true, // Inclure la catégorie parente
+            parent: true,
           },
         },
       },
@@ -196,7 +196,6 @@ export class CataloguesService {
     search?: string;
     page?: number;
     limit?: number;
-    // Filtres additionnels pour éviter le filtrage côté client
     sousCategorie?: string;
     marque?: string;
     epaisseur?: number;
@@ -207,7 +206,6 @@ export class CataloguesService {
       catalogue: { isActive: true },
     };
 
-    // Search by name or reference
     if (options?.search) {
       where.OR = [
         { name: { contains: options.search, mode: 'insensitive' } },
@@ -215,7 +213,6 @@ export class CataloguesService {
       ];
     }
 
-    // Filtre par sous-catégorie (parent category name)
     if (options?.sousCategorie) {
       where.category = {
         OR: [
@@ -225,23 +222,20 @@ export class CataloguesService {
       };
     }
 
-    // Filtre par marque (finish field)
     if (options?.marque) {
       where.finish = { contains: options.marque, mode: 'insensitive' };
     }
 
-    // Filtre par épaisseur
     if (options?.epaisseur) {
       where.thickness = { has: options.epaisseur };
     }
 
-    // Filtre par stock
     if (options?.enStock) {
       where.stockStatus = 'EN STOCK';
     }
 
     const page = options?.page || 1;
-    const limit = options?.limit || 10000; // Pas de limite si non spécifié
+    const limit = options?.limit || 10000;
     const skip = (page - 1) * limit;
 
     const [panels, total] = await Promise.all([
@@ -250,7 +244,6 @@ export class CataloguesService {
         skip,
         take: limit,
         orderBy: { name: 'asc' },
-        // Optimisation: select only needed fields instead of full include
         select: {
           id: true,
           reference: true,
@@ -259,9 +252,15 @@ export class CataloguesService {
           thickness: true,
           defaultLength: true,
           defaultWidth: true,
+          defaultThickness: true,
+          isVariableLength: true,
           pricePerM2: true,
+          pricePerMl: true,
+          pricePerUnit: true,
+          productType: true,
           material: true,
           finish: true,
+          colorCode: true,
           imageUrl: true,
           isActive: true,
           stockStatus: true,
@@ -273,8 +272,9 @@ export class CataloguesService {
           category: {
             select: {
               name: true,
+              slug: true,
               parent: {
-                select: { name: true },
+                select: { name: true, slug: true },
               },
             },
           },
