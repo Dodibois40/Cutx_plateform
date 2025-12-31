@@ -1,47 +1,83 @@
 // lib/configurateur/constants.ts
 // Constantes et tarifs pour le Configurateur V3 - Découpe panneau + Finition optionnelle
+// i18n: Labels are now translation keys - use with t() function from next-intl
 
 import type {
-  OptionMateriau,
-  OptionFinition,
-  OptionBrillance,
-  OptionUsinage,
   LignePrestationV3,
   Chants,
   CategoriePanneau,
   TypeFinition,
+  Brillance,
+  Finition,
 } from './types';
 
-// === MATÉRIAUX ===
-export const MATERIAUX: readonly OptionMateriau[] = [
-  { value: 'mdf', label: 'MDF' },
-  { value: 'plaque_bois', label: 'Panneau plaqué bois' },
-  { value: 'bois_massif', label: 'Bois massif' },
-  { value: 'melamine', label: 'Mélaminé' },
-] as const;
+// === MATÉRIAUX (values only - labels come from translations) ===
+export const MATERIAUX_VALUES = ['mdf', 'plaque_bois', 'bois_massif', 'melamine'] as const;
+export type MateriauValue = typeof MATERIAUX_VALUES[number];
 
-// === FINITIONS ===
-export const FINITIONS: readonly OptionFinition[] = [
-  { value: 'laque', label: 'Laque' },
-  { value: 'vernis', label: 'Vernis' },
-] as const;
+// Mapping from value to translation key path
+export const MATERIAUX_TRANSLATION_KEYS: Record<MateriauValue, string> = {
+  mdf: 'products.materials.mdf',
+  plaque_bois: 'products.materials.plaqueBois',
+  bois_massif: 'products.materials.boisMassif',
+  melamine: 'products.materials.melamine',
+};
+
+// === FINITIONS (values only - labels come from translations) ===
+export const FINITIONS_VALUES: readonly Finition[] = ['laque', 'vernis'] as const;
+
+export const FINITIONS_TRANSLATION_KEYS: Record<Finition, string> = {
+  laque: 'products.finishes.lacquer',
+  vernis: 'products.finishes.varnish',
+};
 
 // === TYPES DE FINITION (menu déroulant sur ligne panneau) ===
-export const TYPES_FINITION: { value: TypeFinition; label: string }[] = [
-  { value: 'vernis', label: 'Vernis' },
-  { value: 'teinte_vernis', label: 'Teinte + Vernis' },
-  { value: 'laque', label: 'Laque' },
-];
+export const TYPES_FINITION_VALUES: readonly TypeFinition[] = ['vernis', 'teinte_vernis', 'laque'] as const;
+
+export const TYPES_FINITION_TRANSLATION_KEYS: Record<TypeFinition, string> = {
+  vernis: 'configurateur.finish.varnish',
+  teinte_vernis: 'configurateur.finish.tintVarnish',
+  laque: 'configurateur.finish.lacquer',
+};
 
 // === BRILLANCES AVEC PRIX (Tarifs Excel) ===
-export const BRILLANCES: readonly OptionBrillance[] = [
-  { value: 'soft_touch', label: 'Soft Touch', prixVernis: 46, prixLaque: 75 },
-  { value: 'gloss_naturel', label: '0 Gloss Naturel', prixVernis: 42, prixLaque: null },
-  { value: 'gloss_mat', label: '10 Gloss Mat', prixVernis: 40, prixLaque: 60 },
-  { value: 'gloss_satine', label: '30 Gloss Satiné', prixVernis: 45, prixLaque: 70 },
-  { value: 'gloss_brillant', label: '75 Gloss Brillant', prixVernis: 120, prixLaque: 180 },
-  { value: 'gloss_poli_miroir', label: '90 Gloss Poli Miroir', prixVernis: 200, prixLaque: 260 },
+export const BRILLANCES_VALUES: readonly Brillance[] = [
+  'soft_touch',
+  'gloss_naturel',
+  'gloss_mat',
+  'gloss_satine',
+  'gloss_brillant',
+  'gloss_poli_miroir',
 ] as const;
+
+export interface BrillancePricing {
+  value: Brillance;
+  prixVernis: number | null;
+  prixLaque: number | null;
+}
+
+export const BRILLANCES_PRICING: readonly BrillancePricing[] = [
+  { value: 'soft_touch', prixVernis: 46, prixLaque: 75 },
+  { value: 'gloss_naturel', prixVernis: 42, prixLaque: null },
+  { value: 'gloss_mat', prixVernis: 40, prixLaque: 60 },
+  { value: 'gloss_satine', prixVernis: 45, prixLaque: 70 },
+  { value: 'gloss_brillant', prixVernis: 120, prixLaque: 180 },
+  { value: 'gloss_poli_miroir', prixVernis: 200, prixLaque: 260 },
+] as const;
+
+export const BRILLANCES_TRANSLATION_KEYS: Record<Brillance, string> = {
+  soft_touch: 'products.gloss.softTouch',
+  gloss_naturel: 'products.gloss.glossNatural',
+  gloss_mat: 'products.gloss.glossMat',
+  gloss_satine: 'products.gloss.glossSatin',
+  gloss_brillant: 'products.gloss.glossBrilliant',
+  gloss_poli_miroir: 'products.gloss.glossMirror',
+};
+
+// Helper to get brillance pricing by value
+export function getBrillancePricing(value: Brillance): BrillancePricing | undefined {
+  return BRILLANCES_PRICING.find(b => b.value === value);
+}
 
 // === RÈGLES DE CALCUL (Depuis Excel) ===
 export const REGLES = {
@@ -63,7 +99,146 @@ export const DEFAULTS = {
   percage: false,
 } as const;
 
-// === PLACEHOLDERS ===
+// === PLACEHOLDERS (translation keys for use with t()) ===
+export const PLACEHOLDER_KEYS = {
+  reference: 'configurateur.placeholders.reference',
+  teinte: 'configurateur.placeholders.tint',
+  codeCouleurLaque: 'configurateur.placeholders.lacquerCode',
+  referenceChantier: 'configurateur.placeholders.projectReference',
+} as const;
+
+// === USINAGES DISPONIBLES (values with pricing - labels from translations) ===
+export type UsinageType = 'usinage_passe_main' | 'rainure_visible' | 'moulure';
+
+export interface UsinagePricing {
+  type: UsinageType;
+  prix: number;
+  uniteKey: string; // Translation key for unit
+}
+
+export const USINAGES_VALUES: readonly UsinageType[] = [
+  'usinage_passe_main',
+  'rainure_visible',
+  'moulure',
+] as const;
+
+export const USINAGES_PRICING: readonly UsinagePricing[] = [
+  { type: 'usinage_passe_main', prix: 20, uniteKey: 'products.machiningUnits.linearMeter' },
+  { type: 'rainure_visible', prix: 10, uniteKey: 'products.machiningUnits.linearMeter' },
+  { type: 'moulure', prix: 20, uniteKey: 'products.machiningUnits.linearMeter' },
+] as const;
+
+export const USINAGES_TRANSLATION_KEYS: Record<UsinageType, string> = {
+  usinage_passe_main: 'products.machining.handleGroove',
+  rainure_visible: 'products.machining.visibleGroove',
+  moulure: 'products.machining.moulding',
+};
+
+// Helper to get usinage pricing by type
+export function getUsinagePricing(type: UsinageType): UsinagePricing | undefined {
+  return USINAGES_PRICING.find(u => u.type === type);
+}
+
+// === INFOBULLES (TOOLTIPS) - translation keys ===
+export const TOOLTIP_KEYS = {
+  reference: 'configurateur.tooltips.reference',
+  materiaux: 'configurateur.tooltips.materials',
+  finition: 'configurateur.tooltips.finish',
+  teinte: 'configurateur.tooltips.tint',
+  codeCouleurLaque: 'configurateur.tooltips.lacquerCode',
+  brillance: 'configurateur.tooltips.gloss',
+  dimensions: 'configurateur.tooltips.dimensions',
+  faces: 'configurateur.tooltips.faces',
+  chants: 'configurateur.tooltips.edges',
+  usinages: 'configurateur.tooltips.machining',
+  percage: 'configurateur.tooltips.drilling',
+  copier: 'configurateur.tooltips.copy',
+  surfaceMin: 'configurateur.tooltips.minSurface',
+} as const;
+
+// === INDICATEURS D'ÉTAT (translation keys + styling) ===
+export type EtatIndicateurKey = 'vide' | 'en_cours' | 'complete' | 'erreur';
+
+export interface EtatIndicateur {
+  icone: string;
+  couleur: string;
+  /** @deprecated Use labelKey with t() for i18n */
+  label: string; // French fallback for backward compatibility
+  labelKey: string; // Translation key
+}
+
+export const ETAT_INDICATEURS: Record<EtatIndicateurKey, EtatIndicateur> = {
+  vide: { icone: '○', couleur: 'var(--admin-text-muted)', label: 'Vide', labelKey: 'configurateur.status.empty' },
+  en_cours: { icone: '◐', couleur: 'var(--admin-ardoise)', label: 'En cours', labelKey: 'configurateur.status.inProgress' },
+  complete: { icone: '●', couleur: 'var(--admin-olive)', label: 'Complète', labelKey: 'configurateur.status.complete' },
+  erreur: { icone: '⚠', couleur: 'var(--admin-status-danger)', label: 'Erreur', labelKey: 'configurateur.status.error' },
+} as const;
+
+// === CATÉGORIES DE PANNEAUX ===
+export const CATEGORIES_PANNEAUX_VALUES: readonly CategoriePanneau[] = [
+  'mdf',
+  'mdf_hydro',
+  'agglo_brut',
+  'agglo_plaque',
+  'cp',
+  'bois_massif',
+] as const;
+
+export const CATEGORIES_PANNEAUX_TRANSLATION_KEYS: Record<CategoriePanneau, string> = {
+  mdf: 'products.panelCategories.mdf',
+  mdf_hydro: 'products.panelCategories.mdfHydro',
+  agglo_brut: 'products.panelCategories.chipboardRaw',
+  agglo_plaque: 'products.panelCategories.chipboardVeneer',
+  cp: 'products.panelCategories.plywood',
+  bois_massif: 'products.panelCategories.solidWood',
+};
+
+// === BACKWARD COMPATIBILITY: Legacy exports with label field ===
+// These are deprecated - use the *_VALUES and *_TRANSLATION_KEYS instead
+// Components should migrate to using t(TRANSLATION_KEYS[value]) pattern
+
+/** @deprecated Use MATERIAUX_VALUES and MATERIAUX_TRANSLATION_KEYS with t() */
+export const MATERIAUX = MATERIAUX_VALUES.map(value => ({
+  value,
+  label: value, // Placeholder - component should use t(MATERIAUX_TRANSLATION_KEYS[value])
+}));
+
+/** @deprecated Use FINITIONS_VALUES and FINITIONS_TRANSLATION_KEYS with t() */
+export const FINITIONS = FINITIONS_VALUES.map(value => ({
+  value,
+  label: value, // Placeholder - component should use t(FINITIONS_TRANSLATION_KEYS[value])
+}));
+
+/** @deprecated Use TYPES_FINITION_VALUES and TYPES_FINITION_TRANSLATION_KEYS with t() */
+export const TYPES_FINITION = TYPES_FINITION_VALUES.map(value => ({
+  value,
+  label: value, // Placeholder - component should use t(TYPES_FINITION_TRANSLATION_KEYS[value])
+}));
+
+/** @deprecated Use BRILLANCES_PRICING and BRILLANCES_TRANSLATION_KEYS with t() */
+export const BRILLANCES = BRILLANCES_PRICING.map(b => ({
+  value: b.value,
+  label: b.value, // Placeholder - component should use t(BRILLANCES_TRANSLATION_KEYS[value])
+  prixVernis: b.prixVernis,
+  prixLaque: b.prixLaque,
+}));
+
+/** @deprecated Use USINAGES_PRICING and USINAGES_TRANSLATION_KEYS with t() */
+export const USINAGES_OPTIONS = USINAGES_PRICING.map(u => ({
+  type: u.type,
+  label: u.type, // Placeholder - component should use t(USINAGES_TRANSLATION_KEYS[type])
+  prix: u.prix,
+  unite: 'mètre linéaire', // Legacy - component should use t(u.uniteKey)
+}));
+
+/** @deprecated Use CATEGORIES_PANNEAUX_VALUES and CATEGORIES_PANNEAUX_TRANSLATION_KEYS with t() */
+export const CATEGORIES_PANNEAUX = CATEGORIES_PANNEAUX_VALUES.map(value => ({
+  value,
+  label: value, // Placeholder - component should use t(CATEGORIES_PANNEAUX_TRANSLATION_KEYS[value])
+}));
+
+// === Legacy PLACEHOLDERS and TOOLTIPS for backward compat ===
+/** @deprecated Use PLACEHOLDER_KEYS with t() */
 export const PLACEHOLDERS = {
   reference: 'Réf: Débit 1',
   teinte: 'Ex: Chêne naturel',
@@ -71,14 +246,7 @@ export const PLACEHOLDERS = {
   referenceChantier: 'Ex: Cuisine Dupont',
 } as const;
 
-// === USINAGES DISPONIBLES ===
-export const USINAGES_OPTIONS: readonly OptionUsinage[] = [
-  { type: 'usinage_passe_main', label: 'Usinage passe main', prix: 20, unite: 'mètre linéaire' },
-  { type: 'rainure_visible', label: 'Rainure visible', prix: 10, unite: 'mètre linéaire' },
-  { type: 'moulure', label: 'Moulure', prix: 20, unite: 'mètre linéaire' },
-] as const;
-
-// === INFOBULLES (TOOLTIPS) ===
+/** @deprecated Use TOOLTIP_KEYS with t() */
 export const TOOLTIPS = {
   reference: 'Identifiant unique de la pièce (ex: FT1 - Façade tiroir)',
   materiaux: 'Type de support à traiter',
@@ -94,24 +262,6 @@ export const TOOLTIPS = {
   copier: 'Duplique la ligne. Vous devrez saisir une nouvelle référence',
   surfaceMin: 'Minimum facturable : 0.25 m² par face',
 } as const;
-
-// === INDICATEURS D'ÉTAT ===
-export const ETAT_INDICATEURS = {
-  vide: { icone: '○', couleur: 'var(--admin-text-muted)', label: 'Vide' },
-  en_cours: { icone: '◐', couleur: 'var(--admin-ardoise)', label: 'En cours' },
-  complete: { icone: '●', couleur: 'var(--admin-olive)', label: 'Complète' },
-  erreur: { icone: '⚠', couleur: 'var(--admin-status-danger)', label: 'Erreur' },
-} as const;
-
-// === CATÉGORIES DE PANNEAUX ===
-export const CATEGORIES_PANNEAUX: { value: CategoriePanneau; label: string }[] = [
-  { value: 'mdf', label: 'MDF Standard' },
-  { value: 'mdf_hydro', label: 'MDF Hydrofuge' },
-  { value: 'agglo_brut', label: 'Aggloméré brut' },
-  { value: 'agglo_plaque', label: 'Aggloméré plaqué' },
-  { value: 'cp', label: 'Contreplaqué' },
-  { value: 'bois_massif', label: 'Bois massif' },
-];
 
 // === FONCTION POUR CRÉER UNE NOUVELLE LIGNE PANNEAU ===
 export function creerNouvelleLigne(): LignePrestationV3 {
@@ -233,4 +383,3 @@ export function creerLigneFinition(lignePanneau: LignePrestationV3): LignePresta
     prixTTC: 0,
   };
 }
-
