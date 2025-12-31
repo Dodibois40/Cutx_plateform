@@ -3,6 +3,7 @@
 import { ArrowDownToLine, Paintbrush } from 'lucide-react';
 import type { LignePrestationV3, TypeFinition } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import LignePanneau from './LignePanneau';
 import InfoBulle, { INFOBULLES_CONTENU } from './InfoBulle';
 
@@ -11,6 +12,7 @@ export type ColonneDuplicable = 'percage';
 interface TableauPrestationsProps {
   lignes: LignePrestationV3[];
   panneauGlobal: PanneauCatalogue | null;
+  panneauMulticouche: PanneauMulticouche | null;
   onUpdateLigne: (id: string, updates: Partial<LignePrestationV3>) => void;
   onSupprimerLigne: (id: string) => void;
   onCopierLigne: (id: string) => void;
@@ -61,6 +63,7 @@ function ApplyColumnButton({
 export default function TableauPrestations({
   lignes,
   panneauGlobal,
+  panneauMulticouche,
   onUpdateLigne,
   onSupprimerLigne,
   onCopierLigne,
@@ -162,6 +165,7 @@ export default function TableauPrestations({
                   ligne={lignePanneau}
                   ligneFinition={ligneFinition || null}
                   panneauGlobal={panneauGlobal}
+                  panneauMulticouche={panneauMulticouche}
                   index={index}
                   onUpdate={(updates) => onUpdateLigne(lignePanneau.id, updates)}
                   onUpdateFinition={ligneFinition ? (updates) => onUpdateLigne(ligneFinition.id, updates) : undefined}
