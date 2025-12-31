@@ -34,6 +34,40 @@ export class CataloguesController {
     return { panels };
   }
 
+  @Get('categories')
+  async findAllCategories() {
+    const categories = await this.cataloguesService.findAllParentCategories();
+    return { categories };
+  }
+
+  @Get('panels')
+  async findAllPanels(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sousCategorie') sousCategorie?: string,
+    @Query('productType') productType?: string,
+    @Query('epaisseur') epaisseur?: string,
+    @Query('enStock') enStock?: string,
+  ) {
+    const result = await this.cataloguesService.findAllPanels({
+      search,
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : undefined, // Pas de limite par défaut
+      sousCategorie,
+      productType,
+      epaisseur: epaisseur ? parseFloat(epaisseur) : undefined,
+      enStock: enStock === 'true',
+    });
+
+    return {
+      panels: result.panels,
+      total: result.total,
+      page: page ? parseInt(page, 10) : 1,
+      limit: result.panels.length,
+    };
+  }
+
   @Get(':slug')
   async findOne(@Param('slug') slug: string) {
     const catalogue = await this.cataloguesService.findCatalogueBySlug(slug);

@@ -197,7 +197,7 @@ export class CataloguesService {
     page?: number;
     limit?: number;
     sousCategorie?: string;
-    marque?: string;
+    productType?: string; // MELAMINE, STRATIFIE, BANDE_DE_CHANT, COMPACT
     epaisseur?: number;
     enStock?: boolean;
   }): Promise<{ panels: Panel[]; total: number }> {
@@ -222,8 +222,8 @@ export class CataloguesService {
       };
     }
 
-    if (options?.marque) {
-      where.finish = { contains: options.marque, mode: 'insensitive' };
+    if (options?.productType) {
+      where.productType = options.productType;
     }
 
     if (options?.epaisseur) {
