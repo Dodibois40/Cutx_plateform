@@ -54,6 +54,8 @@ function ConfigurateurContent() {
     lastSaved,
     panneauGlobal,
     setPanneauGlobal,
+    panneauMulticouche,
+    setPanneauMulticouche,
     panneauxCatalogue,
     isImporting,
     toast,
@@ -100,6 +102,8 @@ function ConfigurateurContent() {
         panneauGlobal={panneauGlobal}
         panneauxCatalogue={panneauxCatalogue}
         onSelectPanneau={setPanneauGlobal}
+        panneauMulticouche={panneauMulticouche}
+        onSelectMulticouche={setPanneauMulticouche}
       />
 
       {/* Toast Notification */}
@@ -147,6 +151,7 @@ function ConfigurateurContent() {
         <TableauPrestations
           lignes={lignes}
           panneauGlobal={panneauGlobal}
+          panneauMulticouche={panneauMulticouche}
           onUpdateLigne={handleUpdateLigne}
           onSupprimerLigne={handleSupprimerLigne}
           onCopierLigne={handleCopierLigne}
