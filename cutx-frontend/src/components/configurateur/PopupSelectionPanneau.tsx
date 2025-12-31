@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -19,6 +19,7 @@ import {
   searchCatalogues as searchCataloguesAPI,
   getMarquesDisponibles as getMarquesAPI,
   getTypesDisponibles as getTypesAPI,
+  getSousCategories as getCategoriesAPI,
   type CatalogueProduit,
 } from '@/lib/services/catalogue-api';
 
@@ -35,8 +36,7 @@ const CATEGORIES_TYPES_SIMPLES = [
 
 type CategorieType = typeof CATEGORIES_TYPES_SIMPLES[number]['value'] | '';
 
-// Sous-catégories (dossiers du catalogue)
-const SOUS_CATEGORIES = ['Unis', 'Bois', 'Matières'] as const;
+// Les sous-catégories sont maintenant chargées dynamiquement depuis l'API
 
 // Épaisseurs disponibles
 const EPAISSEURS_PANNEAUX = [8, 10, 12, 16, 18, 19, 22, 25, 28, 30, 38];
@@ -50,12 +50,17 @@ interface PopupSelectionPanneauProps {
   onSelect: (panneau: PanneauCatalogue, prixM2: number) => void;
   onSelectCatalogue?: (produit: ProduitCatalogue) => void;
   onClose: () => void;
+  // Filtres initiaux pour présélection selon type de couche
+  initialSearch?: string;
+  initialSousCategories?: string[]; // Permet de filtrer sur plusieurs catégories (ex: Âme = basique + technique)
 }
 
 export default function PopupSelectionPanneau({
   open,
   onSelectCatalogue,
   onClose,
+  initialSearch = '',
+  initialSousCategories = [],
 }: PopupSelectionPanneauProps) {
   const [mounted, setMounted] = useState(false);
   const [produits, setProduits] = useState<CatalogueProduit[]>([]);
@@ -63,15 +68,16 @@ export default function PopupSelectionPanneau({
   const [error, setError] = useState<string | null>(null);
 
   // Recherche et filtres
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
   const [filtreMarque, setFiltreMarque] = useState<string>('');
-  const [filtreSousCategorie, setFiltreSousCategorie] = useState<string>('');
+  const [filtreSousCategories, setFiltreSousCategories] = useState<string[]>(initialSousCategories);
   const [filtreCategorie, setFiltreCategorie] = useState<CategorieType>('');
   const [filtreSousType, setFiltreSousType] = useState<string>('');
-  const [filtreEpaisseur, setFiltreEpaisseur] = useState<number | null>(19);
+  const [filtreEpaisseur, setFiltreEpaisseur] = useState<number | null>(null);
   const [filtreEnStock, setFiltreEnStock] = useState(false);
   const [marques, setMarques] = useState<string[]>([]);
   const [types, setTypes] = useState<string[]>([]);
+  const [sousCategories, setSousCategories] = useState<string[]>([]);
 
   // Tri (100% côté client)
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
@@ -91,29 +97,33 @@ export default function PopupSelectionPanneau({
       })
     : [];
 
-  const hasFilters = search || filtreMarque || filtreSousCategorie || filtreCategorie || filtreSousType || filtreEpaisseur || filtreEnStock;
+  const hasFilters = search || filtreMarque || filtreSousCategories.length > 0 || filtreCategorie || filtreSousType || filtreEpaisseur || filtreEnStock;
 
-  // Charger les produits
+  // Charger les produits avec filtrage côté serveur pour de meilleures performances
   const loadProduits = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Charger tous les produits sans tri API (tri côté client)
+      // Envoyer les filtres au backend - le serveur retourne seulement les produits filtrés
       const result = await searchCataloguesAPI({
         q: search || undefined,
         marque: filtreMarque || undefined,
-        limit: 1500,
-        offset: 0,
+        // Envoyer la première sous-catégorie au serveur (le reste filtré côté client si plusieurs)
+        sousCategorie: filtreSousCategories.length === 1 ? filtreSousCategories[0] : undefined,
+        epaisseurMin: filtreEpaisseur || undefined,
+        enStock: filtreEnStock || undefined,
       });
 
       let filteredProduits = result.produits as CatalogueProduit[];
 
-      // Filtrage côté client
-      if (filtreSousCategorie) {
-        filteredProduits = filteredProduits.filter(p => p.sousCategorie === filtreSousCategorie);
+      // Filtrage côté client uniquement pour les cas complexes
+      // (plusieurs sous-catégories sélectionnées)
+      if (filtreSousCategories.length > 1) {
+        filteredProduits = filteredProduits.filter(p => filtreSousCategories.includes(p.sousCategorie));
       }
 
+      // Filtre par type de catégorie (mélaminé, HPL, etc.) - côté client
       if (filtreCategorie) {
         const cat = CATEGORIES_TYPES_SIMPLES.find(c => c.value === filtreCategorie);
         if (cat) {
@@ -121,19 +131,12 @@ export default function PopupSelectionPanneau({
         }
       }
 
+      // Filtre par sous-type - côté client
       if (filtreSousType) {
         filteredProduits = filteredProduits.filter(p => p.type === filtreSousType);
       }
 
-      if (filtreEpaisseur) {
-        filteredProduits = filteredProduits.filter(p => p.epaisseur === filtreEpaisseur);
-      }
-
-      if (filtreEnStock) {
-        filteredProduits = filteredProduits.filter(p => p.stock === 'EN STOCK');
-      }
-
-      // Tri côté client (100%)
+      // Tri côté client
       if (sortColumn) {
         filteredProduits.sort((a, b) => {
           let comparison = 0;
@@ -173,19 +176,22 @@ export default function PopupSelectionPanneau({
     } finally {
       setIsLoading(false);
     }
-  }, [search, filtreMarque, filtreSousCategorie, filtreCategorie, filtreSousType, filtreEpaisseur, filtreEnStock, sortColumn, sortDirection]);
+  }, [search, filtreMarque, filtreSousCategories, filtreCategorie, filtreSousType, filtreEpaisseur, filtreEnStock, sortColumn, sortDirection]);
 
   // Charger les filtres
   useEffect(() => {
     if (!open) return;
     const loadFilters = async () => {
       try {
-        const [marquesData, typesData] = await Promise.all([
+        const [marquesData, typesData, categoriesData] = await Promise.all([
           getMarquesAPI(),
           getTypesAPI(),
+          getCategoriesAPI(),
         ]);
-        setMarques(marquesData);
-        setTypes(typesData);
+        // Dédupliquer les valeurs pour éviter les clés dupliquées
+        setMarques([...new Set(marquesData)]);
+        setTypes([...new Set(typesData)]);
+        setSousCategories([...new Set(categoriesData)]);
       } catch (err) {
         console.error('Erreur chargement filtres:', err);
       }
@@ -193,27 +199,47 @@ export default function PopupSelectionPanneau({
     loadFilters();
   }, [open]);
 
-  // Charger les produits quand popup ouverte ou filtres changent
-  useEffect(() => {
-    if (open) {
-      loadProduits();
-    }
-  }, [open, loadProduits]);
+  // Ref pour tracker l'état précédent de open et éviter les doublons
+  const wasOpenRef = useRef(false);
+  // Ref pour savoir si c'est le premier chargement après ouverture
+  const isFirstLoadRef = useRef(false);
 
-  // Reset quand on ferme
+  // Reset et chargement SEULEMENT quand on ouvre (open passe de false à true)
   useEffect(() => {
-    if (!open) {
-      setSearch('');
+    if (open && !wasOpenRef.current) {
+      // Marquer qu'on vient d'ouvrir - le prochain render aura les bons filtres
+      isFirstLoadRef.current = true;
+      // Initialiser avec les valeurs des props
+      setSearch(initialSearch);
+      setFiltreSousCategories(initialSousCategories);
       setFiltreMarque('');
-      setFiltreSousCategorie('');
       setFiltreCategorie('');
       setFiltreSousType('');
-      setFiltreEpaisseur(19); // Par défaut 19mm
+      setFiltreEpaisseur(null);
       setFiltreEnStock(false);
       setSortColumn(null);
       setSortDirection('asc');
     }
-  }, [open]);
+    wasOpenRef.current = open;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]); // Intentionnellement on n'inclut pas initialSearch/initialSousCategories
+
+  // Charger les produits quand les filtres changent (après le reset)
+  useEffect(() => {
+    // Ne charger que si la popup est ouverte
+    if (!open) return;
+
+    // Skip le premier effet quand open devient true (les filtres ne sont pas encore mis à jour)
+    // loadProduits sera appelé au prochain render quand les filtres seront mis à jour
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      // On ne charge pas ici - on attend que les filtres soient mis à jour
+      // Ce qui va recréer loadProduits et déclencher cet effet à nouveau
+      return;
+    }
+
+    loadProduits();
+  }, [open, loadProduits]);
 
   // Montage client
   useEffect(() => {
@@ -235,15 +261,24 @@ export default function PopupSelectionPanneau({
   };
 
   const resetFilters = () => {
-    setSearch('');
+    setSearch(initialSearch);
     setFiltreMarque('');
-    setFiltreSousCategorie('');
+    setFiltreSousCategories(initialSousCategories);
     setFiltreCategorie('');
     setFiltreSousType('');
-    setFiltreEpaisseur(19); // Par défaut 19mm
+    setFiltreEpaisseur(null);
     setFiltreEnStock(false);
     setSortColumn(null);
     setSortDirection('asc');
+  };
+
+  // Toggle une catégorie dans le filtre multi-catégories
+  const toggleSousCategorie = (cat: string) => {
+    setFiltreSousCategories(prev =>
+      prev.includes(cat)
+        ? prev.filter(c => c !== cat)
+        : [...prev, cat]
+    );
   };
 
   // Reset sous-type et épaisseur quand on change de catégorie
@@ -337,17 +372,18 @@ export default function PopupSelectionPanneau({
             ))}
           </select>
 
-          {/* Filtre Sous-catégorie (Unis, Bois, Matières) */}
-          <select
-            value={filtreSousCategorie}
-            onChange={(e) => setFiltreSousCategorie(e.target.value)}
-            className={`filter-select ${filtreSousCategorie ? 'active' : ''}`}
-          >
-            <option value="">Catégorie</option>
-            {SOUS_CATEGORIES.map(sc => (
-              <option key={sc} value={sc}>{sc}</option>
+          {/* Filtre Catégories (multi-sélection avec chips) */}
+          <div className="filter-categories-wrapper">
+            {sousCategories.map(sc => (
+              <button
+                key={sc}
+                onClick={() => toggleSousCategorie(sc)}
+                className={`filter-chip ${filtreSousCategories.includes(sc) ? 'active' : ''}`}
+              >
+                {sc}
+              </button>
             ))}
-          </select>
+          </div>
 
           {/* Filtre Type */}
           <select
@@ -498,7 +534,7 @@ export default function PopupSelectionPanneau({
                       <td className="col-nom">{produit.nom}</td>
                       <td className="col-type">{produit.type}</td>
                       <td className="col-dim">{produit.epaisseur}</td>
-                      <td className="col-dimensions">{produit.longueur} × {produit.largeur}</td>
+                      <td className="col-dimensions">{produit.longueur && produit.largeur ? `${produit.longueur} × ${produit.largeur}` : '-'}</td>
                       <td className="col-prix">{prixM2 > 0 ? prixM2.toFixed(2) : '-'}</td>
                       <td className="col-stock">
                         {isEnStock ? (
@@ -696,6 +732,38 @@ export default function PopupSelectionPanneau({
 
           .filter-sous-type {
             max-width: 130px;
+          }
+
+          .filter-categories-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+          }
+
+          .filter-chip {
+            height: 28px;
+            padding: 0 10px;
+            background: var(--admin-bg-tertiary);
+            border: 1px solid var(--admin-border-default);
+            border-radius: 14px;
+            font-size: 0.7rem;
+            color: var(--admin-text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+          }
+
+          .filter-chip:hover {
+            border-color: var(--admin-border-hover);
+            background: var(--admin-bg-hover);
+          }
+
+          .filter-chip.active {
+            background: var(--admin-olive-bg);
+            border-color: var(--admin-olive);
+            color: var(--admin-olive);
+            font-weight: 600;
           }
 
           .filter-toggle {
