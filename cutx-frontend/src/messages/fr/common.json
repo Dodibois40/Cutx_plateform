@@ -17,12 +17,12 @@
   "status": {
     "loading": "Chargement...",
     "error": "Une erreur est survenue",
-    "success": "Operation reussie",
-    "notFound": "Non trouve"
+    "success": "Opération réussie",
+    "notFound": "Non trouvé"
   },
   "auth": {
     "signIn": "Connexion",
     "signUp": "Inscription",
-    "signOut": "Deconnexion"
+    "signOut": "Déconnexion"
   }
 }

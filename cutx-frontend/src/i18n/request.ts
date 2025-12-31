@@ -10,10 +10,21 @@ export default getRequestConfig(async ({ requestLocale }) => {
     locale = routing.defaultLocale;
   }
 
+  // Load all namespace files
+  const [common, configurateur, dialogs, products] = await Promise.all([
+    import(`../messages/${locale}/common.json`),
+    import(`../messages/${locale}/configurateur.json`),
+    import(`../messages/${locale}/dialogs.json`),
+    import(`../messages/${locale}/products.json`),
+  ]);
+
   return {
     locale,
     messages: {
-      ...(await import(`../messages/${locale}/common.json`)).default,
+      ...common.default,
+      configurateur: configurateur.default,
+      dialogs: dialogs.default,
+      products: products.default,
     }
   };
 });

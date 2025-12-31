@@ -1,6 +1,14 @@
 import { SignUp } from "@clerk/nextjs";
+import { setRequestLocale } from "next-intl/server";
 
-export default function SignUpPage() {
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function SignUpPage({ params }: Props) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0A0A09]">
       <SignUp
