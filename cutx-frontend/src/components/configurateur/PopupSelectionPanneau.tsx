@@ -491,7 +491,7 @@ export default function PopupSelectionPanneau({
                   </th>
                   <th className="col-dimensions">Dimensions</th>
                   <th className="col-prix sortable" onClick={() => handleSort('prix')}>
-                    <span>€/m²</span>
+                    <span>Prix</span>
                     {sortColumn === 'prix' ? (
                       sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
                     ) : <ArrowUpDown size={12} className="sort-inactive" />}
@@ -508,6 +508,9 @@ export default function PopupSelectionPanneau({
                 {produits.map((produit) => {
                   const isEnStock = produit.stock === 'EN STOCK';
                   const prixM2 = produit.prixVenteM2 || produit.prixAchatM2 || 0;
+                  const prixMl = produit.prixMl || 0;
+                  const prix = prixMl > 0 ? prixMl : prixM2;
+                  const prixUnit = prixMl > 0 ? '€/ml' : '€/m²';
 
                   return (
                     <tr
@@ -535,7 +538,7 @@ export default function PopupSelectionPanneau({
                       <td className="col-type">{produit.type}</td>
                       <td className="col-dim">{produit.epaisseur}</td>
                       <td className="col-dimensions">{produit.longueur === 'Variable' ? `Var. × ${produit.largeur}` : (produit.longueur && produit.largeur ? `${produit.longueur} × ${produit.largeur}` : '-')}</td>
-                      <td className="col-prix">{prixM2 > 0 ? prixM2.toFixed(2) : '-'}</td>
+                      <td className="col-prix">{prix > 0 ? `${prix.toFixed(2)} ${prixUnit}` : '-'}</td>
                       <td className="col-stock">
                         {isEnStock ? (
                           <span className="stock-badge en-stock">
