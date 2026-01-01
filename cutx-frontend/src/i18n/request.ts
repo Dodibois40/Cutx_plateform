@@ -21,7 +21,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
   return {
     locale,
     messages: {
-      ...common.default,
+      common: common.default,
       configurateur: configurateur.default,
       dialogs: dialogs.default,
       products: products.default,
