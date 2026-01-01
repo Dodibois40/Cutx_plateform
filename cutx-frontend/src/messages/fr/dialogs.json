@@ -134,8 +134,10 @@
     "catalogueFilter": "Catalogue",
     "typeFilter": "Type",
     "thicknessFilter": "Ep.",
+    "categoryFilter": "Categorie",
     "stockFilter": "Stock",
     "resetFilters": "Reinitialiser",
+    "searchLabel": "Recherche",
     "resultsCount": "{count} resultat{count, plural, one {} other {s}}",
     "noResults": "Aucun produit trouve avec ces filtres",
     "noProducts": "Aucun produit",
@@ -149,6 +151,9 @@
     "stockColumn": "Stock",
     "inStock": "Stock",
     "onOrder": "Cmd",
+    "loadingMore": "Chargement...",
+    "loadedCount": "{loaded} / {total} produits",
+    "allProductsLoaded": "Tous les {count} produits sont affiches",
     "productTypes": {
       "MELAMINE": "Melamine",
       "STRATIFIE": "Stratifie",
@@ -216,5 +221,12 @@
     "currentSelection": "Selection actuelle",
     "totalMachining": "Total usinages",
     "perUnit": "/ unite"
+  },
+  "pentagon": {
+    "title": "Rectangle à 5 côtés",
+    "cornerLabel": "Coin coupé",
+    "reset": "Réinitialiser",
+    "cancel": "Annuler",
+    "validate": "Valider"
   }
 }

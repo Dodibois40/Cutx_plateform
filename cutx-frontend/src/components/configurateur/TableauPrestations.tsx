@@ -108,6 +108,11 @@ export default function TableauPrestations({
               </th>
 
               {/* GROUPE 2: Debit */}
+              <th className="col-forme">
+                <span className="th-content">
+                  {t('configurateur.columns.shape')}
+                </span>
+              </th>
               <th className="col-dimensions">
                 <span className="th-content">
                   {t('configurateur.columns.dimensions')}
@@ -293,6 +298,10 @@ export default function TableauPrestations({
           position: sticky;
           left: 50px;
           z-index: 15;
+          width: 130px;
+        }
+
+        .col-forme {
           width: 130px;
         }
 

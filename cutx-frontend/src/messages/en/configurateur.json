@@ -20,12 +20,30 @@
     "panel": "Panel",
     "reference": "Reference",
     "dimensions": "Dimensions",
+    "shape": "Shape",
     "edges": "Edges",
     "machining": "Machining",
     "drilling": "Drilling",
     "finish": "Finish",
     "priceHT": "Price excl. VAT",
     "actions": "Actions"
+  },
+  "shapes": {
+    "rectangle": "Rectangle",
+    "pentagon": "L-shape (5 sides)",
+    "circle": "Circle",
+    "ellipse": "Ellipse",
+    "triangle": "Triangle",
+    "custom": "Custom (DXF)"
+  },
+  "edges": {
+    "contour": "Curved contour"
+  },
+  "lshape": {
+    "totalLength": "Total length",
+    "totalWidth": "Total width",
+    "notchLength": "Notch length",
+    "notchWidth": "Notch width"
   },
   "placeholders": {
     "reference": "Ref: Cut 1",

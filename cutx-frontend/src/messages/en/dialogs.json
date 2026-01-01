@@ -134,8 +134,10 @@
     "catalogueFilter": "Catalogue",
     "typeFilter": "Type",
     "thicknessFilter": "Th.",
+    "categoryFilter": "Category",
     "stockFilter": "Stock",
     "resetFilters": "Reset",
+    "searchLabel": "Search",
     "resultsCount": "{count} result{count, plural, one {} other {s}}",
     "noResults": "No products found with these filters",
     "noProducts": "No products",
@@ -149,6 +151,9 @@
     "stockColumn": "Stock",
     "inStock": "Stock",
     "onOrder": "Order",
+    "loadingMore": "Loading...",
+    "loadedCount": "{loaded} / {total} products",
+    "allProductsLoaded": "All {count} products displayed",
     "productTypes": {
       "MELAMINE": "Melamine",
       "STRATIFIE": "Laminate",
@@ -216,5 +221,12 @@
     "currentSelection": "Current selection",
     "totalMachining": "Total machining",
     "perUnit": "/ unit"
+  },
+  "pentagon": {
+    "title": "5-sided Rectangle",
+    "cornerLabel": "Cut corner",
+    "reset": "Reset",
+    "cancel": "Cancel",
+    "validate": "Validate"
   }
 }

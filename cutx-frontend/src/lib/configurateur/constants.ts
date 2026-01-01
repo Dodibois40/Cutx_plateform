@@ -9,6 +9,8 @@ import type {
   TypeFinition,
   Brillance,
   Finition,
+  FormePanneau,
+  ChantsConfig,
 } from './types';
 
 // === MATÉRIAUX (values only - labels come from translations) ===
@@ -193,6 +195,43 @@ export const CATEGORIES_PANNEAUX_TRANSLATION_KEYS: Record<CategoriePanneau, stri
   bois_massif: 'products.panelCategories.solidWood',
 };
 
+// === FORMES DE PANNEAU ===
+export const FORMES_PANNEAU_VALUES: readonly FormePanneau[] = [
+  'rectangle',
+  'pentagon',
+  'circle',
+  'ellipse',
+  'triangle',
+  'custom',
+] as const;
+
+export const FORMES_PANNEAU_TRANSLATION_KEYS: Record<FormePanneau, string> = {
+  rectangle: 'configurateur.shapes.rectangle',
+  pentagon: 'configurateur.shapes.pentagon',
+  circle: 'configurateur.shapes.circle',
+  ellipse: 'configurateur.shapes.ellipse',
+  triangle: 'configurateur.shapes.triangle',
+  custom: 'configurateur.shapes.custom',
+};
+
+// Configuration chants par défaut selon la forme
+export const DEFAULT_CHANTS_BY_SHAPE: Record<FormePanneau, ChantsConfig> = {
+  rectangle: { type: 'rectangle', edges: { A: true, B: true, C: true, D: true } },
+  pentagon: { type: 'pentagon', edges: { A: true, B: true, C: true, D: true, E: true } },
+  circle: { type: 'curved', edges: { contour: true } },
+  ellipse: { type: 'curved', edges: { contour: true } },
+  triangle: { type: 'triangle', edges: { A: true, B: true, C: true } },
+  custom: { type: 'curved', edges: { contour: true } },
+};
+
+// Labels des côtés par forme (pour UI)
+export const EDGE_LABELS_BY_SHAPE: Record<string, Record<string, string>> = {
+  rectangle: { A: 'L1', B: 'l1', C: 'L2', D: 'l2' },
+  pentagon: { A: 'A', B: 'B', C: 'C', D: 'D', E: 'E' },
+  triangle: { A: 'Base', B: 'Haut.', C: 'Hyp.' },
+  curved: { contour: 'Contour' },
+};
+
 // === BACKWARD COMPATIBILITY: Legacy exports with label field ===
 // These are deprecated - use the *_VALUES and *_TRANSLATION_KEYS instead
 // Components should migrate to using t(TRANSLATION_KEYS[value]) pattern
@@ -285,6 +324,12 @@ export function creerNouvelleLigne(): LignePrestationV3 {
     chants: { ...DEFAULTS.chants },
     sensDuFil: 'longueur',
 
+    // Forme du panneau
+    forme: 'rectangle',
+    chantsConfig: DEFAULT_CHANTS_BY_SHAPE['rectangle'],
+    dimensionsLShape: null,
+    formeCustom: null,
+
     // Options panneau
     usinages: [],
     percage: DEFAULTS.percage,
@@ -346,6 +391,12 @@ export function creerLigneFinition(lignePanneau: LignePrestationV3): LignePresta
     chants: { A: false, B: false, C: false, D: false }, // Pas de chants par défaut sur finition
     sensDuFil: lignePanneau.sensDuFil || 'longueur',
 
+    // Forme héritée du panneau parent
+    forme: lignePanneau.forme || 'rectangle',
+    chantsConfig: { type: 'rectangle', edges: { A: false, B: false, C: false, D: false } },
+    dimensionsLShape: lignePanneau.dimensionsLShape ? { ...lignePanneau.dimensionsLShape } : null,
+    formeCustom: lignePanneau.formeCustom ? { ...lignePanneau.formeCustom } : null,
+
     // Pas d'usinages ni perçage sur ligne finition
     usinages: [],
     percage: false,
@@ -382,4 +433,23 @@ export function creerLigneFinition(lignePanneau: LignePrestationV3): LignePresta
     prixHT: 0,
     prixTTC: 0,
   };
+}
+
+// === FONCTION DE MIGRATION POUR ANCIENNES LIGNES ===
+// Ajoute les nouveaux champs (forme, chantsConfig, etc.) aux lignes existantes qui n'en ont pas
+export function migrerLigneToV4(ligne: Partial<LignePrestationV3>): LignePrestationV3 {
+  // Si la ligne a déjà les nouveaux champs, on retourne tel quel
+  if (ligne.forme && ligne.chantsConfig) {
+    return ligne as LignePrestationV3;
+  }
+
+  // Migration: ajouter les nouveaux champs avec valeurs par défaut
+  return {
+    ...creerNouvelleLigne(),
+    ...ligne,
+    forme: ligne.forme || 'rectangle',
+    chantsConfig: ligne.chantsConfig || DEFAULT_CHANTS_BY_SHAPE['rectangle'],
+    dimensionsLShape: ligne.dimensionsLShape || null,
+    formeCustom: ligne.formeCustom || null,
+  } as LignePrestationV3;
 }

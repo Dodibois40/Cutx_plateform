@@ -20,12 +20,30 @@
     "panel": "Panneau",
     "reference": "Reference",
     "dimensions": "Dimensions",
+    "shape": "Forme",
     "edges": "Chants",
     "machining": "Usinages",
     "drilling": "Percage",
     "finish": "Finition",
     "priceHT": "Tarif HT",
     "actions": "Actions"
+  },
+  "shapes": {
+    "rectangle": "Rectangle",
+    "pentagon": "L (5 cotes)",
+    "circle": "Rond",
+    "ellipse": "Ovale",
+    "triangle": "Triangle",
+    "custom": "Autre (DXF)"
+  },
+  "edges": {
+    "contour": "Contour courbe"
+  },
+  "lshape": {
+    "totalLength": "Longueur totale",
+    "totalWidth": "Largeur totale",
+    "notchLength": "Long. encoche",
+    "notchWidth": "Larg. encoche"
   },
   "placeholders": {
     "reference": "Ref: Debit 1",

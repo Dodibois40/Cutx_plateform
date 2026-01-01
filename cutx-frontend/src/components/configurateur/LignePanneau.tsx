@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers } from 'lucide-react';
 import { getRALByCode } from '@/lib/configurateur/ral-colors';
-import type { LignePrestationV3, TypeFinition, Brillance } from '@/lib/configurateur/types';
+import type { LignePrestationV3, TypeFinition, Brillance, FormePanneau, ChantsConfig, DimensionsLShape } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import {
@@ -14,10 +14,13 @@ import {
   TYPES_FINITION_TRANSLATION_KEYS,
   BRILLANCES_PRICING,
   BRILLANCES_TRANSLATION_KEYS,
+  DEFAULT_CHANTS_BY_SHAPE,
 } from '@/lib/configurateur/constants';
+import SelecteurForme from './SelecteurForme';
 import { getEtatLigne, getChampsManquants, formaterPrix } from '@/lib/configurateur/calculs';
 import PopupLaque from './dialogs/PopupLaque';
 import PopupEnConstruction from './dialogs/PopupEnConstruction';
+import PopupFormePentagon from './dialogs/PopupFormePentagon';
 
 interface LignePanneauProps {
   ligne: LignePrestationV3;
@@ -51,6 +54,7 @@ export default function LignePanneau({
   const t = useTranslations();
   const [showEnConstruction, setShowEnConstruction] = useState<'usinages' | 'percage' | null>(null);
   const [showLaque, setShowLaque] = useState(false);
+  const [showPentagon, setShowPentagon] = useState(false);
   const [showEtatTooltip, setShowEtatTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const etatRef = useRef<HTMLSpanElement>(null);
@@ -187,116 +191,413 @@ export default function LignePanneau({
           />
         </td>
 
-        {/* Dimensions */}
-        <td className="cell-dimensions cell-group-panneau" title={t('configurateur.tooltips.dimensions')}>
-          <div className="dimensions-compact">
-            <input
-              type="number"
-              value={ligne.dimensions.longueur || ''}
-              onChange={(e) => onUpdate({
-                dimensions: { ...ligne.dimensions, longueur: Number(e.target.value) || 0 }
-              })}
-              onFocus={(e) => e.target.select()}
-              placeholder={t('configurateur.placeholders.length')}
-              className={`input-dim input-dim-large ${!ligne.dimensions.longueur ? 'empty' : ''}`}
-              min="0"
-            />
-            <span className="dim-x">x</span>
-            <input
-              type="number"
-              value={ligne.dimensions.largeur || ''}
-              onChange={(e) => onUpdate({
-                dimensions: { ...ligne.dimensions, largeur: Number(e.target.value) || 0 }
-              })}
-              onFocus={(e) => e.target.select()}
-              placeholder={t('configurateur.placeholders.width')}
-              className={`input-dim input-dim-large ${!ligne.dimensions.largeur ? 'empty' : ''}`}
-              min="0"
-            />
-            <span className="dim-x">x</span>
-            <input
-              type="number"
-              value={
-                panneauMulticouche
-                  ? panneauMulticouche.epaisseurTotale
-                  : panneauGlobal
-                    ? panneauGlobal.epaisseurs[0]
-                    : (ligne.dimensions.epaisseur || '')
+        {/* Forme */}
+        <td className="cell-forme cell-group-panneau">
+          <SelecteurForme
+            forme={ligne.forme || 'rectangle'}
+            onChange={(forme: FormePanneau, chantsConfig: ChantsConfig) => {
+              // Pour pentagon, ouvrir le popup au lieu de changer directement
+              if (forme === 'pentagon') {
+                setShowPentagon(true);
+              } else {
+                onUpdate({ forme, chantsConfig });
               }
-              onChange={(e) => {
-                if (!panneauGlobal && !panneauMulticouche) {
-                  onUpdate({
-                    dimensions: { ...ligne.dimensions, epaisseur: Number(e.target.value) || 0 }
-                  });
-                }
-              }}
-              onFocus={(e) => e.target.select()}
-              placeholder={t('configurateur.placeholders.thickness')}
-              className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
-              min="0"
-              readOnly={!!(panneauGlobal || panneauMulticouche)}
-              title={
-                panneauMulticouche
-                  ? `${t('configurateur.multilayer.totalThickness')}: ${panneauMulticouche.epaisseurTotale}mm`
-                  : panneauGlobal
-                    ? `${t('configurateur.placeholders.thickness')}: ${panneauGlobal.epaisseurs[0]}mm`
-                    : t('configurateur.placeholders.thickness')
-              }
-            />
-            <button
-              type="button"
-              className={`btn-fil ${ligne.sensDuFil === 'largeur' ? 'vertical' : ''}`}
-              onClick={() => onUpdate({
-                sensDuFil: ligne.sensDuFil === 'longueur' ? 'largeur' : 'longueur'
-              })}
-              title={t('configurateur.grainDirection.clickToChange')}
-            >
-              <span className="fil-icon">{ligne.sensDuFil === 'longueur' ? '\u2194' : '\u2195'}</span>
-              <span className="fil-text">{t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}</span>
-            </button>
-          </div>
+            }}
+            onCustomSelect={() => {
+              // TODO: Ouvrir popup import DXF
+              console.log('Open DXF import popup');
+            }}
+          />
         </td>
 
-        {/* Chants - Labels séparés + boutons avec bord coloré */}
+        {/* Dimensions - Adaptatives selon forme */}
+        <td className="cell-dimensions cell-group-panneau" title={t('configurateur.tooltips.dimensions')}>
+          {(ligne.forme || 'rectangle') === 'pentagon' ? (
+            /* L-SHAPE: 5 champs sur une ligne (L1 × W1 | L2 × W2 × Ép) */
+            <div className="dimensions-compact">
+              <input
+                type="number"
+                value={ligne.dimensionsLShape?.longueurTotale || ''}
+                onChange={(e) => onUpdate({
+                  dimensionsLShape: {
+                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
+                    longueurTotale: Number(e.target.value) || 0
+                  }
+                })}
+                onFocus={(e) => e.target.select()}
+                placeholder="L1"
+                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.longueurTotale ? 'empty' : ''}`}
+                min="0"
+                title={t('configurateur.lshape.totalLength')}
+              />
+              <span className="dim-x">x</span>
+              <input
+                type="number"
+                value={ligne.dimensionsLShape?.largeurTotale || ''}
+                onChange={(e) => onUpdate({
+                  dimensionsLShape: {
+                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
+                    largeurTotale: Number(e.target.value) || 0
+                  }
+                })}
+                onFocus={(e) => e.target.select()}
+                placeholder="W1"
+                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.largeurTotale ? 'empty' : ''}`}
+                min="0"
+                title={t('configurateur.lshape.totalWidth')}
+              />
+              <span className="dim-separator">|</span>
+              <input
+                type="number"
+                value={ligne.dimensionsLShape?.longueurEncoche || ''}
+                onChange={(e) => onUpdate({
+                  dimensionsLShape: {
+                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
+                    longueurEncoche: Number(e.target.value) || 0
+                  }
+                })}
+                onFocus={(e) => e.target.select()}
+                placeholder="L2"
+                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.longueurEncoche ? 'empty' : ''}`}
+                min="0"
+                title={t('configurateur.lshape.notchLength')}
+              />
+              <span className="dim-x">x</span>
+              <input
+                type="number"
+                value={ligne.dimensionsLShape?.largeurEncoche || ''}
+                onChange={(e) => onUpdate({
+                  dimensionsLShape: {
+                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
+                    largeurEncoche: Number(e.target.value) || 0
+                  }
+                })}
+                onFocus={(e) => e.target.select()}
+                placeholder="W2"
+                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.largeurEncoche ? 'empty' : ''}`}
+                min="0"
+                title={t('configurateur.lshape.notchWidth')}
+              />
+              <span className="dim-x">x</span>
+              <input
+                type="number"
+                value={
+                  panneauMulticouche
+                    ? panneauMulticouche.epaisseurTotale
+                    : panneauGlobal
+                      ? panneauGlobal.epaisseurs[0]
+                      : (ligne.dimensionsLShape?.epaisseur || '')
+                }
+                onChange={(e) => {
+                  if (!panneauGlobal && !panneauMulticouche) {
+                    onUpdate({
+                      dimensionsLShape: {
+                        ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
+                        epaisseur: Number(e.target.value) || 0
+                      }
+                    });
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
+                placeholder={t('configurateur.placeholders.thickness')}
+                className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
+                min="0"
+                readOnly={!!(panneauGlobal || panneauMulticouche)}
+              />
+            </div>
+          ) : (ligne.forme || 'rectangle') === 'circle' ? (
+            /* CERCLE: 1 champ (diamètre) */
+            <div className="dimensions-circle">
+              <span className="diameter-symbol">Ø</span>
+              <input
+                type="number"
+                value={ligne.dimensions.longueur || ''}
+                onChange={(e) => onUpdate({
+                  dimensions: { ...ligne.dimensions, longueur: Number(e.target.value) || 0, largeur: Number(e.target.value) || 0 }
+                })}
+                onFocus={(e) => e.target.select()}
+                placeholder="Diamètre"
+                className={`input-dim input-dim-diameter ${!ligne.dimensions.longueur ? 'empty' : ''}`}
+                min="0"
+              />
+              <span className="dim-x">x</span>
+              <input
+                type="number"
+                value={
+                  panneauMulticouche
+                    ? panneauMulticouche.epaisseurTotale
+                    : panneauGlobal
+                      ? panneauGlobal.epaisseurs[0]
+                      : (ligne.dimensions.epaisseur || '')
+                }
+                onChange={(e) => {
+                  if (!panneauGlobal && !panneauMulticouche) {
+                    onUpdate({
+                      dimensions: { ...ligne.dimensions, epaisseur: Number(e.target.value) || 0 }
+                    });
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
+                placeholder={t('configurateur.placeholders.thickness')}
+                className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
+                min="0"
+                readOnly={!!(panneauGlobal || panneauMulticouche)}
+              />
+            </div>
+          ) : (ligne.forme || 'rectangle') === 'custom' ? (
+            /* CUSTOM DXF: Affichage read-only */
+            <div className="dimensions-custom">
+              {ligne.formeCustom ? (
+                <>
+                  <span className="custom-surface">{ligne.formeCustom.surfaceM2.toFixed(3)} m²</span>
+                  <span className="custom-perimetre">{ligne.formeCustom.perimetreM.toFixed(2)} m</span>
+                </>
+              ) : (
+                <span className="custom-empty">Import DXF requis</span>
+              )}
+            </div>
+          ) : (
+            /* RECTANGLE, ELLIPSE, TRIANGLE: 2 champs (L × l) */
+            <div className="dimensions-compact">
+              <input
+                type="number"
+                value={ligne.dimensions.longueur || ''}
+                onChange={(e) => onUpdate({
+                  dimensions: { ...ligne.dimensions, longueur: Number(e.target.value) || 0 }
+                })}
+                onFocus={(e) => e.target.select()}
+                placeholder={t('configurateur.placeholders.length')}
+                className={`input-dim input-dim-large ${!ligne.dimensions.longueur ? 'empty' : ''}`}
+                min="0"
+              />
+              <span className="dim-x">x</span>
+              <input
+                type="number"
+                value={ligne.dimensions.largeur || ''}
+                onChange={(e) => onUpdate({
+                  dimensions: { ...ligne.dimensions, largeur: Number(e.target.value) || 0 }
+                })}
+                onFocus={(e) => e.target.select()}
+                placeholder={t('configurateur.placeholders.width')}
+                className={`input-dim input-dim-large ${!ligne.dimensions.largeur ? 'empty' : ''}`}
+                min="0"
+              />
+              <span className="dim-x">x</span>
+              <input
+                type="number"
+                value={
+                  panneauMulticouche
+                    ? panneauMulticouche.epaisseurTotale
+                    : panneauGlobal
+                      ? panneauGlobal.epaisseurs[0]
+                      : (ligne.dimensions.epaisseur || '')
+                }
+                onChange={(e) => {
+                  if (!panneauGlobal && !panneauMulticouche) {
+                    onUpdate({
+                      dimensions: { ...ligne.dimensions, epaisseur: Number(e.target.value) || 0 }
+                    });
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
+                placeholder={t('configurateur.placeholders.thickness')}
+                className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
+                min="0"
+                readOnly={!!(panneauGlobal || panneauMulticouche)}
+                title={
+                  panneauMulticouche
+                    ? `${t('configurateur.multilayer.totalThickness')}: ${panneauMulticouche.epaisseurTotale}mm`
+                    : panneauGlobal
+                      ? `${t('configurateur.placeholders.thickness')}: ${panneauGlobal.epaisseurs[0]}mm`
+                      : t('configurateur.placeholders.thickness')
+                }
+              />
+              <button
+                type="button"
+                className={`btn-fil ${ligne.sensDuFil === 'largeur' ? 'vertical' : ''}`}
+                onClick={() => onUpdate({
+                  sensDuFil: ligne.sensDuFil === 'longueur' ? 'largeur' : 'longueur'
+                })}
+                title={t('configurateur.grainDirection.clickToChange')}
+              >
+                <span className="fil-icon">{ligne.sensDuFil === 'longueur' ? '\u2194' : '\u2195'}</span>
+                <span className="fil-text">{t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}</span>
+              </button>
+            </div>
+          )}
+        </td>
+
+        {/* Chants - Dynamiques selon forme */}
         <td className="cell-chants cell-group-panneau" title={t('configurateur.tooltips.edges')}>
-          <div className="chants-row">
-            <span className="chant-label">L1</span>
-            <button
-              type="button"
-              className={`chant-btn ${ligne.chants.A ? 'active' : ''}`}
-              onClick={() => onUpdate({ chants: { ...ligne.chants, A: !ligne.chants.A } })}
-            >
-              <span className="chant-edge-top" />
-              <span className="chant-letter">A</span>
-            </button>
-            <span className="chant-label">l1</span>
-            <button
-              type="button"
-              className={`chant-btn ${ligne.chants.B ? 'active' : ''}`}
-              onClick={() => onUpdate({ chants: { ...ligne.chants, B: !ligne.chants.B } })}
-            >
-              <span className="chant-edge-left" />
-              <span className="chant-letter">B</span>
-            </button>
-            <span className="chant-label">L2</span>
-            <button
-              type="button"
-              className={`chant-btn ${ligne.chants.C ? 'active' : ''}`}
-              onClick={() => onUpdate({ chants: { ...ligne.chants, C: !ligne.chants.C } })}
-            >
-              <span className="chant-edge-bottom" />
-              <span className="chant-letter">C</span>
-            </button>
-            <span className="chant-label">l2</span>
-            <button
-              type="button"
-              className={`chant-btn ${ligne.chants.D ? 'active' : ''}`}
-              onClick={() => onUpdate({ chants: { ...ligne.chants, D: !ligne.chants.D } })}
-            >
-              <span className="chant-edge-right" />
-              <span className="chant-letter">D</span>
-            </button>
-          </div>
+          {/* RECTANGLE: 4 boutons A/B/C/D */}
+          {(ligne.forme || 'rectangle') === 'rectangle' && (
+            <div className="chants-row">
+              <span className="chant-label">L1</span>
+              <button
+                type="button"
+                className={`chant-btn ${ligne.chants.A ? 'active' : ''}`}
+                onClick={() => onUpdate({ chants: { ...ligne.chants, A: !ligne.chants.A } })}
+              >
+                <span className="chant-edge-top" />
+                <span className="chant-letter">A</span>
+              </button>
+              <span className="chant-label">l1</span>
+              <button
+                type="button"
+                className={`chant-btn ${ligne.chants.B ? 'active' : ''}`}
+                onClick={() => onUpdate({ chants: { ...ligne.chants, B: !ligne.chants.B } })}
+              >
+                <span className="chant-edge-left" />
+                <span className="chant-letter">B</span>
+              </button>
+              <span className="chant-label">L2</span>
+              <button
+                type="button"
+                className={`chant-btn ${ligne.chants.C ? 'active' : ''}`}
+                onClick={() => onUpdate({ chants: { ...ligne.chants, C: !ligne.chants.C } })}
+              >
+                <span className="chant-edge-bottom" />
+                <span className="chant-letter">C</span>
+              </button>
+              <span className="chant-label">l2</span>
+              <button
+                type="button"
+                className={`chant-btn ${ligne.chants.D ? 'active' : ''}`}
+                onClick={() => onUpdate({ chants: { ...ligne.chants, D: !ligne.chants.D } })}
+              >
+                <span className="chant-edge-right" />
+                <span className="chant-letter">D</span>
+              </button>
+            </div>
+          )}
+
+          {/* TRIANGLE: 3 boutons A/B/C */}
+          {ligne.forme === 'triangle' && ligne.chantsConfig?.type === 'triangle' && (() => {
+            const edges = ligne.chantsConfig.edges as { A: boolean; B: boolean; C: boolean };
+            return (
+              <div className="chants-row chants-triangle">
+                <button
+                  type="button"
+                  className={`chant-btn chant-btn-small ${edges.A ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: {
+                      type: 'triangle',
+                      edges: { A: !edges.A, B: edges.B, C: edges.C }
+                    }
+                  })}
+                >
+                  <span className="chant-letter">A</span>
+                </button>
+                <button
+                  type="button"
+                  className={`chant-btn chant-btn-small ${edges.B ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: {
+                      type: 'triangle',
+                      edges: { A: edges.A, B: !edges.B, C: edges.C }
+                    }
+                  })}
+                >
+                  <span className="chant-letter">B</span>
+                </button>
+                <button
+                  type="button"
+                  className={`chant-btn chant-btn-small ${edges.C ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: {
+                      type: 'triangle',
+                      edges: { A: edges.A, B: edges.B, C: !edges.C }
+                    }
+                  })}
+                >
+                  <span className="chant-letter">C</span>
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* PENTAGON (L-Shape): 5 boutons A/B/C/D/E - même style que rectangle */}
+          {ligne.forme === 'pentagon' && ligne.chantsConfig?.type === 'pentagon' && (() => {
+            const edges = ligne.chantsConfig.edges as { A: boolean; B: boolean; C: boolean; D: boolean; E: boolean };
+            return (
+              <div className="chants-row">
+                <span className="chant-label">L1</span>
+                <button
+                  type="button"
+                  className={`chant-btn ${edges.A ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: { type: 'pentagon', edges: { ...edges, A: !edges.A } }
+                  })}
+                >
+                  <span className="chant-edge-top" />
+                  <span className="chant-letter">A</span>
+                </button>
+                <span className="chant-label">l1</span>
+                <button
+                  type="button"
+                  className={`chant-btn ${edges.B ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: { type: 'pentagon', edges: { ...edges, B: !edges.B } }
+                  })}
+                >
+                  <span className="chant-edge-left" />
+                  <span className="chant-letter">B</span>
+                </button>
+                <span className="chant-label">L2</span>
+                <button
+                  type="button"
+                  className={`chant-btn ${edges.C ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: { type: 'pentagon', edges: { ...edges, C: !edges.C } }
+                  })}
+                >
+                  <span className="chant-edge-bottom" />
+                  <span className="chant-letter">C</span>
+                </button>
+                <span className="chant-label">l2</span>
+                <button
+                  type="button"
+                  className={`chant-btn ${edges.D ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: { type: 'pentagon', edges: { ...edges, D: !edges.D } }
+                  })}
+                >
+                  <span className="chant-edge-right" />
+                  <span className="chant-letter">D</span>
+                </button>
+                <span className="chant-label">diag</span>
+                <button
+                  type="button"
+                  className={`chant-btn ${edges.E ? 'active' : ''}`}
+                  onClick={() => onUpdate({
+                    chantsConfig: { type: 'pentagon', edges: { ...edges, E: !edges.E } }
+                  })}
+                >
+                  <span className="chant-edge-diagonal" />
+                  <span className="chant-letter">E</span>
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* CIRCLE, ELLIPSE, CUSTOM: 1 toggle "Contour courbé" */}
+          {(ligne.forme === 'circle' || ligne.forme === 'ellipse' || ligne.forme === 'custom') && (
+            <div className="chants-curved">
+              <button
+                type="button"
+                className={`chant-btn-curved ${ligne.chantsConfig?.type === 'curved' && ligne.chantsConfig.edges.contour ? 'active' : ''}`}
+                onClick={() => onUpdate({
+                  chantsConfig: {
+                    type: 'curved',
+                    edges: { contour: !(ligne.chantsConfig?.type === 'curved' && ligne.chantsConfig.edges.contour) }
+                  }
+                })}
+              >
+                <span className="curved-icon">⟳</span>
+                <span className="curved-label">{t('configurateur.edges.contour')}</span>
+              </button>
+            </div>
+          )}
         </td>
 
         {/* Usinages - En construction */}
@@ -325,6 +626,22 @@ export default function LignePanneau({
           open={showEnConstruction !== null}
           onClose={() => setShowEnConstruction(null)}
           titre={showEnConstruction === 'usinages' ? t('configurateur.columns.machining') : t('configurateur.columns.drilling')}
+        />
+
+        {/* Popup Pentagon (Rectangle 5 côtés) */}
+        <PopupFormePentagon
+          isOpen={showPentagon}
+          onClose={() => setShowPentagon(false)}
+          onValidate={(dimensions) => {
+            // Mettre à jour avec les dimensions du pentagon (coinCoupe inclus dans dimensions)
+            onUpdate({
+              forme: 'pentagon',
+              chantsConfig: DEFAULT_CHANTS_BY_SHAPE['pentagon'],
+              dimensionsLShape: dimensions,
+            });
+            setShowPentagon(false);
+          }}
+          initialDimensions={ligne.dimensionsLShape}
         />
 
         {/* Finition optionnelle */}
@@ -399,6 +716,7 @@ export default function LignePanneau({
           <td className="cell-empty cell-group-id cell-group-end-sticky">
             <span className="finition-indent">{'\u21B3'} {t('configurateur.columns.finish')}</span>
           </td>
+          <td className="cell-empty cell-group-panneau"></td>
 
           {/* Teinte/RAL - couvre Dimensions + Chants */}
           <td className="cell-finition-detail" colSpan={2}>
@@ -875,6 +1193,19 @@ export default function LignePanneau({
           width: 140px;
         }
 
+        /* L-Shape dimensions (6 champs) */
+        .input-dim-lshape {
+          width: 90px;
+        }
+
+        .input-dim-encoche {
+          width: 70px;
+        }
+
+        .input-dim-diameter {
+          width: 100px;
+        }
+
         .input-dim:focus {
           outline: none;
           border-color: var(--admin-olive);
@@ -911,6 +1242,82 @@ export default function LignePanneau({
           color: var(--admin-text-tertiary);
           font-size: 0.875rem;
           font-weight: 400;
+        }
+
+        .dim-separator {
+          color: var(--admin-olive);
+          font-size: 1rem;
+          font-weight: 600;
+          margin: 0 0.25rem;
+        }
+
+        /* L-Shape dimensions layout */
+        .dimensions-lshape {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+
+        .dims-row {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .dims-encoche {
+          padding-left: 0.5rem;
+          border-left: 2px solid var(--admin-olive);
+        }
+
+        .encoche-label {
+          font-size: 0.65rem;
+          font-weight: 500;
+          color: var(--admin-text-muted);
+          margin-right: 0.25rem;
+        }
+
+        .dims-common {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          margin-top: 0.25rem;
+        }
+
+        /* Circle dimensions */
+        .dimensions-circle {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+        }
+
+        .diameter-symbol {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--admin-olive);
+        }
+
+        /* Custom DXF dimensions */
+        .dimensions-custom {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .custom-surface {
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--admin-text-primary);
+        }
+
+        .custom-perimetre {
+          font-size: 0.6875rem;
+          color: var(--admin-text-muted);
+        }
+
+        .custom-empty {
+          font-size: 0.75rem;
+          font-style: italic;
+          color: var(--admin-sable);
         }
 
         /* Bouton sens du fil - explicite avec texte complet */
@@ -1008,6 +1415,7 @@ export default function LignePanneau({
           border-radius: 3px;
           cursor: pointer;
           transition: all 0.15s;
+          overflow: hidden;
         }
 
         .chant-btn:hover {
@@ -1077,12 +1485,94 @@ export default function LignePanneau({
           border-radius: 0 3px 3px 0;
         }
 
+        /* Bord DIAGONAL (chant E) - ligne diagonale coin coupé haut-gauche */
+        .chant-edge-diagonal {
+          position: absolute;
+          top: 10px;
+          left: -1px;
+          width: 16px;
+          height: 3px;
+          background: transparent;
+          transform-origin: left center;
+          transform: rotate(-50deg);
+          border-radius: 2px;
+          transition: background 0.15s;
+        }
+
         /* Actif = SEULEMENT le bord en vert (pas le fond) */
         .chant-btn.active .chant-edge-top,
         .chant-btn.active .chant-edge-bottom,
         .chant-btn.active .chant-edge-left,
-        .chant-btn.active .chant-edge-right {
+        .chant-btn.active .chant-edge-right,
+        .chant-btn.active .chant-edge-diagonal {
           background: var(--admin-olive);
+        }
+
+        /* Boutons plus petits pour Triangle/Pentagon */
+        .chant-btn-small {
+          width: 26px;
+          height: 26px;
+        }
+
+        .chant-btn-small .chant-letter {
+          font-size: 0.65rem;
+        }
+
+        /* Triangle: 3 boutons */
+        .chants-triangle {
+          gap: 0.25rem;
+        }
+
+        /* Pentagon: 5 boutons */
+        .chants-pentagon {
+          gap: 0.125rem;
+        }
+
+        /* Contour courbé (Circle, Ellipse, Custom) */
+        .chants-curved {
+          display: flex;
+        }
+
+        .chant-btn-curved {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.375rem 0.625rem;
+          background: var(--admin-bg-tertiary);
+          border: 1px solid var(--admin-border-default);
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s;
+          color: var(--admin-text-muted);
+        }
+
+        .chant-btn-curved:hover {
+          background: var(--admin-bg-hover);
+          border-color: var(--admin-olive-border);
+        }
+
+        .chant-btn-curved.active {
+          background: var(--admin-olive-bg);
+          border-color: var(--admin-olive);
+        }
+
+        .chant-btn-curved.active .curved-icon,
+        .chant-btn-curved.active .curved-label {
+          color: var(--admin-olive);
+        }
+
+        .curved-icon {
+          font-size: 0.875rem;
+        }
+
+        .curved-label {
+          font-size: 0.6875rem;
+          font-weight: 500;
+        }
+
+        /* Cellule forme */
+        .cell-forme {
+          min-width: 130px;
         }
 
         /* Retirer spinners des inputs number */

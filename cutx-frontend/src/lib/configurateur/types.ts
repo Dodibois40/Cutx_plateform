@@ -34,6 +34,67 @@ export interface Chants {
   D: boolean; // Largeur côté 2
 }
 
+// === FORMES DE PANNEAU ===
+export type FormePanneau =
+  | 'rectangle'      // 4 côtés - défaut
+  | 'pentagon'       // 5 côtés (L-shape)
+  | 'circle'         // Rond
+  | 'ellipse'        // Ovale
+  | 'triangle'       // Triangle
+  | 'custom';        // Import DXF
+
+// Chants pour triangle (3 côtés)
+export interface ChantsTriangle {
+  A: boolean; // Côté 1 (base)
+  B: boolean; // Côté 2 (hauteur)
+  C: boolean; // Côté 3 (hypoténuse)
+}
+
+// Chants pour pentagon/L-shape (5 côtés)
+export interface ChantsPentagon {
+  A: boolean; // Côté 1
+  B: boolean; // Côté 2
+  C: boolean; // Côté 3
+  D: boolean; // Côté 4
+  E: boolean; // Côté 5
+}
+
+// Chants pour formes courbes (cercle, ellipse, custom)
+export interface ChantsCurved {
+  contour: boolean; // Contour complet
+}
+
+// Configuration chants dynamique selon la forme
+export type ChantsConfig =
+  | { type: 'rectangle'; edges: Chants }
+  | { type: 'triangle'; edges: ChantsTriangle }
+  | { type: 'pentagon'; edges: ChantsPentagon }
+  | { type: 'curved'; edges: ChantsCurved };
+
+// Coin où se trouve la coupe sur un L-shape (E1=haut-gauche, E2=haut-droite, E3=bas-droite, E4=bas-gauche)
+export type CoinCoupe = 'E1' | 'E2' | 'E3' | 'E4';
+
+// Dimensions spécifiques pour L-shape (6 valeurs + coin)
+export interface DimensionsLShape {
+  longueurTotale: number;   // L1: Longueur totale (mm)
+  largeurTotale: number;    // W1: Largeur totale (mm)
+  longueurEncoche: number;  // L2: Longueur de l'encoche (mm)
+  largeurEncoche: number;   // W2: Largeur de l'encoche (mm)
+  epaisseur: number;        // Épaisseur (mm)
+  coinCoupe?: CoinCoupe;    // Coin où se trouve la coupe (E1=haut-gauche, E2=haut-droite, E3=bas-droite, E4=bas-gauche)
+}
+
+// Forme personnalisée depuis DXF
+export interface FormeCustom {
+  dxfData: string;           // Contenu DXF encodé base64
+  surfaceM2: number;         // Surface calculée depuis DXF
+  perimetreM: number;        // Périmètre calculé depuis DXF
+  boundingBox: {
+    width: number;
+    height: number;
+  };
+}
+
 export interface Usinage {
   type: string;
   description: string;
@@ -61,6 +122,12 @@ export interface LignePrestationV3 {
   dimensions: Dimensions;
   chants: Chants;
   sensDuFil: SensDuFil;             // Sens du fil pour l'optimisation
+
+  // === FORME DU PANNEAU ===
+  forme: FormePanneau;              // Forme géométrique (défaut: 'rectangle')
+  chantsConfig: ChantsConfig;       // Configuration chants dynamique selon forme
+  dimensionsLShape: DimensionsLShape | null;  // Dimensions L-shape (si forme='pentagon')
+  formeCustom: FormeCustom | null;  // Données forme custom DXF (si forme='custom')
 
   // Options panneau
   usinages: Usinage[];

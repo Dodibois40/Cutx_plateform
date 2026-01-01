@@ -19,6 +19,7 @@ import type {
 import {
   creerNouvelleLigne,
   creerLigneFinition,
+  migrerLigneToV4,
   REGLES,
 } from '@/lib/configurateur/constants';
 import { getPanneauxDisponibles, type PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -256,7 +257,8 @@ export function ConfigurateurProvider({
     if (initialData) {
       console.log('[ConfigurateurContext] Chargement initialData:', initialData.lignes.length, 'lignes');
       setReferenceChantier(initialData.referenceChantier || '');
-      const lignesRestaurees = initialData.lignes.map(l => mettreAJourCalculsLigne(l));
+      // Migration + calculs pour les lignes existantes
+      const lignesRestaurees = initialData.lignes.map(l => mettreAJourCalculsLigne(migrerLigneToV4(l)));
       setLignes(lignesRestaurees);
       setIsRestored(true);
       isInitialMount.current = false;
@@ -269,7 +271,8 @@ export function ConfigurateurProvider({
         const data: SavedData = JSON.parse(saved);
         if (data.lignes && Array.isArray(data.lignes) && data.lignes.length > 0) {
           setReferenceChantier(data.referenceChantier || '');
-          const lignesRestaurees = data.lignes.map(l => mettreAJourCalculsLigne(l));
+          // Migration + calculs pour les lignes sauvegardées
+          const lignesRestaurees = data.lignes.map(l => mettreAJourCalculsLigne(migrerLigneToV4(l)));
           setLignes(lignesRestaurees);
           setLastSaved(new Date(data.savedAt));
           setIsRestored(true);

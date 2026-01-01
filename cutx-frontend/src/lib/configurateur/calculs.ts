@@ -9,6 +9,13 @@ import type {
   EtatLigne,
   Brillance,
   Finition,
+  FormePanneau,
+  ChantsConfig,
+  DimensionsLShape,
+  FormeCustom,
+  ChantsTriangle,
+  ChantsPentagon,
+  ChantsCurved,
 } from './types';
 import { BRILLANCES, REGLES } from './constants';
 import type { ConfigurateurSettings, BrillanceSettings } from '@/lib/services/configurateur-settings';
@@ -116,6 +123,235 @@ export function calculerSurfaceTiroir(
   const surfaceFond = L * l;
 
   return surfaceFacadeDos + surfaceCotes + surfaceFond;
+}
+
+// ============================================================================
+// CALCULS DE SURFACE PAR FORME
+// ============================================================================
+
+/**
+ * Calcule la surface d'un cercle (π × r²)
+ * @param diametreMm - Diamètre en mm
+ */
+export function calculerSurfaceCercle(diametreMm: number): number {
+  if (diametreMm <= 0) return 0;
+  const rayonM = (diametreMm / 1000) / 2;
+  return Math.PI * rayonM * rayonM;
+}
+
+/**
+ * Calcule la surface d'une ellipse (π × a × b)
+ * @param longueurMm - Grand axe en mm
+ * @param largeurMm - Petit axe en mm
+ */
+export function calculerSurfaceEllipse(longueurMm: number, largeurMm: number): number {
+  if (longueurMm <= 0 || largeurMm <= 0) return 0;
+  const a = (longueurMm / 1000) / 2; // demi-grand axe
+  const b = (largeurMm / 1000) / 2;  // demi-petit axe
+  return Math.PI * a * b;
+}
+
+/**
+ * Calcule la surface d'un triangle rectangle (base × hauteur / 2)
+ * @param baseMm - Base en mm
+ * @param hauteurMm - Hauteur en mm
+ */
+export function calculerSurfaceTriangle(baseMm: number, hauteurMm: number): number {
+  if (baseMm <= 0 || hauteurMm <= 0) return 0;
+  return ((baseMm / 1000) * (hauteurMm / 1000)) / 2;
+}
+
+/**
+ * Calcule la surface d'un L-shape (rectangle total - encoche)
+ * Surface = (L1 × W1) - (L2 × W2)
+ */
+export function calculerSurfaceLShape(dims: DimensionsLShape | null | undefined): number {
+  if (!dims) return 0;
+  const { longueurTotale, largeurTotale, longueurEncoche, largeurEncoche } = dims;
+
+  if (longueurTotale <= 0 || largeurTotale <= 0) return 0;
+
+  const surfaceTotale = (longueurTotale / 1000) * (largeurTotale / 1000);
+  const surfaceEncoche = (longueurEncoche / 1000) * (largeurEncoche / 1000);
+
+  return Math.max(0, surfaceTotale - surfaceEncoche);
+}
+
+/**
+ * Calcule la surface selon la forme du panneau
+ */
+export function calculerSurfaceParForme(
+  forme: FormePanneau | undefined,
+  dimensions: Dimensions,
+  dimensionsLShape?: DimensionsLShape | null,
+  formeCustom?: FormeCustom | null
+): number {
+  const f = forme || 'rectangle';
+
+  switch (f) {
+    case 'rectangle':
+      return calculerSurface(dimensions.longueur, dimensions.largeur);
+
+    case 'pentagon':
+      return calculerSurfaceLShape(dimensionsLShape);
+
+    case 'circle':
+      // Pour un cercle, on utilise longueur comme diamètre
+      return calculerSurfaceCercle(dimensions.longueur);
+
+    case 'ellipse':
+      return calculerSurfaceEllipse(dimensions.longueur, dimensions.largeur);
+
+    case 'triangle':
+      return calculerSurfaceTriangle(dimensions.longueur, dimensions.largeur);
+
+    case 'custom':
+      return formeCustom?.surfaceM2 || 0;
+
+    default:
+      return calculerSurface(dimensions.longueur, dimensions.largeur);
+  }
+}
+
+// ============================================================================
+// CALCULS DE PÉRIMÈTRE (CHANTS) PAR FORME
+// ============================================================================
+
+/**
+ * Calcule le périmètre d'un cercle (π × d)
+ */
+export function calculerPerimetreCercle(
+  diametreMm: number,
+  config: { type: 'curved'; edges: ChantsCurved }
+): number {
+  if (!config.edges.contour || diametreMm <= 0) return 0;
+  return Math.PI * (diametreMm / 1000);
+}
+
+/**
+ * Calcule le périmètre d'une ellipse (approximation de Ramanujan)
+ * P ≈ π × (3(a+b) - √((3a+b)(a+3b)))
+ */
+export function calculerPerimetreEllipse(
+  longueurMm: number,
+  largeurMm: number,
+  config: { type: 'curved'; edges: ChantsCurved }
+): number {
+  if (!config.edges.contour || longueurMm <= 0 || largeurMm <= 0) return 0;
+
+  const a = (longueurMm / 1000) / 2; // demi-grand axe
+  const b = (largeurMm / 1000) / 2;  // demi-petit axe
+
+  // Approximation de Ramanujan
+  return Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
+}
+
+/**
+ * Calcule le périmètre d'un triangle rectangle
+ * Côtés: base, hauteur, hypoténuse (Pythagore)
+ */
+export function calculerPerimetreTriangle(
+  baseMm: number,
+  hauteurMm: number,
+  config: { type: 'triangle'; edges: ChantsTriangle }
+): number {
+  if (baseMm <= 0 || hauteurMm <= 0) return 0;
+
+  const base = baseMm / 1000;
+  const hauteur = hauteurMm / 1000;
+  const hypotenuse = Math.sqrt(base * base + hauteur * hauteur);
+
+  let total = 0;
+  if (config.edges.A) total += base;       // Base
+  if (config.edges.B) total += hauteur;    // Hauteur
+  if (config.edges.C) total += hypotenuse; // Hypoténuse
+
+  return total;
+}
+
+/**
+ * Calcule le périmètre d'un L-shape (5 côtés)
+ */
+export function calculerPerimetreLShape(
+  dims: DimensionsLShape | null | undefined,
+  config: { type: 'pentagon'; edges: ChantsPentagon }
+): number {
+  if (!dims) return 0;
+
+  const { longueurTotale, largeurTotale, longueurEncoche, largeurEncoche } = dims;
+
+  // Longueurs des 5 côtés du L:
+  // A: Bas complet (longueurTotale)
+  // B: Droite complète (largeurTotale)
+  // C: Haut partiel (longueurTotale - longueurEncoche)
+  // D: Intérieur vertical (largeurTotale - largeurEncoche)
+  // E: Intérieur horizontal (longueurEncoche)
+  // Note: largeurEncoche ferme le L mais est comptée dans A ou E selon orientation
+
+  const edgeLengths = {
+    A: longueurTotale / 1000,
+    B: largeurTotale / 1000,
+    C: (longueurTotale - longueurEncoche) / 1000,
+    D: (largeurTotale - largeurEncoche) / 1000,
+    E: longueurEncoche / 1000,
+  };
+
+  let total = 0;
+  if (config.edges.A) total += edgeLengths.A;
+  if (config.edges.B) total += edgeLengths.B;
+  if (config.edges.C) total += edgeLengths.C;
+  if (config.edges.D) total += edgeLengths.D;
+  if (config.edges.E) total += edgeLengths.E;
+
+  return total;
+}
+
+/**
+ * Calcule les mètres linéaires de chants selon la forme
+ */
+export function calculerMetresLineairesParForme(
+  forme: FormePanneau | undefined,
+  dimensions: Dimensions,
+  chantsConfig: ChantsConfig | undefined,
+  dimensionsLShape?: DimensionsLShape | null,
+  formeCustom?: FormeCustom | null
+): number {
+  const f = forme || 'rectangle';
+
+  // Si pas de config chants, retourner 0
+  if (!chantsConfig) return 0;
+
+  switch (f) {
+    case 'rectangle':
+      if (chantsConfig.type !== 'rectangle') return 0;
+      return calculerMetresLineairesChants(dimensions, chantsConfig.edges);
+
+    case 'pentagon':
+      if (chantsConfig.type !== 'pentagon') return 0;
+      return calculerPerimetreLShape(dimensionsLShape, chantsConfig);
+
+    case 'circle':
+      if (chantsConfig.type !== 'curved') return 0;
+      return calculerPerimetreCercle(dimensions.longueur, chantsConfig);
+
+    case 'ellipse':
+      if (chantsConfig.type !== 'curved') return 0;
+      return calculerPerimetreEllipse(dimensions.longueur, dimensions.largeur, chantsConfig);
+
+    case 'triangle':
+      if (chantsConfig.type !== 'triangle') return 0;
+      return calculerPerimetreTriangle(dimensions.longueur, dimensions.largeur, chantsConfig);
+
+    case 'custom':
+      if (chantsConfig.type !== 'curved') return 0;
+      if (chantsConfig.edges.contour && formeCustom) {
+        return formeCustom.perimetreM;
+      }
+      return 0;
+
+    default:
+      return 0;
+  }
 }
 
 /**
