@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, ChevronDown, Package, FileSpreadsheet, Layers } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ChevronDown, Package, FileSpreadsheet, Layers, Code2 } from 'lucide-react';
 import { formaterPrix } from '@/lib/configurateur/calculs';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
@@ -40,6 +41,7 @@ export default function ConfigurateurHeader({
   onSelectMulticouche,
 }: ConfigurateurHeaderProps) {
   const t = useTranslations();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPanneauPopup, setShowPanneauPopup] = useState(false);
   const [showMulticouchePopup, setShowMulticouchePopup] = useState(false);
@@ -256,6 +258,15 @@ export default function ConfigurateurHeader({
             <span>{isImporting ? t('configurateur.header.importing') : t('configurateur.header.importExcel')}</span>
           </button>
         )}
+
+        {/* Dev Roadmap - discrète icône */}
+        <button
+          onClick={() => router.push('/dev')}
+          className="dev-link"
+          title="Development Roadmap"
+        >
+          <Code2 size={14} />
+        </button>
 
         {/* Language & Unit Switcher */}
         <LocaleSwitcher />
@@ -487,6 +498,28 @@ export default function ConfigurateurHeader({
           background: var(--cx-surface-2);
           border-radius: var(--cx-radius-md);
           border: 1px solid var(--cx-border-subtle);
+        }
+
+        /* Dev Link - discrète */
+        .dev-link {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: var(--cx-radius-md);
+          color: var(--cx-text-muted);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          opacity: 0.4;
+          transition: all var(--cx-transition-fast);
+        }
+
+        .dev-link:hover {
+          opacity: 1;
+          color: var(--cx-accent);
+          background: var(--cx-surface-2);
         }
       `}</style>
     </header>
