@@ -166,8 +166,10 @@
     "gluingQuestion": "Comment sera colle ce panneau multicouche ?",
     "supplierGluing": "Collage Fournisseur",
     "supplierGluingDesc": "Le fournisseur colle les couches et livre un panneau fini aux dimensions exactes.",
+    "supplierGluingBadge": "Collage realise par le fournisseur",
     "clientGluing": "Collage par mes soins",
     "clientGluingDesc": "Je collerai moi-meme. Sur-cote de 50mm appliquee pour la recoupe.",
+    "clientGluingBadge": "Collage Client (+50mm sur-cote)",
     "featureEdgesAvailable": "Chants disponibles",
     "featureMachiningAvailable": "Usinages disponibles",
     "featureDrillingAvailable": "Percage disponible",
@@ -176,11 +178,34 @@
     "featureAutoOversize": "Sur-cote auto",
     "loadTemplate": "Ou charger un modele :",
     "moreTemplates": "+{count} autres",
+    "addLayerCount": "Ajouter une couche ({current}/{max})",
     "addLayer": "Ajouter une couche",
     "removeLayer": "Supprimer",
     "totalThickness": "Epaisseur totale",
     "estimatedPrice": "Prix estime",
-    "validate": "Valider le panneau multicouche"
+    "validate": "Valider le panneau multicouche",
+    "dragInstruction": "Glissez les couches pour modifier l'ordre",
+    "selectPanel": "Selectionner un panneau...",
+    "layerType": "Type de couche",
+    "catalogPanel": "Panneau du catalogue",
+    "crossSection": "Coupe du panneau",
+    "layerTypes": {
+      "parement": "Face parement (visible)",
+      "ame": "Ame du panneau",
+      "contrebalancement": "Contrebalancement (dos)",
+      "autre": "Couche intermediaire"
+    },
+    "legend": {
+      "parement": "Parement",
+      "ame": "Ame",
+      "contre": "Contre."
+    },
+    "selectPanelWarning": "Selectionnez un panneau pour chaque couche",
+    "disclaimer": "Je reconnais etre entierement responsable de la conception de ce panneau multicouche. En cas d'erreur de configuration ou de mauvaise demande de fabrication, ni CutX ni le fournisseur ne pourront etre tenus responsables.",
+    "saveAsTemplate": "Enregistrer comme modele",
+    "templateNamePlaceholder": "Nom du modele...",
+    "templateSaved": "Modele enregistre !",
+    "redirectingToTemplates": "Redirection vers vos modeles..."
   },
   "machining": {
     "title": "Usinages",

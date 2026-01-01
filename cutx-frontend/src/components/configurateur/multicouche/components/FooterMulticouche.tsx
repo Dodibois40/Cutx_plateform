@@ -5,6 +5,7 @@
  * Contient le disclaimer, le dialogue de sauvegarde et les boutons d'action
  */
 
+import { useTranslations } from 'next-intl';
 import { Save, Check, Loader2 } from 'lucide-react';
 import styles from '../styles/PopupMulticouche.module.css';
 
@@ -39,6 +40,9 @@ export default function FooterMulticouche({
   onDisclaimerChange,
   onValidate,
 }: FooterMulticoucheProps) {
+  const t = useTranslations('dialogs.multilayer');
+  const tCommon = useTranslations('common');
+
   if (showSaveDialog) {
     return (
       <div className={styles.footer}>
@@ -48,9 +52,9 @@ export default function FooterMulticouche({
               <div className={styles.saveSuccessIcon}>
                 <Check size={24} />
               </div>
-              <span className={styles.saveSuccessText}>Modele enregistre !</span>
+              <span className={styles.saveSuccessText}>{t('templateSaved')}</span>
               <span className={styles.saveSuccessSubtext}>
-                Redirection vers vos modeles...
+                {t('redirectingToTemplates')}
               </span>
             </div>
           ) : (
@@ -59,13 +63,13 @@ export default function FooterMulticouche({
                 type="text"
                 value={templateName}
                 onChange={(e) => onTemplateNameChange(e.target.value)}
-                placeholder="Nom du modele..."
+                placeholder={t('templateNamePlaceholder')}
                 className={styles.saveDialogInput}
                 autoFocus
               />
               <div className={styles.saveDialogActions}>
                 <button onClick={onHideSaveDialog} className={styles.saveDialogCancel}>
-                  Annuler
+                  {tCommon('actions.cancel')}
                 </button>
                 <button
                   onClick={onSaveTemplate}
@@ -77,7 +81,7 @@ export default function FooterMulticouche({
                   ) : (
                     <Save size={14} />
                   )}
-                  Enregistrer
+                  {tCommon('actions.save')}
                 </button>
               </div>
             </>
@@ -91,7 +95,7 @@ export default function FooterMulticouche({
     <div className={styles.footer}>
       {!toutesLesCouchesCompletes && (
         <p className={styles.warning}>
-          Selectionnez un panneau pour chaque couche
+          {t('selectPanelWarning')}
         </p>
       )}
 
@@ -106,10 +110,7 @@ export default function FooterMulticouche({
             />
             <span className={styles.disclaimerCheckmark}></span>
             <span className={styles.disclaimerText}>
-              Je reconnais etre entierement responsable de la conception de ce
-              panneau multicouche. En cas d&apos;erreur de configuration ou de
-              mauvaise demande de fabrication, ni CutX ni le fournisseur ne
-              pourront etre tenus responsables.
+              {t('disclaimer')}
             </span>
           </label>
         </div>
@@ -119,7 +120,7 @@ export default function FooterMulticouche({
         {isSignedIn && toutesLesCouchesCompletes && (
           <button onClick={onShowSaveDialog} className={styles.saveBtn}>
             <Save size={16} />
-            Enregistrer comme modele
+            {t('saveAsTemplate')}
           </button>
         )}
         <button
@@ -128,7 +129,7 @@ export default function FooterMulticouche({
           className={styles.validateBtn}
         >
           <Check size={16} />
-          Valider le panneau multicouche
+          {t('validate')}
         </button>
       </div>
     </div>

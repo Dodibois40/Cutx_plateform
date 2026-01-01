@@ -4,10 +4,13 @@
  * Dropdown custom pour selectionner le type de couche
  */
 
+import { useTranslations } from 'next-intl';
 import { ChevronDown, Check } from 'lucide-react';
 import type { TypeCouche } from '@/lib/configurateur-multicouche/types';
-import { LABELS_COUCHE } from '@/lib/configurateur-multicouche/types';
 import styles from '../styles/PopupMulticouche.module.css';
+
+// Types de couches disponibles
+const LAYER_TYPES: TypeCouche[] = ['parement', 'ame', 'contrebalancement', 'autre'];
 
 interface TypeCoucheDropdownProps {
   currentType: TypeCouche;
@@ -22,6 +25,8 @@ export default function TypeCoucheDropdown({
   onToggle,
   onSelect,
 }: TypeCoucheDropdownProps) {
+  const t = useTranslations('dialogs.multilayer');
+
   return (
     <div className={styles.customDropdown}>
       <button
@@ -29,7 +34,7 @@ export default function TypeCoucheDropdown({
         className={styles.dropdownTrigger}
         onClick={onToggle}
       >
-        <span>{LABELS_COUCHE[currentType]}</span>
+        <span>{t(`layerTypes.${currentType}`)}</span>
         <ChevronDown
           size={16}
           className={`${styles.dropdownChevron} ${isOpen ? styles.dropdownChevronOpen : ''}`}
@@ -37,18 +42,18 @@ export default function TypeCoucheDropdown({
       </button>
       {isOpen && (
         <div className={styles.dropdownMenu}>
-          {Object.entries(LABELS_COUCHE).map(([value, label]) => (
+          {LAYER_TYPES.map((type) => (
             <button
-              key={value}
+              key={type}
               type="button"
-              className={`${styles.dropdownOption} ${currentType === value ? styles.dropdownOptionSelected : ''}`}
+              className={`${styles.dropdownOption} ${currentType === type ? styles.dropdownOptionSelected : ''}`}
               onClick={() => {
-                onSelect(value as TypeCouche);
+                onSelect(type);
               }}
             >
               <span className={styles.dropdownOptionDot} />
-              <span>{label}</span>
-              {currentType === value && (
+              <span>{t(`layerTypes.${type}`)}</span>
+              {currentType === type && (
                 <Check size={14} className={styles.dropdownOptionCheck} />
               )}
             </button>

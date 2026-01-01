@@ -5,6 +5,7 @@
  * Utilise CoucheItem et VueCoupePanneau
  */
 
+import { useTranslations } from 'next-intl';
 import { Plus, Wrench } from 'lucide-react';
 import type { CoucheMulticouche, ModeCollage, TypeCouche } from '@/lib/configurateur-multicouche/types';
 import { REGLES_MULTICOUCHE } from '@/lib/configurateur-multicouche/constants';
@@ -62,6 +63,8 @@ export default function EtapeCouches({
   onClearPanneau,
   onCoucheClick,
 }: EtapeCouchesProps) {
+  const t = useTranslations('dialogs.multilayer');
+
   return (
     <div className={styles.couchesEditionLayout}>
       {/* Colonne gauche : Configuration */}
@@ -84,8 +87,8 @@ export default function EtapeCouches({
             <Wrench size={14} />
           )}
           {modeCollage === 'fournisseur'
-            ? 'Collage realise par le fournisseur'
-            : 'Collage Client (+50mm sur-cote)'}
+            ? t('supplierGluingBadge')
+            : t('clientGluingBadge')}
         </div>
 
         {/* Message d'avertissement parement */}
@@ -103,7 +106,7 @@ export default function EtapeCouches({
             alt=""
             className={styles.dragInstructionIcon}
           />
-          <span>Glissez les couches pour modifier l&apos;ordre</span>
+          <span>{t('dragInstruction')}</span>
         </div>
 
         {/* Liste des couches avec drag & drop */}
@@ -148,7 +151,7 @@ export default function EtapeCouches({
           {couches.length < REGLES_MULTICOUCHE.COUCHES_MAX && (
             <button onClick={onAjouterCouche} className={styles.addCoucheBtn}>
               <Plus size={16} />
-              Ajouter une couche ({couches.length}/{REGLES_MULTICOUCHE.COUCHES_MAX})
+              {t('addLayerCount', { current: couches.length, max: REGLES_MULTICOUCHE.COUCHES_MAX })}
             </button>
           )}
         </div>
@@ -156,18 +159,18 @@ export default function EtapeCouches({
         {/* Resume */}
         <div className={styles.couchesSummary}>
           <div className={styles.summaryRow}>
-            <span>Couches</span>
+            <span>{t('layers')}</span>
             <span className={styles.summaryValue}>{couches.length}</span>
           </div>
           <div className={styles.summaryRow}>
-            <span>Epaisseur totale</span>
+            <span>{t('totalThickness')}</span>
             <span className={`${styles.summaryValue} ${styles.summaryValueAccent}`}>
               {epaisseurTotale.toFixed(1)} mm
             </span>
           </div>
           {prixEstimeM2 > 0 && (
             <div className={styles.summaryRow}>
-              <span>Prix estime</span>
+              <span>{t('estimatedPrice')}</span>
               <span className={styles.summaryValue}>
                 {prixEstimeM2.toFixed(2)} EUR/m2
               </span>

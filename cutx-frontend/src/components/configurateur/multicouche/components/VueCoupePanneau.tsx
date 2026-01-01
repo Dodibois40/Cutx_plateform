@@ -5,6 +5,7 @@
  * Affiche les couches empilees avec leurs epaisseurs
  */
 
+import { useTranslations } from 'next-intl';
 import type { CoucheMulticouche, TypeCouche } from '@/lib/configurateur-multicouche/types';
 import styles from '../styles/PopupMulticouche.module.css';
 
@@ -29,9 +30,11 @@ export default function VueCoupePanneau({
   coucheOuverte,
   onCoucheClick,
 }: VueCoupePanneauProps) {
+  const t = useTranslations('dialogs.multilayer');
+
   return (
     <div className={styles.coupePanel}>
-      <div className={styles.coupeTitle}>Coupe du panneau</div>
+      <div className={styles.coupeTitle}>{t('crossSection')}</div>
 
       <div className={styles.coupeView}>
         {/* Epaisseur totale */}
@@ -65,13 +68,13 @@ export default function VueCoupePanneau({
       {/* Legende simple */}
       <div className={styles.coupeLegend}>
         <div>
-          <span style={{ background: '#D4A84B' }} /> Parement
+          <span style={{ background: '#D4A84B' }} /> {t('legend.parement')}
         </div>
         <div>
-          <span style={{ background: '#8B6914' }} /> Ame
+          <span style={{ background: '#8B6914' }} /> {t('legend.ame')}
         </div>
         <div>
-          <span style={{ background: '#4A4A4A' }} /> Contre.
+          <span style={{ background: '#4A4A4A' }} /> {t('legend.contre')}
         </div>
       </div>
     </div>

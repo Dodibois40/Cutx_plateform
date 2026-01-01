@@ -4,9 +4,9 @@
  * Item de couche avec header, contenu deplie et drag & drop
  */
 
+import { useTranslations } from 'next-intl';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { CoucheMulticouche, TypeCouche } from '@/lib/configurateur-multicouche/types';
-import { LABELS_COUCHE } from '@/lib/configurateur-multicouche/types';
 import { REGLES_MULTICOUCHE } from '@/lib/configurateur-multicouche/constants';
 import type { ProduitCatalogue } from '@/lib/catalogues';
 import SelectionPanneauCouche from '@/components/configurateur-multicouche/SelectionPanneauCouche';
@@ -52,6 +52,7 @@ export default function CoucheItem({
   onSelectPanneau,
   onClearPanneau,
 }: CoucheItemProps) {
+  const t = useTranslations('dialogs.multilayer');
   const isComplete = couche.panneauId !== null;
   const canDelete = totalCouches > REGLES_MULTICOUCHE.COUCHES_MIN;
 
@@ -97,14 +98,14 @@ export default function CoucheItem({
           {couche.ordre}
         </div>
         <div className={styles.coucheInfo}>
-          <span className={styles.coucheType}>{LABELS_COUCHE[couche.type]}</span>
+          <span className={styles.coucheType}>{t(`layerTypes.${couche.type}`)}</span>
           {isComplete ? (
             <span className={styles.coucheDetail}>
               {couche.panneauNom} - {couche.epaisseur}mm
             </span>
           ) : (
             <span className={`${styles.coucheDetail} ${styles.coucheDetailEmpty}`}>
-              Selectionner un panneau...
+              {t('selectPanel')}
             </span>
           )}
         </div>
@@ -127,7 +128,7 @@ export default function CoucheItem({
       {isOpen && (
         <div className={styles.coucheContent}>
           <div className={styles.coucheFormField}>
-            <label>Type de couche</label>
+            <label>{t('layerType')}</label>
             <div className={styles.fieldWithArrow}>
               <span className={styles.fieldArrow}>↳</span>
               <TypeCoucheDropdown
@@ -142,7 +143,7 @@ export default function CoucheItem({
           </div>
 
           <div className={styles.coucheFormField}>
-            <label>Panneau du catalogue</label>
+            <label>{t('catalogPanel')}</label>
             <div className={styles.fieldWithArrow}>
               <span className={styles.fieldArrow}>↳</span>
               <SelectionPanneauCouche
