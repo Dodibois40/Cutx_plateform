@@ -3,6 +3,12 @@
     "title": "CutX - Panel Configurator",
     "description": "Wood panel configuration and ordering platform for professionals"
   },
+  "home": {
+    "title": "CutX",
+    "subtitle": "Wood Panel Configurator",
+    "description": "Professional platform for custom panel configuration and ordering",
+    "cta": "Access Configurator"
+  },
   "actions": {
     "save": "Save",
     "cancel": "Cancel",

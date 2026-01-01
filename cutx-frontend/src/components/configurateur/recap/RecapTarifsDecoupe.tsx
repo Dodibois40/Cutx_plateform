@@ -60,7 +60,7 @@ export default function RecapTarifsDecoupe({
       <div className="tarifs-header" onClick={() => setExpanded(!expanded)}>
         <div className="header-left">
           <Scissors size={18} className="header-icon" />
-          <h3>Tarifs Découpe & Chants</h3>
+          <h3>{t('tarifsDecoupeChants')}</h3>
           {!expanded && (
             <span className="header-total">{formaterPrix(totalHT)}</span>
           )}

@@ -135,12 +135,12 @@ export function validerConfigurateur(state: ConfigurateurV3State): ValidationRes
   // Vérifier qu'il y a au moins une ligne complète
   const lignesCompletes = state.lignes.filter(l => getEtatLigne(l) === 'complete');
   if (lignesCompletes.length === 0) {
-    erreurs.push('Au moins une ligne complète est requise');
+    erreurs.push('configurateur.validation.atLeastOneCompleteLine');
   }
 
   // Vérifier la référence chantier
   if (!state.referenceChantier || state.referenceChantier.trim() === '') {
-    erreurs.push('La référence chantier est obligatoire');
+    erreurs.push('configurateur.validation.projectReferenceRequired');
   }
 
   // Vérifier les références uniques

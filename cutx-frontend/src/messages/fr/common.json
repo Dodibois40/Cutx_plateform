@@ -3,6 +3,12 @@
     "title": "CutX - Configurateur de panneaux",
     "description": "Plateforme de configuration et commande de panneaux bois pour professionnels"
   },
+  "home": {
+    "title": "CutX",
+    "subtitle": "Configurateur de panneaux bois",
+    "description": "Plateforme professionnelle de configuration et commande de panneaux sur mesure",
+    "cta": "Acceder au configurateur"
+  },
   "actions": {
     "save": "Enregistrer",
     "cancel": "Annuler",

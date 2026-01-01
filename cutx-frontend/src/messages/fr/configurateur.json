@@ -176,7 +176,13 @@
     "linearMeters": "metres lineaires",
     "cuttingPrice": "Prix decoupe",
     "edgingPrice": "Prix placage",
-    "supplyPrice": "Prix fourniture"
+    "supplyPrice": "Prix fourniture",
+    "tarifsDecoupeChants": "Tarifs Decoupe & Chants"
+  },
+  "validation": {
+    "title": "Validation requise",
+    "atLeastOneCompleteLine": "Au moins une ligne complete est requise",
+    "projectReferenceRequired": "La reference chantier est obligatoire"
   },
   "multilayer": {
     "title": "Panneau Multicouche",

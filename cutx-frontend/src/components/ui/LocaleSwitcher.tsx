@@ -1,86 +1,69 @@
 'use client';
 
 import { useLocale } from 'next-intl';
-import { useRouter, usePathname } from '@/i18n/routing';
+import { usePathname } from '@/i18n/routing';
 import { useUnits, type UnitSystem } from '@/hooks/useUnits';
 import { usePreferenceSync } from '@/components/providers/PreferencesProvider';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Globe, Ruler } from 'lucide-react';
 
 /**
  * LocaleSwitcher - Language and unit system selector
- *
- * Provides two dropdown selects:
- * 1. Language selector (FR/EN) - updates URL locale
- * 2. Unit selector (mm/inch) - persisted to localStorage
- *
- * For logged-in users, preferences are also synced to Clerk metadata
- * for cross-device synchronization.
- *
- * Designed for integration in the header area.
  */
 export function LocaleSwitcher() {
   const locale = useLocale();
-  const router = useRouter();
   const pathname = usePathname();
   const { unit, setUnit } = useUnits();
   const { syncLocale, syncUnit } = usePreferenceSync();
 
-  /**
-   * Switch locale by navigating to the same path with new locale
-   * Also saves to Clerk for logged-in users
-   */
-  const switchLocale = (newLocale: string) => {
-    const typedLocale = newLocale as 'fr' | 'en';
-    // Save to Clerk in background (async, non-blocking)
-    syncLocale(typedLocale);
-    // useRouter and usePathname from @/i18n/routing handle locale automatically
-    router.replace(pathname, { locale: typedLocale });
+  const switchLocale = (newLocale: 'fr' | 'en') => {
+    if (newLocale === locale) return;
+    syncLocale(newLocale);
+    // Force full page navigation to avoid client-side routing issues
+    window.location.href = `/${newLocale}${pathname}`;
   };
 
-  /**
-   * Switch unit system
-   * Also saves to Clerk for logged-in users
-   */
-  const switchUnit = (newUnit: string) => {
-    const typedUnit = newUnit as UnitSystem;
-    // Save to Clerk in background (async, non-blocking)
-    syncUnit(typedUnit);
-    // Update local state
-    setUnit(typedUnit);
+  const switchUnit = (newUnit: UnitSystem) => {
+    syncUnit(newUnit);
+    setUnit(newUnit);
   };
+
+  const groupClass = "flex items-center gap-0.5 p-[3px] bg-[var(--cx-surface-2)] border border-[var(--cx-border-default)] rounded-md";
+  const btnBase = "px-2 py-1 text-xs font-medium rounded-sm cursor-pointer transition-all";
+  const btnInactive = "text-[var(--cx-text-muted)] hover:text-[#d4d0c8] bg-transparent border-none";
+  const btnActive = "bg-[var(--cx-surface-3)] text-[#e8e4dc] border-none";
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Language Selector */}
-      <Select value={locale} onValueChange={switchLocale}>
-        <SelectTrigger className="w-[90px] h-8 bg-transparent border-[var(--cx-border-subtle)] hover:border-[var(--cx-border-default)]">
-          <Globe className="h-4 w-4 mr-1 text-[var(--cx-text-muted)]" />
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="fr">FR</SelectItem>
-          <SelectItem value="en">EN</SelectItem>
-        </SelectContent>
-      </Select>
+    <div className="flex items-center gap-3">
+      {/* Language Toggle */}
+      <div className={groupClass}>
+        <button
+          onClick={() => switchLocale('fr')}
+          className={`${btnBase} ${locale === 'fr' ? btnActive : btnInactive}`}
+        >
+          Fr
+        </button>
+        <button
+          onClick={() => switchLocale('en')}
+          className={`${btnBase} ${locale === 'en' ? btnActive : btnInactive}`}
+        >
+          En
+        </button>
+      </div>
 
-      {/* Unit Selector */}
-      <Select value={unit} onValueChange={switchUnit}>
-        <SelectTrigger className="w-[80px] h-8 bg-transparent border-[var(--cx-border-subtle)] hover:border-[var(--cx-border-default)]">
-          <Ruler className="h-4 w-4 mr-1 text-[var(--cx-text-muted)]" />
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="mm">mm</SelectItem>
-          <SelectItem value="in">inch</SelectItem>
-        </SelectContent>
-      </Select>
+      {/* Unit Toggle */}
+      <div className={groupClass}>
+        <button
+          onClick={() => switchUnit('mm')}
+          className={`${btnBase} ${unit === 'mm' ? btnActive : btnInactive}`}
+        >
+          mm
+        </button>
+        <button
+          onClick={() => switchUnit('in')}
+          className={`${btnBase} ${unit === 'in' ? btnActive : btnInactive}`}
+        >
+          in
+        </button>
+      </div>
     </div>
   );
 }

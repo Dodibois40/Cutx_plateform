@@ -244,7 +244,7 @@ function ConfigurateurContent() {
             </div>
             <ul className="validation-list">
               {validation.erreurs.map((err, i) => (
-                <li key={i}>{err}</li>
+                <li key={i}>{err.startsWith('configurateur.') ? t(err) : err}</li>
               ))}
             </ul>
           </div>

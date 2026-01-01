@@ -176,7 +176,13 @@
     "linearMeters": "linear meters",
     "cuttingPrice": "Cutting price",
     "edgingPrice": "Edging price",
-    "supplyPrice": "Supply price"
+    "supplyPrice": "Supply price",
+    "tarifsDecoupeChants": "Cutting & Edging Rates"
+  },
+  "validation": {
+    "title": "Validation required",
+    "atLeastOneCompleteLine": "At least one complete line is required",
+    "projectReferenceRequired": "Project reference is required"
   },
   "multilayer": {
     "title": "Multilayer Panel",
