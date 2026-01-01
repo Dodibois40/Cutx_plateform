@@ -42,5 +42,8 @@ next-env.d.ts
 # Misc
 *.log
 
+# Archive (fichiers archivés pour nettoyage)
+_archive/
+
 # Claude Code local settings
 .claude/settings.local.json

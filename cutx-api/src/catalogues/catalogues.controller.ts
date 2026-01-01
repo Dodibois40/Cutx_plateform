@@ -49,6 +49,7 @@ export class CataloguesController {
     @Query('productType') productType?: string,
     @Query('epaisseur') epaisseur?: string,
     @Query('enStock') enStock?: string,
+    @Query('catalogue') catalogueSlug?: string,
   ) {
     const result = await this.cataloguesService.findAllPanels({
       search,
@@ -58,6 +59,7 @@ export class CataloguesController {
       productType,
       epaisseur: epaisseur ? parseFloat(epaisseur) : undefined,
       enStock: enStock === 'true',
+      catalogueSlug,
     });
 
     return {

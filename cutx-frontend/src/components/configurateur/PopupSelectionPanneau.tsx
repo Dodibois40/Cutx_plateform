@@ -19,6 +19,7 @@ import type { ProduitCatalogue } from '@/lib/catalogues';
 import {
   searchCatalogues as searchCataloguesAPI,
   getSousCategories as getCategoriesAPI,
+  getCatalogues as getCataloguesAPI,
   type CatalogueProduit,
 } from '@/lib/services/catalogue-api';
 
@@ -32,17 +33,52 @@ const PRODUCT_TYPE_KEYS = ['MELAMINE', 'STRATIFIE', 'PLACAGE', 'BANDE_DE_CHANT',
 const EPAISSEURS_PANNEAUX = [8, 12, 16, 19, 38];
 const EPAISSEURS_CHANTS = [0.7, 0.8, 0.9, 1, 1.2, 1.5, 2];
 
-// Composant Image avec état de chargement
+// Composant Image avec état de chargement - styles inline pour forcer le carré
 function ProductImage({ src, alt }: { src: string | undefined; alt: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
+  const containerStyle: React.CSSProperties = {
+    position: 'relative',
+    width: '48px',
+    height: '48px',
+    minWidth: '48px',
+    minHeight: '48px',
+    maxWidth: '48px',
+    maxHeight: '48px',
+    borderRadius: '6px',
+    overflow: 'hidden',
+    border: '1px solid var(--admin-border-subtle)',
+    background: 'var(--admin-bg-tertiary)',
+    flexShrink: 0,
+  };
+
+  const imageStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    objectPosition: 'center',
+    opacity: isLoading ? 0 : 1,
+    transition: 'opacity 0.2s ease',
+  };
+
+  const noImageStyle: React.CSSProperties = {
+    ...containerStyle,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--admin-text-muted)',
+  };
+
   if (!src || hasError) {
-    return <div className="no-image"><ImageIcon size={16} /></div>;
+    return <div style={noImageStyle}><ImageIcon size={16} /></div>;
   }
 
   return (
-    <div className="image-container">
+    <div style={containerStyle}>
       {isLoading && (
         <div className="image-loading">
           <div className="image-spinner" />
@@ -51,7 +87,7 @@ function ProductImage({ src, alt }: { src: string | undefined; alt: string }) {
       <img
         src={src}
         alt={alt}
-        className={`product-image ${isLoading ? 'loading' : ''}`}
+        style={imageStyle}
         onLoad={() => setIsLoading(false)}
         onError={() => {
           setIsLoading(false);
@@ -110,7 +146,9 @@ export default function PopupSelectionPanneau({
   const [filtreProductType, setFiltreProductType] = useState<string>('');
   const [filtreEpaisseur, setFiltreEpaisseur] = useState<number | null>(null);
   const [filtreEnStock, setFiltreEnStock] = useState(false);
+  const [filtreCatalogue, setFiltreCatalogue] = useState<string>('');
   const [sousCategories, setSousCategories] = useState<string[]>([]);
+  const [catalogues, setCatalogues] = useState<{ slug: string; name: string }[]>([]);
 
   // Tri (100% côté client)
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
@@ -122,7 +160,7 @@ export default function PopupSelectionPanneau({
   // Épaisseurs dynamiques selon le type de produit
   const epaisseurs = filtreProductType === 'BANDE_DE_CHANT' ? EPAISSEURS_CHANTS : EPAISSEURS_PANNEAUX;
 
-  const hasFilters = search || filtreSousCategories.length > 0 || filtreProductType || filtreEpaisseur || filtreEnStock;
+  const hasFilters = search || filtreSousCategories.length > 0 || filtreProductType || filtreEpaisseur || filtreEnStock || filtreCatalogue;
 
   // Charger les produits avec filtrage côté serveur
   const loadProduits = useCallback(async () => {
@@ -137,6 +175,7 @@ export default function PopupSelectionPanneau({
         sousCategorie: filtreSousCategories.length === 1 ? filtreSousCategories[0] : undefined,
         epaisseurMin: filtreEpaisseur || undefined,
         enStock: filtreEnStock || undefined,
+        catalogue: filtreCatalogue || undefined,
       });
 
       let filteredProduits = result.produits as CatalogueProduit[];
@@ -184,15 +223,19 @@ export default function PopupSelectionPanneau({
     } finally {
       setIsLoading(false);
     }
-  }, [search, filtreProductType, filtreSousCategories, filtreEpaisseur, filtreEnStock, sortColumn, sortDirection]);
+  }, [search, filtreProductType, filtreSousCategories, filtreEpaisseur, filtreEnStock, filtreCatalogue, sortColumn, sortDirection]);
 
-  // Charger les catégories disponibles
+  // Charger les catégories et catalogues disponibles
   useEffect(() => {
     if (!open) return;
     const loadFilters = async () => {
       try {
-        const categoriesData = await getCategoriesAPI();
+        const [categoriesData, cataloguesData] = await Promise.all([
+          getCategoriesAPI(),
+          getCataloguesAPI(),
+        ]);
         setSousCategories([...new Set(categoriesData)]);
+        setCatalogues(cataloguesData);
       } catch (err) {
         console.error('Erreur chargement filtres:', err);
       }
@@ -216,6 +259,7 @@ export default function PopupSelectionPanneau({
       setFiltreProductType('');
       setFiltreEpaisseur(null);
       setFiltreEnStock(false);
+      setFiltreCatalogue('');
       setSortColumn(null);
       setSortDirection('asc');
     }
@@ -265,6 +309,7 @@ export default function PopupSelectionPanneau({
     setFiltreProductType('');
     setFiltreEpaisseur(null);
     setFiltreEnStock(false);
+    setFiltreCatalogue('');
     setSortColumn(null);
     setSortDirection('asc');
   };
@@ -353,6 +398,20 @@ export default function PopupSelectionPanneau({
               </button>
             )}
           </div>
+
+          <div className="separator" />
+
+          {/* Filtre Catalogue */}
+          <select
+            value={filtreCatalogue}
+            onChange={(e) => setFiltreCatalogue(e.target.value)}
+            className={`filter-select filter-catalogue ${filtreCatalogue ? 'active' : ''}`}
+          >
+            <option value="">{t('catalogueFilter')}</option>
+            {catalogues.map(cat => (
+              <option key={cat.slug} value={cat.slug}>{cat.name}</option>
+            ))}
+          </select>
 
           <div className="separator" />
 
@@ -901,26 +960,46 @@ export default function PopupSelectionPanneau({
 
           /* Colonnes */
           .col-image {
-            width: 50px;
+            width: 60px !important;
+            min-width: 60px !important;
+            max-width: 60px !important;
             text-align: center;
+            padding: 0.5rem !important;
+          }
+
+          .col-image > div,
+          .col-image > .image-container,
+          .col-image > .no-image {
+            width: 48px !important;
+            height: 48px !important;
+            margin: 0 auto;
           }
 
           .product-image {
-            width: 40px;
-            height: 40px;
-            object-fit: cover;
-            border-radius: 4px;
+            width: 48px !important;
+            height: 48px !important;
+            min-width: 48px !important;
+            min-height: 48px !important;
+            max-width: 48px !important;
+            max-height: 48px !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            border-radius: 6px;
             border: 1px solid var(--admin-border-subtle);
           }
 
           .no-image {
-            width: 40px;
-            height: 40px;
-            display: flex;
+            width: 48px !important;
+            height: 48px !important;
+            min-width: 48px !important;
+            min-height: 48px !important;
+            max-width: 48px !important;
+            max-height: 48px !important;
+            display: flex !important;
             align-items: center;
             justify-content: center;
             background: var(--admin-bg-tertiary);
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid var(--admin-border-subtle);
             color: var(--admin-text-muted);
             font-size: 0.75rem;
@@ -928,13 +1007,19 @@ export default function PopupSelectionPanneau({
 
           /* Image avec état de chargement */
           .image-container {
-            position: relative;
-            width: 40px;
-            height: 40px;
-            border-radius: 4px;
-            overflow: hidden;
+            position: relative !important;
+            width: 48px !important;
+            height: 48px !important;
+            min-width: 48px !important;
+            min-height: 48px !important;
+            max-width: 48px !important;
+            max-height: 48px !important;
+            border-radius: 6px;
+            overflow: hidden !important;
             border: 1px solid var(--admin-border-subtle);
             background: var(--admin-bg-tertiary);
+            flex-shrink: 0;
+            display: block !important;
           }
 
           .image-loading {
@@ -955,12 +1040,23 @@ export default function PopupSelectionPanneau({
             animation: spin 0.8s linear infinite;
           }
 
-          .image-container .product-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+          .image-container .product-image,
+          .image-container img {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-width: 100% !important;
+            min-height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            object-fit: cover !important;
+            object-position: center !important;
             opacity: 1;
             transition: opacity 0.2s ease;
+            border: none !important;
+            border-radius: 0 !important;
           }
 
           .image-container .product-image.loading {
@@ -986,8 +1082,9 @@ export default function PopupSelectionPanneau({
           }
 
           .skeleton-image {
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
           }
 
           .skeleton-text-xs {

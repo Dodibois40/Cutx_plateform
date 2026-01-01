@@ -131,6 +131,7 @@ export interface SearchParams {
   sortDirection?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  catalogue?: string; // Filter by catalogue slug (e.g., 'bouney', 'dispano')
 }
 
 export interface CatalogueStats {
@@ -161,6 +162,7 @@ export async function searchCatalogues(params: SearchParams = {}): Promise<Searc
   if (params.productType) queryParams.append('productType', params.productType);
   if (params.epaisseurMin) queryParams.append('epaisseur', params.epaisseurMin.toString());
   if (params.enStock) queryParams.append('enStock', 'true');
+  if (params.catalogue) queryParams.append('catalogue', params.catalogue);
 
   // Utiliser l'endpoint unifié /panels qui retourne tous les catalogues
   const endpoint = `/api/catalogues/panels?${queryParams}`;
@@ -202,19 +204,44 @@ export async function getTypesDisponibles(): Promise<{ value: string; label: str
   return [
     { value: 'MELAMINE', label: 'Mélaminé' },
     { value: 'STRATIFIE', label: 'Stratifié' },
+    { value: 'PLACAGE', label: 'Placage / Essence Fine' },
     { value: 'BANDE_DE_CHANT', label: 'Bande de chant' },
     { value: 'COMPACT', label: 'Compact' },
   ];
 }
 
 /**
- * Récupérer toutes les catégories disponibles depuis l'API
- * Retourne les catégories avec panneaux (sous-catégories où les produits sont réellement stockés)
+ * Récupérer la liste des catalogues disponibles
+ */
+export async function getCatalogues(): Promise<{ slug: string; name: string }[]> {
+  try {
+    const response = await apiCall<{ catalogues: { slug: string; name: string }[] }>('/api/catalogues');
+    return response.catalogues || [];
+  } catch {
+    // Fallback en cas d'erreur
+    return [
+      { slug: 'bouney', name: 'B comme Bois' },
+      { slug: 'dispano', name: 'Dispano' },
+    ];
+  }
+}
+
+/**
+ * Récupérer toutes les catégories parentes disponibles depuis l'API
+ * Structure actuelle du catalogue B comme Bois:
+ * - "Panneaux Basiques & Techniques" → Agglomérés, MDF, Contreplaqués, OSB, Lattés
+ * - "Stratifiés - Mélaminés - Compacts - Chants" → Unis, Bois, Fantaisies, Mélaminés, Chants
+ * - "Essences Fine" → Agglomérés/MDF/Contreplaqués/Lattés replaqués, Stratifiés flex
+ * - "Panneaux Déco" → Panneaux décoratifs
  */
 export async function getSousCategories(): Promise<string[]> {
-  // Catégories réelles avec panneaux (basé sur l'analyse de la DB)
-  // Ce sont les sous-catégories de "Stratifiés - Mélaminés - Compacts - Chants"
-  return ['Unis', 'Bois', 'Matières', 'Fenix'];
+  // Catégories parentes principales du catalogue B comme Bois
+  return [
+    'Panneaux Basiques & Techniques',
+    'Stratifiés - Mélaminés - Compacts - Chants',
+    'Essences Fine',
+    'Panneaux Déco',
+  ];
 }
 
 // ═══════════════════════════════════════════════════════════════

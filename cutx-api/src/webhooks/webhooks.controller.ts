@@ -5,6 +5,7 @@ import {
   Req,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
@@ -25,6 +26,8 @@ interface ClerkUserEvent {
 
 @Controller('webhooks')
 export class WebhooksController {
+  private readonly logger = new Logger(WebhooksController.name);
+
   constructor(
     private readonly configService: ConfigService,
     private readonly webhooksService: WebhooksService,
@@ -40,7 +43,7 @@ export class WebhooksController {
     const webhookSecret = this.configService.get<string>('CLERK_WEBHOOK_SECRET');
 
     if (!webhookSecret) {
-      console.error('CLERK_WEBHOOK_SECRET not configured');
+      this.logger.error('CLERK_WEBHOOK_SECRET not configured');
       throw new HttpException(
         'Webhook secret not configured',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -60,13 +63,13 @@ export class WebhooksController {
         'svix-signature': svixSignature,
       }) as ClerkUserEvent;
     } catch (err) {
-      console.error('Webhook verification failed:', err);
+      this.logger.error('Webhook verification failed:', err);
       throw new HttpException('Invalid signature', HttpStatus.BAD_REQUEST);
     }
 
     // Handle different event types
     const { type, data } = event;
-    console.log(`Received Clerk webhook: ${type}`);
+    this.logger.log(`Received Clerk webhook: ${type}`);
 
     try {
       switch (type) {
@@ -95,12 +98,12 @@ export class WebhooksController {
           break;
 
         default:
-          console.log(`Unhandled event type: ${type}`);
+          this.logger.warn(`Unhandled event type: ${type}`);
       }
 
       return { received: true };
     } catch (error) {
-      console.error(`Error handling webhook ${type}:`, error);
+      this.logger.error(`Error handling webhook ${type}:`, error);
       throw new HttpException(
         'Error processing webhook',
         HttpStatus.INTERNAL_SERVER_ERROR,

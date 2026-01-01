@@ -162,6 +162,10 @@ model Panel {
   stockStatus     String?  // "EN STOCK", "Sur commande"
   stockLocations  String?  // JSON: [{"location":"Bouney, Anglet","inStock":true}]
 
+  // Métadonnées étendues (JSON) - pour données supplémentaires fournisseur
+  // Ex Dispano: refMarque, codeEAN, poids, classeFeu, CO2, etc.
+  metadata        String?  // JSON stringifié
+
   isActive        Boolean  @default(true)
 
   // Relations

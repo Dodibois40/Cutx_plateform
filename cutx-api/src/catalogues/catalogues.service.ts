@@ -200,11 +200,20 @@ export class CataloguesService {
     productType?: string; // MELAMINE, STRATIFIE, BANDE_DE_CHANT, COMPACT
     epaisseur?: number;
     enStock?: boolean;
+    catalogueSlug?: string; // Filter by specific catalogue
   }): Promise<{ panels: Panel[]; total: number }> {
     const where: Prisma.PanelWhereInput = {
       isActive: true,
       catalogue: { isActive: true },
     };
+
+    // Filter by catalogue slug if provided
+    if (options?.catalogueSlug) {
+      where.catalogue = {
+        isActive: true,
+        slug: options.catalogueSlug,
+      };
+    }
 
     if (options?.search) {
       where.OR = [

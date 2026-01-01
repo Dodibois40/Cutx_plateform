@@ -45,17 +45,34 @@ interface ApiPanel {
 }
 
 // Mapping material -> categorie
-function mapMaterialToCategorie(material: string): CategoriePanneau {
+function mapMaterialToCategorie(material: string | null | undefined): CategoriePanneau {
+  if (!material) return 'agglo_plaque'; // Défaut si material est null/undefined
+
   const materialLower = material.toLowerCase();
+
+  // MDF (standard ou hydrofuge)
   if (materialLower.includes('mdf') && materialLower.includes('hydro')) return 'mdf_hydro';
   if (materialLower.includes('mdf')) return 'mdf';
+
+  // Contreplaqué (y compris replaqués)
+  if (materialLower.includes('contreplaqué') || materialLower.includes('cp')) return 'cp';
+
+  // Aggloméré (brut, plaqué ou replaqué)
   if (materialLower.includes('aggloméré') || materialLower.includes('agglo')) {
-    if (materialLower.includes('plaqué')) return 'agglo_plaque';
+    if (materialLower.includes('plaqué') || materialLower.includes('replaqué')) return 'agglo_plaque';
     return 'agglo_brut';
   }
-  if (materialLower.includes('contreplaqué') || materialLower.includes('cp')) return 'cp';
-  if (materialLower.includes('massif')) return 'bois_massif';
-  // Par défaut pour mélaminé, stratifié, etc.
+
+  // Replaqués génériques (Essences Fine) - mapper selon le support
+  if (materialLower.includes('replaqué')) {
+    if (materialLower.includes('latté')) return 'bois_massif';
+    return 'agglo_plaque'; // Par défaut pour replaqués
+  }
+
+  // Bois massif et lattés
+  if (materialLower.includes('massif') || materialLower.includes('latté')) return 'bois_massif';
+
+  // Par défaut pour mélaminé, stratifié, placage, etc.
   return 'agglo_plaque';
 }
 

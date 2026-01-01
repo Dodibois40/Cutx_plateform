@@ -1,14 +1,14 @@
 /**
- * Scraping Panneaux Déco B comme Bois
+ * Scraping Plans de Travail B comme Bois
  *
- * Source: https://www.bcommebois.fr/agencement/panneaux-deco.html
- * Catégorie: Panneaux Déco
- * Contenu: Panneaux acoustiques, perforés, cannelés, tasseaux décoratifs, etc.
+ * Source: https://www.bcommebois.fr/agencement/plans-de-travail.html
+ * Catégorie: Plans de Travail
+ * Contenu: Plans de travail cuisine, salle de bain, stratifiés, massifs, etc.
  *
  * Usage:
  * 1. Lancer Chrome en mode debug: scripts/launch-chrome-debug.bat
  * 2. Se connecter sur bcommebois.fr avec son compte
- * 3. Lancer: npx tsx scripts/scrape-panneaux-deco.ts
+ * 3. Lancer: npx tsx scripts/scrape-plans-de-travail.ts
  */
 
 import puppeteer, { Page } from 'puppeteer';
@@ -17,11 +17,11 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // URL principale
-const MAIN_URL = 'https://www.bcommebois.fr/agencement/panneaux-deco.html';
+const MAIN_URL = 'https://www.bcommebois.fr/agencement/plans-de-travail.html';
 
 // Catégorie principale
-const MAIN_CATEGORY_NAME = 'Panneaux Déco';
-const MAIN_CATEGORY_SLUG = 'panneaux-deco';
+const MAIN_CATEGORY_NAME = 'Plans de Travail';
+const MAIN_CATEGORY_SLUG = 'plans-de-travail';
 
 interface Variante {
   longueur: number;
@@ -136,8 +136,7 @@ async function getProductLinksFromPage(page: Page, url: string): Promise<string[
             'structure-charpente.html', 'isolation-etancheite.html',
             'libre-service.html', 'contact.html', 'panier.html',
             'connexion.html', 'inscription.html', 'deconnexion.html',
-            'plans-de-travail.html', 'panneaux-bois.html', 'essences-fine.html',
-            'panneaux-deco.html'
+            'plans-de-travail.html', 'panneaux-bois.html', 'essences-fine.html'
           ];
           if (!excluded.includes(pathParts[0]) && !links.includes(href)) {
             links.push(href);
@@ -181,7 +180,7 @@ async function discoverAllSubcategories(page: Page): Promise<Array<{name: string
       '.block-category-list a',
       '.category-item a',
       '.sidebar-categories a',
-      'a[href*="panneaux-deco/"]'
+      'a[href*="plans-de-travail/"]'
     ];
 
     for (const sel of selectors) {
@@ -190,8 +189,8 @@ async function discoverAllSubcategories(page: Page): Promise<Array<{name: string
         const name = el.textContent?.trim() || '';
 
         if (href && name &&
-            href.includes('panneaux-deco') &&
-            !href.endsWith('panneaux-deco.html') &&
+            href.includes('plans-de-travail') &&
+            !href.endsWith('plans-de-travail.html') &&
             !cats.some(c => c.url === href)) {
 
           const slug = href.split('/').pop()?.replace('.html', '') || name.toLowerCase().replace(/\s+/g, '-');
@@ -210,59 +209,48 @@ async function discoverAllSubcategories(page: Page): Promise<Array<{name: string
 }
 
 /**
- * Détermine le type de panneau décoratif basé sur le nom
+ * Détermine le type de plan de travail basé sur le nom
  */
 function determineProductType(nom: string): { type: string; productType: string | null } {
   const nomLower = nom.toLowerCase();
 
-  // Panneaux acoustiques
-  if (nomLower.includes('acousti') || nomLower.includes('phonique') || nomLower.includes('absorbant')) {
-    return { type: 'Panneau acoustique', productType: null };
+  // Plans de travail stratifiés
+  if (nomLower.includes('stratifié') || nomLower.includes('stratifie') || nomLower.includes('hpl')) {
+    return { type: 'Plan de travail stratifié', productType: 'STRATIFIE' };
   }
 
-  // Panneaux perforés
-  if (nomLower.includes('perfor') || nomLower.includes('ajouré') || nomLower.includes('ajour')) {
-    return { type: 'Panneau perforé', productType: null };
+  // Plans de travail compact
+  if (nomLower.includes('compact') || nomLower.includes('fenix') || nomLower.includes('solid')) {
+    return { type: 'Plan de travail compact', productType: 'COMPACT' };
   }
 
-  // Panneaux cannelés / rainurés
-  if (nomLower.includes('cannel') || nomLower.includes('rainur') || nomLower.includes('strié') ||
-      nomLower.includes('groove') || nomLower.includes('slatwall')) {
-    return { type: 'Panneau cannelé', productType: null };
+  // Plans de travail massif
+  if (nomLower.includes('massif') || nomLower.includes('chêne') || nomLower.includes('hêtre') ||
+      nomLower.includes('noyer') || nomLower.includes('frêne')) {
+    if (nomLower.includes('chêne')) return { type: 'Plan de travail chêne massif', productType: null };
+    if (nomLower.includes('hêtre')) return { type: 'Plan de travail hêtre massif', productType: null };
+    if (nomLower.includes('noyer')) return { type: 'Plan de travail noyer massif', productType: null };
+    if (nomLower.includes('frêne')) return { type: 'Plan de travail frêne massif', productType: null };
+    return { type: 'Plan de travail massif', productType: null };
   }
 
-  // Tasseaux
-  if (nomLower.includes('tasseau') || nomLower.includes('latte') || nomLower.includes('claustra')) {
-    return { type: 'Tasseaux décoratifs', productType: null };
+  // Plans de travail lamellé-collé
+  if (nomLower.includes('lamellé') || nomLower.includes('lamelle')) {
+    return { type: 'Plan de travail lamellé-collé', productType: null };
   }
 
-  // Panneaux 3D / relief
-  if (nomLower.includes('3d') || nomLower.includes('relief') || nomLower.includes('ondulé')) {
-    return { type: 'Panneau 3D', productType: null };
+  // Crédences
+  if (nomLower.includes('crédence') || nomLower.includes('credence')) {
+    return { type: 'Crédence', productType: 'STRATIFIE' };
   }
 
-  // Panneaux muraux
-  if (nomLower.includes('mural') || nomLower.includes('revêtement')) {
-    return { type: 'Panneau mural', productType: null };
+  // Profilés et finitions
+  if (nomLower.includes('profilé') || nomLower.includes('profile') || nomLower.includes('chant')) {
+    return { type: 'Profilé / Chant', productType: 'BANDE_DE_CHANT' };
   }
 
-  // Panneaux mélaminés décoratifs
-  if (nomLower.includes('mélamin') || nomLower.includes('melamin')) {
-    return { type: 'Panneau mélaminé décoratif', productType: 'MELAMINE' };
-  }
-
-  // Panneaux stratifiés décoratifs
-  if (nomLower.includes('stratif') || nomLower.includes('hpl')) {
-    return { type: 'Panneau stratifié décoratif', productType: 'STRATIFIE' };
-  }
-
-  // Panneaux MDF laqués
-  if (nomLower.includes('laqué') || nomLower.includes('laque')) {
-    return { type: 'Panneau laqué', productType: null };
-  }
-
-  // Par défaut - panneau décoratif
-  return { type: 'Panneau décoratif', productType: null };
+  // Par défaut
+  return { type: 'Plan de travail', productType: null };
 }
 
 /**
@@ -280,17 +268,11 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
       let marque = 'B comme Bois';
       const nomLower = nom.toLowerCase();
 
-      // Détection des marques
       if (nomLower.includes('egger')) marque = 'Egger';
       else if (nomLower.includes('kronospan')) marque = 'Kronospan';
       else if (nomLower.includes('finsa')) marque = 'Finsa';
-      else if (nomLower.includes('sonae') || nomLower.includes('innovus')) marque = 'Sonae Arauco';
-      else if (nomLower.includes('cleaf')) marque = 'Cleaf';
-      else if (nomLower.includes('pfleiderer')) marque = 'Pfleiderer';
-      else if (nomLower.includes('decospan')) marque = 'Decospan';
-      else if (nomLower.includes('xylos')) marque = 'Xylos';
       else if (nomLower.includes('polyrey')) marque = 'Polyrey';
-      else if (nomLower.includes('formica')) marque = 'Formica';
+      else if (nomLower.includes('duropal')) marque = 'Duropal';
       else if (nomLower.includes('fenix')) marque = 'Fenix';
 
       let finish: string | null = null;
@@ -299,7 +281,6 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
       else if (nomLower.includes('satiné') || nomLower.includes('satine')) finish = 'Satiné';
       else if (nomLower.includes('texturé') || nomLower.includes('texture')) finish = 'Texturé';
       else if (nomLower.includes('soft')) finish = 'Soft Touch';
-      else if (nomLower.includes('structuré') || nomLower.includes('structure')) finish = 'Structuré';
 
       let imageUrl = '';
       const imgSelectors = [
@@ -366,25 +347,34 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
                 code = text.replace(/\s/g, '');
               } else if (text.toLowerCase().includes('stock') || text.toLowerCase().includes('commande')) {
                 stock = text.includes('EN STOCK') || text.toLowerCase().includes('en stock')
-                  ? 'EN STOCK' : 'Sur commande';
-              } else if (text.includes('€')) {
-                const priceMatch = text.match(/([\d\s]+[,.][\d]+)/);
+                  ? 'EN STOCK'
+                  : 'Sur commande';
+              } else if (text.includes('€') || text.includes('EUR')) {
+                const priceMatch = text.match(/[\d.,]+/);
                 if (priceMatch) {
-                  prix = parseFloat(priceMatch[1].replace(/\s/g, '').replace(',', '.'));
+                  prix = parseFloat(priceMatch[0].replace(',', '.'));
                 }
               }
             }
 
-            if (code || (longueur > 0 && largeur > 0)) {
+            if (!code) {
+              for (const text of cellTexts) {
+                const codeMatch = text.match(/\b(\d{4,6})\b/);
+                if (codeMatch) {
+                  code = codeMatch[1];
+                  break;
+                }
+              }
+            }
+
+            if (code && (longueur > 0 || epaisseur > 0)) {
               variantes.push({ longueur, largeur, epaisseur, code, stock, prix });
             }
           }
         }
       }
 
-      // Si pas de tableau, chercher dans le titre/description
-      if (variantes.length === 0 && nom) {
-        // Chercher référence dans la page
+      if (variantes.length === 0) {
         let code = '';
         const refEl = document.querySelector('.product.attribute.sku .value, [itemprop="sku"], .sku .value');
         if (refEl?.textContent) {
@@ -396,24 +386,75 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
           if (refTextMatch) code = refTextMatch[1];
         }
 
-        const dimMatch = nom.match(/(\d{3,4})\s*[xX×]\s*(\d{3,4})/);
-        const epMatch = nom.match(/(\d+(?:[.,]\d+)?)\s*mm/);
-        const codeMatch = nom.match(/(\d{5,6})/);
+        let prix: number | null = null;
+        const priceSelectors = [
+          '[data-price-type="finalPrice"] .price',
+          '.price-box .price',
+          '.product-info-price .price',
+          '.price-wrapper .price',
+          'span.price'
+        ];
+        for (const sel of priceSelectors) {
+          const el = document.querySelector(sel);
+          if (el?.textContent) {
+            const priceText = el.textContent.trim().replace(/[^\d,\.]/g, '').replace(',', '.');
+            const parsed = parseFloat(priceText);
+            if (parsed > 0) {
+              prix = parsed;
+              break;
+            }
+          }
+        }
 
-        variantes.push({
-          longueur: dimMatch ? parseInt(dimMatch[1]) : 0,
-          largeur: dimMatch ? parseInt(dimMatch[2]) : 0,
-          epaisseur: epMatch ? parseFloat(epMatch[1].replace(',', '.')) : 0,
-          code: code || (codeMatch ? codeMatch[1] : ''),
-          stock: 'Sur commande',
-          prix: null
-        });
+        let stock = 'Sur commande';
+        const stockEl = document.querySelector('.stock.available, .availability, [title="Disponibilité"]');
+        if (stockEl?.textContent?.toLowerCase().includes('stock')) {
+          stock = 'EN STOCK';
+        }
+        if (stock === 'Sur commande' && document.body.innerText.includes('EN STOCK')) {
+          stock = 'EN STOCK';
+        }
+
+        let epaisseur = 0, largeur = 0, longueur = 0;
+
+        // Format typique pour plans de travail: "3050 x 650 x 38 mm"
+        let dimMatch = nom.match(/(\d{3,4})\s*x\s*(\d{3,4})\s*x\s*(\d+)/i);
+        if (dimMatch) {
+          longueur = parseInt(dimMatch[1]);
+          largeur = parseInt(dimMatch[2]);
+          epaisseur = parseFloat(dimMatch[3]);
+        }
+
+        if (!epaisseur) {
+          const epMatch = nom.match(/(\d+)\s*mm\b/);
+          const lwMatch = nom.match(/(\d{3,4})\s*x\s*(\d{3,4})/);
+          if (epMatch) {
+            epaisseur = parseFloat(epMatch[1]);
+          }
+          if (lwMatch) {
+            longueur = parseInt(lwMatch[1]);
+            largeur = parseInt(lwMatch[2]);
+          }
+        }
+
+        if (code || epaisseur > 0 || longueur > 0) {
+          variantes.push({
+            longueur,
+            largeur,
+            epaisseur,
+            code: code || `REF-${Date.now()}`,
+            stock,
+            prix
+          });
+        }
       }
 
       return { nom, marque, finish, imageUrl, variantes };
     });
 
-    if (!data.nom) return null;
+    if (!data.nom) {
+      return null;
+    }
 
     const { type, productType } = determineProductType(data.nom);
 
@@ -422,138 +463,41 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
       type,
       marque: data.marque,
       finish: data.finish,
-      imageUrl: data.imageUrl || null,
+      imageUrl: data.imageUrl,
       productType,
       variantes: data.variantes
     };
   } catch (error) {
-    console.error(`   ❌ Erreur scraping ${url}:`, error);
+    console.log(`      ❌ Erreur: ${(error as Error).message}`);
     return null;
   }
 }
 
-/**
- * Enregistre ou met à jour un panel en base
- */
-async function upsertPanel(
-  catalogueId: string,
-  categoryId: string,
-  produit: ProduitComplet,
-  variante: Variante,
-  stats: ScrapingStats
-): Promise<void> {
-  const reference = variante.code ? `BCB-DEC-${variante.code}` : `BCB-DEC-${Date.now()}`;
-
-  try {
-    await prisma.panel.upsert({
-      where: {
-        catalogueId_reference: {
-          catalogueId,
-          reference
-        }
-      },
-      update: {
-        name: produit.nom,
-        description: `${produit.type} - ${produit.marque}`,
-        material: produit.type,
-        finish: produit.finish || produit.marque,
-        productType: produit.productType,
-        defaultLength: variante.longueur,
-        defaultWidth: variante.largeur,
-        defaultThickness: variante.epaisseur,
-        thickness: variante.epaisseur > 0 ? [variante.epaisseur] : [],
-        pricePerM2: variante.prix,
-        stockStatus: variante.stock || 'Sur commande',
-        imageUrl: produit.imageUrl,
-        isActive: true,
-        categoryId
-      },
-      create: {
-        catalogueId,
-        categoryId,
-        reference,
-        name: produit.nom,
-        description: `${produit.type} - ${produit.marque}`,
-        material: produit.type,
-        finish: produit.finish || produit.marque,
-        productType: produit.productType,
-        defaultLength: variante.longueur,
-        defaultWidth: variante.largeur,
-        defaultThickness: variante.epaisseur,
-        thickness: variante.epaisseur > 0 ? [variante.epaisseur] : [],
-        isVariableLength: false,
-        pricePerM2: variante.prix,
-        stockStatus: variante.stock || 'Sur commande',
-        imageUrl: produit.imageUrl,
-        isActive: true
-      }
-    });
-    stats.created++;
-  } catch (error) {
-    console.error(`   ❌ Erreur upsert ${reference}:`, error);
-    stats.errors++;
-  }
-}
-
 async function main() {
-  console.log(`
-🎨 SCRAPING PANNEAUX DÉCO B COMME BOIS
-==========================================
-📦 Catégorie: Panneaux Déco
-📋 Contenu: Acoustiques, Perforés, Cannelés, Tasseaux...
-==========================================
-`);
+  console.log('🪵 SCRAPING PLANS DE TRAVAIL B COMME BOIS');
+  console.log('==========================================');
+  console.log('📦 Catégorie: Plans de Travail');
+  console.log('📋 Contenu: Stratifiés, Massifs, Compacts, Crédences...');
+  console.log('==========================================\n');
 
   console.log('🔌 Connexion à Chrome...');
-  const browser = await puppeteer.connect({
-    browserURL: 'http://127.0.0.1:9222',
-    defaultViewport: null
-  });
-  console.log('✅ Connecté à Chrome!');
+  let browser;
+  try {
+    browser = await puppeteer.connect({
+      browserURL: 'http://127.0.0.1:9222',
+      defaultViewport: null,
+    });
+  } catch (e) {
+    console.error('❌ Impossible de se connecter à Chrome.');
+    console.error('   Lancez d\'abord Chrome en mode debug:');
+    console.error('   scripts/launch-chrome-debug.bat');
+    process.exit(1);
+  }
 
   const pages = await browser.pages();
-  const page = pages[0] || await browser.newPage();
+  const page = pages[0] || (await browser.newPage());
+  console.log('✅ Connecté à Chrome!\n');
 
-  console.log('\n📦 Récupération du catalogue...');
-  let catalogue = await prisma.catalogue.findFirst({
-    where: { slug: 'bouney' }
-  });
-
-  if (!catalogue) {
-    catalogue = await prisma.catalogue.create({
-      data: {
-        name: 'Bouney',
-        slug: 'bouney',
-        description: 'Catalogue B comme Bois',
-        isActive: true
-      }
-    });
-  }
-  console.log(`   ✅ Catalogue: ${catalogue.name} (${catalogue.id})`);
-
-  // Créer/récupérer la catégorie principale
-  let mainCategory = await prisma.category.findFirst({
-    where: { catalogueId: catalogue.id, slug: MAIN_CATEGORY_SLUG }
-  });
-
-  if (!mainCategory) {
-    mainCategory = await prisma.category.create({
-      data: {
-        catalogueId: catalogue.id,
-        name: MAIN_CATEGORY_NAME,
-        slug: MAIN_CATEGORY_SLUG
-      }
-    });
-  }
-  console.log(`   📂 Catégorie principale: ${mainCategory.name}`);
-
-  // Découvrir les sous-catégories
-  const subcategories = await discoverAllSubcategories(page);
-
-  console.log(`\n📊 Total sous-catégories à scraper: ${subcategories.length}`);
-
-  // Collecter tous les liens produits
-  const allProductLinks = new Set<string>();
   const stats: ScrapingStats = {
     totalProducts: 0,
     totalVariants: 0,
@@ -563,88 +507,204 @@ async function main() {
     byCategory: new Map()
   };
 
-  // Scraper chaque sous-catégorie
-  for (const subcat of subcategories) {
+  console.log('📦 Récupération du catalogue...');
+  let catalogue = await prisma.catalogue.findFirst({
+    where: { slug: 'bouney' }
+  });
+
+  if (!catalogue) {
+    catalogue = await prisma.catalogue.findFirst({
+      where: { slug: 'bcommebois' }
+    });
+  }
+
+  if (!catalogue) {
+    console.error('❌ Aucun catalogue Bouney ou B comme Bois trouvé!');
+    process.exit(1);
+  }
+  console.log(`   ✅ Catalogue: ${catalogue.name} (${catalogue.id})\n`);
+
+  let mainCategory = await prisma.category.findFirst({
+    where: {
+      catalogueId: catalogue.id,
+      slug: MAIN_CATEGORY_SLUG
+    }
+  });
+
+  if (!mainCategory) {
+    mainCategory = await prisma.category.create({
+      data: {
+        name: MAIN_CATEGORY_NAME,
+        slug: MAIN_CATEGORY_SLUG,
+        catalogueId: catalogue.id
+      }
+    });
+  }
+  console.log(`   📂 Catégorie principale: ${mainCategory.name}\n`);
+
+  const discoveredSubcats = await discoverAllSubcategories(page);
+
+  console.log(`\n📊 Total sous-catégories à scraper: ${discoveredSubcats.length}\n`);
+
+  const allProductLinks: Map<string, { subcategory: string, subcategorySlug: string }> = new Map();
+
+  for (const subcat of discoveredSubcats) {
     console.log(`\n📂 Sous-catégorie: ${subcat.name}`);
-    stats.byCategory.set(subcat.name, 0);
+
+    const dbSubcat = await prisma.category.upsert({
+      where: {
+        catalogueId_slug: { catalogueId: catalogue.id, slug: `pdt-${subcat.slug}` }
+      },
+      update: { name: subcat.name, parentId: mainCategory.id },
+      create: {
+        name: subcat.name,
+        slug: `pdt-${subcat.slug}`,
+        catalogueId: catalogue.id,
+        parentId: mainCategory.id
+      }
+    });
 
     const links = await getProductLinksFromPage(page, subcat.url);
-    const newLinks = links.filter(l => !allProductLinks.has(l));
-    newLinks.forEach(l => allProductLinks.add(l));
+    let newLinks = 0;
 
-    console.log(`   📊 ${newLinks.length} nouveaux liens (${links.length} total, ${allProductLinks.size} cumulés)`);
+    for (const link of links) {
+      if (!allProductLinks.has(link)) {
+        allProductLinks.set(link, {
+          subcategory: subcat.name,
+          subcategorySlug: `pdt-${subcat.slug}`
+        });
+        newLinks++;
+      }
+    }
+
     stats.byCategory.set(subcat.name, links.length);
+    console.log(`   📊 ${newLinks} nouveaux liens (${links.length} total, ${allProductLinks.size} cumulés)`);
   }
 
-  // Aussi scraper la page principale pour les produits non catégorisés
   console.log(`\n📂 Page principale: ${MAIN_CATEGORY_NAME}`);
   const mainLinks = await getProductLinksFromPage(page, MAIN_URL);
-  const newMainLinks = mainLinks.filter(l => !allProductLinks.has(l));
-  newMainLinks.forEach(l => allProductLinks.add(l));
-  if (newMainLinks.length > 0) {
-    console.log(`   📊 ${newMainLinks.length} nouveaux liens depuis la page principale`);
+  let newMainLinks = 0;
+  for (const link of mainLinks) {
+    if (!allProductLinks.has(link)) {
+      allProductLinks.set(link, {
+        subcategory: MAIN_CATEGORY_NAME,
+        subcategorySlug: MAIN_CATEGORY_SLUG
+      });
+      newMainLinks++;
+    }
   }
+  console.log(`   📊 ${newMainLinks} nouveaux liens depuis la page principale`);
 
-  const productLinks = Array.from(allProductLinks);
-  stats.totalProducts = productLinks.length;
+  console.log(`\n\n${'='.repeat(60)}`);
+  console.log(`📊 TOTAL: ${allProductLinks.size} produits uniques à scraper`);
+  console.log(`${'='.repeat(60)}\n`);
 
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`📊 TOTAL: ${productLinks.length} produits uniques à scraper`);
-  console.log(`${'='.repeat(60)}`);
+  let count = 0;
 
-  // Scraper chaque produit
-  for (let i = 0; i < productLinks.length; i++) {
-    const url = productLinks[i];
-    const slug = url.split('/').pop()?.replace('.html', '') || '';
+  for (const [url, info] of allProductLinks) {
+    count++;
+    stats.totalProducts++;
+    const filename = url.split('/').pop() || url;
 
-    if (i % 10 === 0) {
+    if (count % 10 === 0 || count === 1) {
       console.log(`\n${'─'.repeat(50)}`);
-      console.log(`📈 Progression: ${i + 1}/${productLinks.length} (${Math.round((i / productLinks.length) * 100)}%)`);
+      console.log(`📈 Progression: ${count}/${allProductLinks.size} (${Math.round(count/allProductLinks.size*100)}%)`);
       console.log(`${'─'.repeat(50)}`);
     }
 
-    console.log(`\n[${i + 1}/${productLinks.length}] ${slug.substring(0, 50)}...`);
+    console.log(`\n[${count}/${allProductLinks.size}] ${filename.substring(0, 50)}...`);
 
-    const produit = await scrapeProductWithVariantes(page, url);
+    const product = await scrapeProductWithVariantes(page, url);
 
-    if (produit) {
-      console.log(`   📦 ${produit.nom.substring(0, 50)}...`);
-      console.log(`   🏷️  Type: ${produit.type}${produit.productType ? ` | ${produit.productType}` : ''}`);
-      console.log(`   📊 ${produit.variantes.length} variantes`);
+    if (product && product.variantes.length > 0) {
+      console.log(`   📦 ${product.nom.substring(0, 45)}...`);
+      console.log(`   🏷️  Type: ${product.type}${product.finish ? ` | ${product.finish}` : ''}`);
+      console.log(`   📊 ${product.variantes.length} variantes`);
 
-      for (const variante of produit.variantes) {
-        await upsertPanel(catalogue.id, mainCategory.id, produit, variante, stats);
-        stats.totalVariants++;
-        console.log(`      ✅ BCB-DEC-${variante.code || 'NEW'} (${variante.epaisseur}mm ${variante.longueur}x${variante.largeur})`);
+      const category = await prisma.category.findFirst({
+        where: {
+          catalogueId: catalogue.id,
+          slug: info.subcategorySlug
+        }
+      });
+
+      for (const variante of product.variantes) {
+        try {
+          const reference = `BCB-PDT-${variante.code}`;
+
+          await prisma.panel.upsert({
+            where: {
+              catalogueId_reference: { catalogueId: catalogue.id, reference }
+            },
+            update: {
+              name: product.nom,
+              material: product.type,
+              finish: product.finish,
+              productType: product.productType,
+              thickness: variante.epaisseur > 0 ? [variante.epaisseur] : [],
+              defaultThickness: variante.epaisseur > 0 ? variante.epaisseur : null,
+              defaultLength: variante.longueur,
+              defaultWidth: variante.largeur,
+              pricePerM2: variante.prix,
+              stockStatus: variante.stock || 'Sur commande',
+              imageUrl: product.imageUrl || null,
+              isActive: true,
+              categoryId: category?.id || mainCategory.id
+            },
+            create: {
+              reference,
+              name: product.nom,
+              material: product.type,
+              finish: product.finish,
+              productType: product.productType,
+              thickness: variante.epaisseur > 0 ? [variante.epaisseur] : [],
+              defaultThickness: variante.epaisseur > 0 ? variante.epaisseur : null,
+              defaultLength: variante.longueur,
+              defaultWidth: variante.largeur,
+              pricePerM2: variante.prix,
+              stockStatus: variante.stock || 'Sur commande',
+              imageUrl: product.imageUrl || null,
+              isActive: true,
+              catalogueId: catalogue.id,
+              categoryId: category?.id || mainCategory.id
+            }
+          });
+
+          stats.totalVariants++;
+          stats.created++;
+          console.log(`      ✅ ${reference} (${variante.epaisseur}mm ${variante.longueur}x${variante.largeur})`);
+        } catch (err) {
+          stats.errors++;
+          console.log(`      ❌ Erreur: ${(err as Error).message}`);
+        }
       }
     } else {
-      console.log(`   ⚠️ Pas de données extraites`);
+      console.log(`   ⚠️ Pas de données exploitables`);
+      stats.errors++;
     }
 
-    // Pause entre les produits
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  // Résumé final
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`📊 RÉSUMÉ DU SCRAPING PANNEAUX DÉCO`);
+  console.log(`\n\n${'='.repeat(60)}`);
+  console.log('📊 RÉSUMÉ DU SCRAPING PLANS DE TRAVAIL');
   console.log(`${'='.repeat(60)}`);
   console.log(`📦 Produits traités: ${stats.totalProducts}`);
   console.log(`📋 Variantes créées/mises à jour: ${stats.totalVariants}`);
   console.log(`✅ Succès: ${stats.created}`);
   console.log(`❌ Erreurs: ${stats.errors}`);
   console.log(`\n📂 Par catégorie:`);
-  stats.byCategory.forEach((count, cat) => {
+  for (const [cat, count] of stats.byCategory) {
     console.log(`   - ${cat}: ${count} produits`);
-  });
-  console.log(`${'='.repeat(60)}`);
+  }
+  console.log(`${'='.repeat(60)}\n`);
 
   await prisma.$disconnect();
-  console.log('\n✅ Scraping Panneaux Déco terminé!');
+  console.log('✅ Scraping Plans de Travail terminé!');
 }
 
-main().catch(async (e) => {
+main().catch((e) => {
   console.error('❌ Erreur fatale:', e);
-  await prisma.$disconnect();
+  prisma.$disconnect();
   process.exit(1);
 });

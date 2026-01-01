@@ -1,15 +1,12 @@
 /**
- * Scraping Panneaux Basiques & Techniques B comme Bois
+ * Scraping Essences Fine B comme Bois
  *
- * Source: https://www.bcommebois.fr/agencement/panneaux-basiques-techniques.html
- *
- * ATTENTION: Cette catégorie contient beaucoup de références!
- * Le script inclut des vérifications pour s'assurer que tout est bien scrapé.
+ * Source: https://www.bcommebois.fr/agencement/essences-fine.html
  *
  * Usage:
  * 1. Lancer Chrome en mode debug: scripts/launch-chrome-debug.bat
  * 2. Se connecter sur bcommebois.fr avec son compte
- * 3. Lancer: npx tsx scripts/scrape-panneaux-basiques.ts
+ * 3. Lancer: npx tsx scripts/scrape-essences-fine.ts
  */
 
 import puppeteer, { Page } from 'puppeteer';
@@ -17,43 +14,14 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// URLs des sous-catégories à scraper (structure 2024-2025)
+// URL principale
+const MAIN_URL = 'https://www.bcommebois.fr/agencement/essences-fine.html';
+
+// Sous-catégories probables (seront découvertes dynamiquement)
 const SUBCATEGORIES = [
-  // Agglomérés
-  { name: 'Agglomérés standards', slug: 'agglomeres-standards', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/agglomeres/standards.html' },
-  { name: 'Agglomérés hydrofuges', slug: 'agglomeres-hydrofuges', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/agglomeres/hydrofuges.html' },
-  { name: 'Agglomérés ignifugés', slug: 'agglomeres-ignifuges', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/agglomeres/ignifuges.html' },
-
-  // MDF
-  { name: 'MDF standards', slug: 'mdf-standards', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/mdf/standards.html' },
-  { name: 'MDF hydrofuges', slug: 'mdf-hydrofuges', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/mdf/hydrofuges.html' },
-  { name: 'MDF ignifugés', slug: 'mdf-ignifuges', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/mdf/ignifuges.html' },
-  { name: 'MDF légers', slug: 'mdf-legers', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/mdf/legers.html' },
-  { name: 'MDF cintrables', slug: 'mdf-cintrables', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/mdf/cintrables.html' },
-  { name: 'MDF teintés masse', slug: 'mdf-teintes', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/mdf/teinte-masse.html' },
-
-  // Contreplaqués
-  { name: 'Contreplaqués standards', slug: 'cp-standards', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/contreplaques/standards.html' },
-  { name: 'Contreplaqués CTBX', slug: 'cp-ctbx', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/contreplaques/ctbx.html' },
-  { name: 'Contreplaqués ignifugés', slug: 'cp-ignifuges', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/contreplaques/ignifuges.html' },
-  { name: 'Contreplaqués cintrables', slug: 'cp-cintrables', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/contreplaques/cintrables.html' },
-  { name: 'Contreplaqués filmés', slug: 'cp-filmes', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/contreplaques/filmes.html' },
-  { name: 'Contreplaqués bouleau', slug: 'cp-bouleau', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/contreplaques/bouleau.html' },
-
-  // OSB
-  { name: 'OSB', slug: 'osb', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/osb.html' },
-
-  // Lattés
-  { name: 'Lattés standards', slug: 'lattes-standards', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/latte/standards.html' },
-  { name: 'Lattés légers', slug: 'lattes-legers', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/latte/legers.html' },
-
-  // MOB & Isolants
-  { name: 'MOB', slug: 'mob', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/mob.html' },
-  { name: 'Panneaux isolants', slug: 'isolants', url: 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques/isolants.html' },
+  { name: 'Placages', slug: 'placages', url: 'https://www.bcommebois.fr/agencement/essences-fine/placages.html' },
+  { name: 'Feuilles de placage', slug: 'feuilles-placage', url: 'https://www.bcommebois.fr/agencement/essences-fine/feuilles-placage.html' },
 ];
-
-// URL principale pour découvrir d'autres sous-catégories
-const MAIN_URL = 'https://www.bcommebois.fr/agencement/panneaux-basiques-techniques.html';
 
 interface Variante {
   longueur: number;
@@ -80,47 +48,6 @@ interface ScrapingStats {
   updated: number;
   errors: number;
   byCategory: Map<string, number>;
-}
-
-/**
- * Détermine le productType pour les panneaux basiques
- */
-function determineProductType(type: string, nom: string): string | null {
-  const typeLower = type.toLowerCase();
-  const nomLower = nom.toLowerCase();
-
-  // MDF -> MELAMINE ou null selon le produit
-  if (typeLower.includes('mdf')) {
-    if (nomLower.includes('mélaminé') || nomLower.includes('melamine')) {
-      return 'MELAMINE';
-    }
-    return null; // MDF brut, pas de productType spécifique
-  }
-
-  // Contreplaqué -> PLACAGE si c'est un placage visible
-  if (typeLower.includes('contreplaq') || typeLower.includes('cp')) {
-    if (nomLower.includes('placage') || nomLower.includes('décoratif')) {
-      return 'PLACAGE';
-    }
-    return null; // Contreplaqué technique
-  }
-
-  // Stratifié/Compact
-  if (typeLower.includes('stratifi') || nomLower.includes('stratifi')) {
-    return 'STRATIFIE';
-  }
-
-  if (typeLower.includes('compact') || nomLower.includes('compact')) {
-    return 'COMPACT';
-  }
-
-  // Aggloméré mélaminé
-  if (typeLower.includes('agglom') && (nomLower.includes('mélaminé') || nomLower.includes('melamine'))) {
-    return 'MELAMINE';
-  }
-
-  // Par défaut, panneaux basiques n'ont pas de productType
-  return null;
 }
 
 /**
@@ -177,82 +104,52 @@ async function getProductLinksFromPage(page: Page, url: string): Promise<string[
 
   // Scroll complet pour charger tous les produits
   console.log('   📜 Scroll complet pour charger tous les produits...');
-  try {
-    await scrollToBottomCompletely(page);
-  } catch (e) {
-    console.log(`   ⚠️ Erreur pendant le scroll, on continue sans scroll complet...`);
-  }
+  await scrollToBottomCompletely(page);
 
   // Récupérer le nombre de produits affiché sur la page
-  let displayedCount = 0;
-  try {
-    displayedCount = await page.evaluate(() => {
-      const countEl = document.querySelector('.toolbar-amount, .category-product-count, .products-count');
-      if (countEl) {
-        const match = countEl.textContent?.match(/(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      }
-      return 0;
-    });
-
-    if (displayedCount > 0) {
-      console.log(`   📊 Page indique ${displayedCount} produits`);
+  const displayedCount = await page.evaluate(() => {
+    const countEl = document.querySelector('.toolbar-amount, .category-product-count, .products-count');
+    if (countEl) {
+      const match = countEl.textContent?.match(/(\d+)/);
+      return match ? parseInt(match[1]) : 0;
     }
-  } catch (e) {
-    console.log(`   ⚠️ Erreur lecture compteur produits, on continue...`);
+    return 0;
+  });
+
+  if (displayedCount > 0) {
+    console.log(`   📊 Page indique ${displayedCount} produits`);
   }
 
   // Récupérer les liens produits
-  // Nouveau format: /mdf-standard-06-mm-3050-x-1220-mm-80055.html ou /mdf-standard.html
-  let productLinks: string[] = [];
-  try {
-    productLinks = await page.evaluate(() => {
-      const links: string[] = [];
-      document.querySelectorAll('a').forEach((el) => {
-        const href = el.href;
-        if (!href || href.includes('#')) return;
+  const productLinks = await page.evaluate(() => {
+    const links: string[] = [];
+    document.querySelectorAll('a').forEach((el) => {
+      const href = el.href;
+      if (!href || href.includes('#')) return;
 
-        try {
-          const urlObj = new URL(href);
-          if (urlObj.hostname !== 'www.bcommebois.fr') return;
+      try {
+        const urlObj = new URL(href);
+        if (urlObj.hostname !== 'www.bcommebois.fr') return;
 
-          const pathParts = urlObj.pathname.split('/').filter((p) => p);
-          // Les produits ont un format /nom-produit-dimensions-code.html (1 seul segment de path)
-          if (pathParts.length === 1 && pathParts[0].endsWith('.html')) {
-            const filename = pathParts[0];
-
-            // Exclure les pages de catégories et navigation
-            const excluded = [
-              'agencement.html', 'sols-murs.html', 'bardage.html',
-              'terrasse-exterieurs.html', 'menuiserie.html', 'bois-massif.html',
-              'structure-charpente.html', 'isolation-etancheite.html',
-              'libre-service.html', 'contact.html', 'panier.html',
-              'connexion.html', 'inscription.html', 'deconnexion.html',
-              'panneaux-basiques-techniques.html', 'documentation.html',
-              'notre-histoire.html', 'nos-engagements.html', 'atelier.html',
-              'blog.html', 'recrutement.html'
-            ];
-
-            if (excluded.includes(filename)) return;
-
-            // Accepter les liens qui:
-            // 1. Contiennent un code produit (5-6 chiffres) à la fin: xxx-12345.html
-            // 2. Ou sont des pages produit nommées contenant des mots-clés bois
-            const hasProductCode = /\d{5,6}\.html$/.test(filename);
-            const isBoisProduct = /^(mdf|osb|cp|agglomere|contreplaqu|latte|panneau|medium|fibra)/i.test(filename);
-
-            if ((hasProductCode || isBoisProduct) && !links.includes(href)) {
-              links.push(href);
-            }
+        const pathParts = urlObj.pathname.split('/').filter((p) => p);
+        // Les produits ont un format /xxxxx.html (5-6 chiffres)
+        if (pathParts.length === 1 && pathParts[0].endsWith('.html')) {
+          const excluded = [
+            'agencement.html', 'sols-murs.html', 'bardage.html',
+            'terrasse-exterieurs.html', 'menuiserie.html', 'bois-massif.html',
+            'structure-charpente.html', 'isolation-etancheite.html',
+            'libre-service.html', 'contact.html', 'panier.html',
+            'connexion.html', 'inscription.html', 'deconnexion.html',
+            'essences-fine.html'
+          ];
+          if (!excluded.includes(pathParts[0]) && !links.includes(href)) {
+            links.push(href);
           }
-        } catch (e) {}
-      });
-      return links;
+        }
+      } catch (e) {}
     });
-  } catch (e) {
-    console.log(`   ⚠️ Erreur récupération liens: ${(e as Error).message.substring(0, 50)}`);
-    return [];
-  }
+    return links;
+  });
 
   console.log(`   ✅ ${productLinks.length} liens produits trouvés`);
 
@@ -288,7 +185,7 @@ async function discoverAllSubcategories(page: Page): Promise<Array<{name: string
       '.block-category-list a',
       '.category-item a',
       '.sidebar-categories a',
-      'a[href*="panneaux-basiques-techniques/"]'
+      'a[href*="essences-fine/"]'
     ];
 
     for (const sel of selectors) {
@@ -297,8 +194,8 @@ async function discoverAllSubcategories(page: Page): Promise<Array<{name: string
         const name = el.textContent?.trim() || '';
 
         if (href && name &&
-            href.includes('panneaux-basiques-techniques') &&
-            !href.endsWith('panneaux-basiques-techniques.html') &&
+            href.includes('essences-fine') &&
+            !href.endsWith('essences-fine.html') &&
             !cats.some(c => c.url === href)) {
 
           const slug = href.split('/').pop()?.replace('.html', '') || name.toLowerCase().replace(/\s+/g, '-');
@@ -330,31 +227,33 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
       const nom = nomEl?.textContent?.trim() || '';
 
       // Déterminer le type/marque depuis le nom
-      let type = 'Panneau';
+      let type = 'Placage';
       let marque = 'B comme Bois';
       let finish: string | null = null;
 
       const nomLower = nom.toLowerCase();
 
-      // Type de panneau
-      if (nomLower.includes('aggloméré') || nomLower.includes('agglomere')) type = 'Aggloméré';
-      else if (nomLower.includes('mdf')) type = 'MDF';
-      else if (nomLower.includes('contreplaqué') || nomLower.includes('contreplaque') || nomLower.includes('cp ')) type = 'Contreplaqué';
-      else if (nomLower.includes('osb')) type = 'OSB';
-      else if (nomLower.includes('latté') || nomLower.includes('latte')) type = 'Latté';
-      else if (nomLower.includes('ctb')) type = 'CTB-X';
+      // Type de produit pour essences fines
+      if (nomLower.includes('placage')) type = 'Placage';
+      else if (nomLower.includes('feuille')) type = 'Feuille de placage';
+      else if (nomLower.includes('panneau')) type = 'Panneau plaqué';
+      else if (nomLower.includes('chêne')) type = 'Placage Chêne';
+      else if (nomLower.includes('noyer')) type = 'Placage Noyer';
+      else if (nomLower.includes('hêtre')) type = 'Placage Hêtre';
+      else if (nomLower.includes('érable') || nomLower.includes('erable')) type = 'Placage Érable';
+      else if (nomLower.includes('frêne') || nomLower.includes('frene')) type = 'Placage Frêne';
+      else if (nomLower.includes('merisier')) type = 'Placage Merisier';
+      else if (nomLower.includes('bouleau')) type = 'Placage Bouleau';
+      else if (nomLower.includes('acajou')) type = 'Placage Acajou';
+      else if (nomLower.includes('teck')) type = 'Placage Teck';
+      else if (nomLower.includes('palissandre')) type = 'Placage Palissandre';
+      else if (nomLower.includes('wengé') || nomLower.includes('wenge')) type = 'Placage Wengé';
 
-      // Caractéristiques techniques
-      if (nomLower.includes('hydrofuge') || nomLower.includes('ctbh')) finish = 'Hydrofuge';
-      else if (nomLower.includes('ignifug') || nomLower.includes('m1') || nomLower.includes('m2')) finish = 'Ignifugé';
-      else if (nomLower.includes('léger') || nomLower.includes('leger')) finish = 'Léger';
+      // Finition
+      if (nomLower.includes('vernis')) finish = 'Vernis';
       else if (nomLower.includes('brut')) finish = 'Brut';
-
-      // Marque si détectée
-      if (nomLower.includes('egger')) marque = 'Egger';
-      else if (nomLower.includes('kronospan')) marque = 'Kronospan';
-      else if (nomLower.includes('finsa')) marque = 'Finsa';
-      else if (nomLower.includes('pfleiderer')) marque = 'Pfleiderer';
+      else if (nomLower.includes('teinté') || nomLower.includes('teinte')) finish = 'Teinté';
+      else if (nomLower.includes('naturel')) finish = 'Naturel';
 
       // Image
       let imageUrl = '';
@@ -402,7 +301,7 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
 
         for (const row of rows) {
           const cells = row.querySelectorAll('td');
-          if (cells.length >= 4) {
+          if (cells.length >= 3) {
             const cellTexts = Array.from(cells).map(c => c.textContent?.trim() || '');
 
             let longueur = 0, largeur = 0, epaisseur = 0, code = '', stock = '', prix: number | null = null;
@@ -418,6 +317,7 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
                 const val = parseFloat(numMatch[0].replace(',', '.'));
                 largeur = val < 100 ? Math.round(val * 1000) : Math.round(val);
               } else if (i === 2 && numMatch) {
+                // Pour les placages, épaisseur souvent en dixièmes de mm (ex: 0.6mm)
                 epaisseur = parseFloat(numMatch[0].replace(',', '.'));
               } else if (/^\d{4,6}$/.test(text.replace(/\s/g, ''))) {
                 code = text.replace(/\s/g, '');
@@ -493,17 +393,21 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
         }
 
         let epaisseur = 0, largeur = 0, longueur = 0;
-        let dimMatch = nom.match(/(\d+)\s*mm\s+(\d+)\s*x\s*(\d+)/i);
+
+        // Format pour placage: souvent "0.6 mm" ou "0,6 mm"
+        let dimMatch = nom.match(/(\d+[,.]?\d*)\s*mm.*?(\d{3,4})\s*x\s*(\d{3,4})/i);
         if (dimMatch) {
-          epaisseur = parseInt(dimMatch[1]);
+          epaisseur = parseFloat(dimMatch[1].replace(',', '.'));
           longueur = parseInt(dimMatch[2]);
           largeur = parseInt(dimMatch[3]);
         }
 
         if (!epaisseur) {
-          const epMatch = nom.match(/(\d+)\s*mm\b/);
+          const epMatch = nom.match(/(\d+[,.]?\d*)\s*mm\b/);
           const lwMatch = nom.match(/(\d{3,4})\s*x\s*(\d{3,4})/);
-          if (epMatch) epaisseur = parseInt(epMatch[1]);
+          if (epMatch) {
+            epaisseur = parseFloat(epMatch[1].replace(',', '.'));
+          }
           if (lwMatch) {
             longueur = parseInt(lwMatch[1]);
             largeur = parseInt(lwMatch[2]);
@@ -544,10 +448,10 @@ async function scrapeProductWithVariantes(page: Page, url: string): Promise<Prod
 }
 
 async function main() {
-  console.log('🔧 SCRAPING PANNEAUX BASIQUES & TECHNIQUES B COMME BOIS');
-  console.log('========================================================');
-  console.log('⚠️  Cette catégorie contient beaucoup de références!');
-  console.log('========================================================\n');
+  console.log('🪵 SCRAPING ESSENCES FINE B COMME BOIS');
+  console.log('======================================');
+  console.log('⚠️  Cette catégorie contient les placages et feuilles de bois');
+  console.log('======================================\n');
 
   // Connexion au navigateur Chrome
   console.log('🔌 Connexion à Chrome...');
@@ -559,7 +463,8 @@ async function main() {
     });
   } catch (e) {
     console.error('❌ Impossible de se connecter à Chrome.');
-    console.error('   Lancez d\'abord Chrome en mode debug!');
+    console.error('   Lancez d\'abord Chrome en mode debug:');
+    console.error('   scripts/launch-chrome-debug.bat');
     process.exit(1);
   }
 
@@ -577,30 +482,41 @@ async function main() {
     byCategory: new Map()
   };
 
-  // 1. Créer ou récupérer le catalogue (utilise le catalogue Bouney existant)
-  console.log('📦 Récupération du catalogue Bouney...');
-  const catalogue = await prisma.catalogue.findUnique({
+  // 1. Utiliser le catalogue Bouney existant (ou bcommebois)
+  console.log('📦 Récupération du catalogue...');
+  let catalogue = await prisma.catalogue.findFirst({
     where: { slug: 'bouney' }
   });
 
   if (!catalogue) {
-    console.error('❌ Catalogue Bouney non trouvé! Lancez d\'abord le scraping des essences fines.');
+    catalogue = await prisma.catalogue.findFirst({
+      where: { slug: 'bcommebois' }
+    });
+  }
+
+  if (!catalogue) {
+    console.error('❌ Aucun catalogue Bouney ou B comme Bois trouvé!');
     process.exit(1);
   }
   console.log(`   ✅ Catalogue: ${catalogue.name} (${catalogue.id})\n`);
 
-  // 2. Créer la catégorie principale
-  const mainCategory = await prisma.category.upsert({
+  // 2. Récupérer ou créer la catégorie principale "Essences Fine"
+  let mainCategory = await prisma.category.findFirst({
     where: {
-      catalogueId_slug: { catalogueId: catalogue.id, slug: 'panneaux-basiques-techniques' }
-    },
-    update: { name: 'Panneaux Basiques & Techniques' },
-    create: {
-      name: 'Panneaux Basiques & Techniques',
-      slug: 'panneaux-basiques-techniques',
-      catalogueId: catalogue.id
+      catalogueId: catalogue.id,
+      slug: 'essences-fine'
     }
   });
+
+  if (!mainCategory) {
+    mainCategory = await prisma.category.create({
+      data: {
+        name: 'Essences Fine',
+        slug: 'essences-fine',
+        catalogueId: catalogue.id
+      }
+    });
+  }
   console.log(`   📂 Catégorie principale: ${mainCategory.name}\n`);
 
   // 3. Découvrir les sous-catégories dynamiquement
@@ -625,12 +541,12 @@ async function main() {
     // Créer la sous-catégorie en base
     const dbSubcat = await prisma.category.upsert({
       where: {
-        catalogueId_slug: { catalogueId: catalogue.id, slug: `basiques-${subcat.slug}` }
+        catalogueId_slug: { catalogueId: catalogue.id, slug: `essences-${subcat.slug}` }
       },
       update: { name: subcat.name, parentId: mainCategory.id },
       create: {
         name: subcat.name,
-        slug: `basiques-${subcat.slug}`,
+        slug: `essences-${subcat.slug}`,
         catalogueId: catalogue.id,
         parentId: mainCategory.id
       }
@@ -643,7 +559,7 @@ async function main() {
       if (!allProductLinks.has(link)) {
         allProductLinks.set(link, {
           subcategory: subcat.name,
-          subcategorySlug: `basiques-${subcat.slug}`
+          subcategorySlug: `essences-${subcat.slug}`
         });
         newLinks++;
       }
@@ -654,14 +570,14 @@ async function main() {
   }
 
   // Ajouter aussi les produits de la page principale
-  console.log(`\n📂 Page principale: Panneaux Basiques & Techniques`);
+  console.log(`\n📂 Page principale: Essences Fine`);
   const mainLinks = await getProductLinksFromPage(page, MAIN_URL);
   let newMainLinks = 0;
   for (const link of mainLinks) {
     if (!allProductLinks.has(link)) {
       allProductLinks.set(link, {
-        subcategory: 'Panneaux Basiques & Techniques',
-        subcategorySlug: 'panneaux-basiques-techniques'
+        subcategory: 'Essences Fine',
+        subcategorySlug: 'essences-fine'
       });
       newMainLinks++;
     }
@@ -693,7 +609,7 @@ async function main() {
 
     if (product && product.variantes.length > 0) {
       console.log(`   📦 ${product.nom.substring(0, 45)}...`);
-      console.log(`   🏷️  Type: ${product.type} | Marque: ${product.marque}${product.finish ? ` | ${product.finish}` : ''}`);
+      console.log(`   🏷️  Type: ${product.type}${product.finish ? ` | ${product.finish}` : ''}`);
       console.log(`   📊 ${product.variantes.length} variantes`);
 
       // Récupérer la catégorie
@@ -704,109 +620,86 @@ async function main() {
         }
       });
 
-      // Déterminer le productType
-      const productType = determineProductType(product.type, product.nom);
-
       for (const variante of product.variantes) {
         try {
-          const reference = `BCB-BAS-${variante.code}`;
+          const reference = `BCB-ESS-${variante.code}`;
 
+          // productType pour essences fine = PLACAGE
           await prisma.panel.upsert({
             where: {
               catalogueId_reference: { catalogueId: catalogue.id, reference }
             },
             update: {
               name: product.nom,
-              thickness: [variante.epaisseur],
+              material: product.type,
+              finish: product.finish,
+              productType: 'PLACAGE',
+              thickness: variante.epaisseur > 0 ? [variante.epaisseur] : [],
+              defaultThickness: variante.epaisseur > 0 ? variante.epaisseur : null,
               defaultLength: variante.longueur,
               defaultWidth: variante.largeur,
               pricePerM2: variante.prix,
-              material: product.type,
-              finish: product.finish || product.marque,
-              productType,
-              imageUrl: product.imageUrl,
-              categoryId: category?.id || mainCategory.id,
               stockStatus: variante.stock || 'Sur commande',
-              isActive: true
+              imageUrl: product.imageUrl || null,
+              isActive: true,
+              categoryId: category?.id || mainCategory.id
             },
             create: {
               reference,
               name: product.nom,
-              thickness: [variante.epaisseur],
+              material: product.type,
+              finish: product.finish,
+              productType: 'PLACAGE',
+              thickness: variante.epaisseur > 0 ? [variante.epaisseur] : [],
+              defaultThickness: variante.epaisseur > 0 ? variante.epaisseur : null,
               defaultLength: variante.longueur,
               defaultWidth: variante.largeur,
               pricePerM2: variante.prix,
-              material: product.type,
-              finish: product.finish || product.marque,
-              productType,
-              imageUrl: product.imageUrl,
-              catalogueId: catalogue.id,
-              categoryId: category?.id || mainCategory.id,
               stockStatus: variante.stock || 'Sur commande',
-              isActive: true
+              imageUrl: product.imageUrl || null,
+              isActive: true,
+              catalogueId: catalogue.id,
+              categoryId: category?.id || mainCategory.id
             }
           });
 
           stats.totalVariants++;
           stats.created++;
-        } catch (e) {
+          console.log(`      ✅ ${reference} (${variante.epaisseur}mm ${variante.longueur}x${variante.largeur})`);
+        } catch (err) {
           stats.errors++;
-          const errMsg = (e as Error).message;
-          if (!errMsg.includes('Unique constraint')) {
-            console.log(`      ⚠️ Erreur ${variante.code}: ${errMsg.substring(0, 50)}`);
-          }
+          console.log(`      ❌ Erreur: ${(err as Error).message}`);
         }
       }
     } else {
+      console.log(`   ⚠️ Pas de données exploitables`);
       stats.errors++;
-      if (product) {
-        console.log(`   ⚠️ Pas de variantes trouvées`);
-      }
     }
 
-    // Pause courte entre chaque produit
-    await new Promise((r) => setTimeout(r, 800));
+    // Pause anti-rate-limit
+    await new Promise((r) => setTimeout(r, 500));
   }
 
-  // 6. Résumé final
+  // 6. Afficher le résumé
   console.log(`\n\n${'='.repeat(60)}`);
-  console.log(`✨ SCRAPING TERMINÉ!`);
+  console.log('📊 RÉSUMÉ DU SCRAPING ESSENCES FINE');
   console.log(`${'='.repeat(60)}`);
-  console.log(`   📦 Produits scrapés: ${stats.totalProducts}`);
-  console.log(`   🔢 Panneaux créés/mis à jour: ${stats.created}`);
-  console.log(`   ❌ Erreurs: ${stats.errors}`);
-  console.log(`${'='.repeat(60)}`);
-
-  console.log(`\n📊 Répartition par sous-catégorie:`);
+  console.log(`📦 Produits traités: ${stats.totalProducts}`);
+  console.log(`📋 Variantes créées/mises à jour: ${stats.totalVariants}`);
+  console.log(`✅ Succès: ${stats.created}`);
+  console.log(`❌ Erreurs: ${stats.errors}`);
+  console.log(`\n📂 Par catégorie:`);
   for (const [cat, count] of stats.byCategory) {
     console.log(`   - ${cat}: ${count} produits`);
   }
-
-  // Vérification finale
-  const totalInDb = await prisma.panel.count({ where: { catalogueId: catalogue.id } });
-  const basiquesCount = await prisma.panel.count({
-    where: {
-      catalogueId: catalogue.id,
-      category: {
-        OR: [
-          { slug: { startsWith: 'basiques-' } },
-          { slug: 'panneaux-basiques-techniques' }
-        ]
-      }
-    }
-  });
-
-  console.log(`\n📊 VÉRIFICATION FINALE:`);
-  console.log(`   Total panneaux catalogue B comme Bois: ${totalInDb}`);
-  console.log(`   Panneaux Basiques & Techniques: ~${basiquesCount}`);
   console.log(`${'='.repeat(60)}\n`);
 
-  await browser.disconnect();
   await prisma.$disconnect();
+  console.log('✅ Scraping Essences Fine terminé!');
 }
 
-main().catch(async (e) => {
-  console.error('❌ Erreur:', e);
-  await prisma.$disconnect();
+main().catch((e) => {
+  console.error('❌ Erreur fatale:', e);
+  prisma.$disconnect();
   process.exit(1);
 });

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface UserData {
@@ -11,10 +11,12 @@ interface UserData {
 
 @Injectable()
 export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async handleUserCreated(data: UserData) {
-    console.log(`Creating user: ${data.email}`);
+    this.logger.log(`Creating user: ${data.email}`);
 
     return this.prisma.user.create({
       data: {
@@ -28,7 +30,7 @@ export class WebhooksService {
   }
 
   async handleUserUpdated(data: UserData) {
-    console.log(`Updating user: ${data.email}`);
+    this.logger.log(`Updating user: ${data.email}`);
 
     // Check if user exists
     const existingUser = await this.prisma.user.findUnique({
@@ -52,7 +54,7 @@ export class WebhooksService {
   }
 
   async handleUserDeleted(clerkId: string) {
-    console.log(`Deleting user: ${clerkId}`);
+    this.logger.log(`Deleting user: ${clerkId}`);
 
     // Check if user exists before deleting
     const existingUser = await this.prisma.user.findUnique({
@@ -60,7 +62,7 @@ export class WebhooksService {
     });
 
     if (!existingUser) {
-      console.log(`User ${clerkId} not found, skipping deletion`);
+      this.logger.warn(`User ${clerkId} not found, skipping deletion`);
       return null;
     }
 
