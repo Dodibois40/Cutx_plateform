@@ -4,6 +4,7 @@
  * Etape de selection du mode de collage (fournisseur/client)
  */
 
+import { useTranslations } from 'next-intl';
 import { Factory, Wrench, Check, X, Layers } from 'lucide-react';
 import type { ModeCollage } from '@/lib/configurateur-multicouche/types';
 import type { MulticoucheTemplate } from '@/lib/services/multicouche-templates-api';
@@ -24,10 +25,12 @@ export default function EtapeModeCollage({
   templates,
   isSignedIn,
 }: EtapeModeCollageProps) {
+  const t = useTranslations('dialogs.multilayer');
+
   return (
     <div className={styles.modeSelection}>
       <p className={styles.modeDescription}>
-        Comment sera colle ce panneau multicouche ?
+        {t('gluingQuestion')}
       </p>
 
       <div className={styles.modeOptions}>
@@ -39,20 +42,19 @@ export default function EtapeModeCollage({
           <div className={styles.modeCardIcon}>
             <Factory size={24} />
           </div>
-          <h3 className={styles.modeCardTitle}>Collage Fournisseur</h3>
+          <h3 className={styles.modeCardTitle}>{t('supplierGluing')}</h3>
           <p className={styles.modeCardDesc}>
-            Le fournisseur colle les couches et livre un panneau fini aux
-            dimensions exactes.
+            {t('supplierGluingDesc')}
           </p>
           <ul className={styles.modeCardFeatures}>
             <li>
-              <Check size={14} /> Chants disponibles
+              <Check size={14} /> {t('featureEdgesAvailable')}
             </li>
             <li>
-              <Check size={14} /> Usinages disponibles
+              <Check size={14} /> {t('featureMachiningAvailable')}
             </li>
             <li>
-              <Check size={14} /> Percage disponible
+              <Check size={14} /> {t('featureDrillingAvailable')}
             </li>
           </ul>
         </button>
@@ -65,19 +67,19 @@ export default function EtapeModeCollage({
           <div className={styles.modeCardIcon}>
             <Wrench size={24} />
           </div>
-          <h3 className={styles.modeCardTitle}>Collage par mes soins</h3>
+          <h3 className={styles.modeCardTitle}>{t('clientGluing')}</h3>
           <p className={styles.modeCardDesc}>
-            Je collerai moi-meme. Sur-cote de 50mm appliquee pour la recoupe.
+            {t('clientGluingDesc')}
           </p>
           <ul className={`${styles.modeCardFeatures} ${styles.modeCardFeaturesDisabled}`}>
             <li>
-              <X size={14} /> Pas de chants
+              <X size={14} /> {t('featureNoEdges')}
             </li>
             <li>
-              <X size={14} /> Pas d&apos;usinages
+              <X size={14} /> {t('featureNoMachining')}
             </li>
             <li>
-              <span className={styles.surcoteBadge}>+50mm</span> Sur-cote auto
+              <span className={styles.surcoteBadge}>+50mm</span> {t('featureAutoOversize')}
             </li>
           </ul>
         </button>
@@ -86,16 +88,16 @@ export default function EtapeModeCollage({
       {/* Templates rapides si connecte */}
       {isSignedIn && templates.length > 0 && (
         <div className={styles.quickTemplates}>
-          <p className={styles.quickTemplatesLabel}>Ou charger un modele :</p>
+          <p className={styles.quickTemplatesLabel}>{t('loadTemplate')}</p>
           <div className={styles.quickTemplatesList}>
-            {templates.slice(0, 3).map((t) => (
+            {templates.slice(0, 3).map((template) => (
               <button
-                key={t.id}
-                onClick={() => onLoadTemplate(t)}
+                key={template.id}
+                onClick={() => onLoadTemplate(template)}
                 className={styles.quickTemplateBtn}
               >
                 <Layers size={14} />
-                {t.nom}
+                {template.nom}
               </button>
             ))}
             {templates.length > 3 && (
@@ -103,7 +105,7 @@ export default function EtapeModeCollage({
                 onClick={onShowTemplates}
                 className={`${styles.quickTemplateBtn} ${styles.quickTemplateBtnMore}`}
               >
-                +{templates.length - 3} autres
+                {t('moreTemplates', { count: templates.length - 3 })}
               </button>
             )}
           </div>
