@@ -3,6 +3,7 @@
 import { useLocale } from 'next-intl';
 import { useRouter, usePathname } from '@/i18n/routing';
 import { useUnits, type UnitSystem } from '@/hooks/useUnits';
+import { usePreferenceSync } from '@/components/providers/PreferencesProvider';
 import {
   Select,
   SelectContent,
@@ -19,6 +20,9 @@ import { Globe, Ruler } from 'lucide-react';
  * 1. Language selector (FR/EN) - updates URL locale
  * 2. Unit selector (mm/inch) - persisted to localStorage
  *
+ * For logged-in users, preferences are also synced to Clerk metadata
+ * for cross-device synchronization.
+ *
  * Designed for integration in the header area.
  */
 export function LocaleSwitcher() {
@@ -26,20 +30,30 @@ export function LocaleSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
   const { unit, setUnit } = useUnits();
+  const { syncLocale, syncUnit } = usePreferenceSync();
 
   /**
    * Switch locale by navigating to the same path with new locale
+   * Also saves to Clerk for logged-in users
    */
   const switchLocale = (newLocale: string) => {
+    const typedLocale = newLocale as 'fr' | 'en';
+    // Save to Clerk in background (async, non-blocking)
+    syncLocale(typedLocale);
     // useRouter and usePathname from @/i18n/routing handle locale automatically
-    router.replace(pathname, { locale: newLocale as 'fr' | 'en' });
+    router.replace(pathname, { locale: typedLocale });
   };
 
   /**
    * Switch unit system
+   * Also saves to Clerk for logged-in users
    */
   const switchUnit = (newUnit: string) => {
-    setUnit(newUnit as UnitSystem);
+    const typedUnit = newUnit as UnitSystem;
+    // Save to Clerk in background (async, non-blocking)
+    syncUnit(typedUnit);
+    // Update local state
+    setUnit(typedUnit);
   };
 
   return (
