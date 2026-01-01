@@ -131,6 +131,7 @@
     "title": "Selectionner un panneau",
     "productsCount": "{count} produits",
     "searchPlaceholder": "Rechercher...",
+    "catalogueFilter": "Catalogue",
     "typeFilter": "Type",
     "thicknessFilter": "Ep.",
     "stockFilter": "Stock",

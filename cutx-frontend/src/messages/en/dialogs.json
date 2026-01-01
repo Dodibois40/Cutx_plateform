@@ -131,6 +131,7 @@
     "title": "Select a panel",
     "productsCount": "{count} products",
     "searchPlaceholder": "Search...",
+    "catalogueFilter": "Catalogue",
     "typeFilter": "Type",
     "thicknessFilter": "Th.",
     "stockFilter": "Stock",
