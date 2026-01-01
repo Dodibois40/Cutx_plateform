@@ -186,6 +186,8 @@
     "validate": "Validate multilayer panel",
     "dragInstruction": "Drag layers to reorder",
     "selectPanel": "Select a panel...",
+    "selectPanelButton": "Select a panel",
+    "fromCatalog": "From catalog",
     "layerType": "Layer type",
     "catalogPanel": "Catalog panel",
     "crossSection": "Panel cross-section",

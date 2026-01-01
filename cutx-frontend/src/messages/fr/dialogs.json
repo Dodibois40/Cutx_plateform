@@ -186,6 +186,8 @@
     "validate": "Valider le panneau multicouche",
     "dragInstruction": "Glissez les couches pour modifier l'ordre",
     "selectPanel": "Selectionner un panneau...",
+    "selectPanelButton": "Selectionner un panneau",
+    "fromCatalog": "Depuis le catalogue",
     "layerType": "Type de couche",
     "catalogPanel": "Panneau du catalogue",
     "crossSection": "Coupe du panneau",

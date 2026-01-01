@@ -10,23 +10,32 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { Search, X, Package } from 'lucide-react';
 import type { CoucheMulticouche, TypeCouche } from '@/lib/configurateur-multicouche/types';
 import type { ProduitCatalogue } from '@/lib/catalogues';
 import PopupSelectionPanneau from '@/components/configurateur/PopupSelectionPanneau';
 
 // Mapping type de couche → filtres initiaux
-// Note: Les catégories doivent correspondre EXACTEMENT aux valeurs de l'API
+// Note: Les catégories doivent correspondre aux catégories parentes en base
+// Structure actuelle (après mise à jour catalogue B comme Bois):
+// - "Panneaux Basiques & Techniques" → Agglomérés, MDF, Contreplaqués, OSB, Lattés
+// - "Stratifiés - Mélaminés - Compacts - Chants" → Unis, Bois, Fantaisies, Mélaminés, Chants
+// - "Panneaux Déco" → Panneaux décoratifs
 function getInitialFiltersForType(type: TypeCouche): { search: string; categories: string[] } {
   switch (type) {
     case 'ame':
-      // L'API retourne "Panneaux Basiques & Techniques" comme une seule catégorie
+      // Panneaux techniques pour l'âme (MDF, Agglo, CP, etc.)
       return { search: '', categories: ['Panneaux Basiques & Techniques'] };
     case 'contrebalancement':
-      return { search: 'contrebalancement', categories: [] };
+      // Recherche par mot-clé pour trouver les panneaux de contrebalancement
+      return { search: 'contrebalancement', categories: ['Panneaux Basiques & Techniques'] };
     case 'parement':
+      // Panneaux décoratifs pour le parement
+      return { search: '', categories: ['Stratifiés - Mélaminés - Compacts - Chants'] };
     case 'autre':
     default:
+      // Pas de filtre par défaut
       return { search: '', categories: [] };
   }
 }
@@ -42,6 +51,7 @@ export default function SelectionPanneauCouche({
   onSelect,
   onClear,
 }: SelectionPanneauCoucheProps) {
+  const t = useTranslations('dialogs.multilayer');
   const [showPopup, setShowPopup] = useState(false);
 
   const hasPanneau = couche.panneauId !== null;
@@ -91,8 +101,8 @@ export default function SelectionPanneauCouche({
             <Package className="w-5 h-5 text-amber-500" />
           </div>
           <div className="flex-1 text-left">
-            <p className="text-sm text-white/80">Sélectionner un panneau</p>
-            <p className="text-xs text-white/40">Depuis le catalogue</p>
+            <p className="text-sm text-white/80">{t('selectPanelButton')}</p>
+            <p className="text-xs text-white/40">{t('fromCatalog')}</p>
           </div>
           <Search className="w-4 h-4 text-white/40" />
         </button>
