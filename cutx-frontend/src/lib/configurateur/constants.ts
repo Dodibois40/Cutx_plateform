@@ -328,6 +328,7 @@ export function creerNouvelleLigne(): LignePrestationV3 {
     forme: 'rectangle',
     chantsConfig: DEFAULT_CHANTS_BY_SHAPE['rectangle'],
     dimensionsLShape: null,
+    dimensionsTriangle: null,
     formeCustom: null,
 
     // Options panneau
@@ -395,6 +396,7 @@ export function creerLigneFinition(lignePanneau: LignePrestationV3): LignePresta
     forme: lignePanneau.forme || 'rectangle',
     chantsConfig: { type: 'rectangle', edges: { A: false, B: false, C: false, D: false } },
     dimensionsLShape: lignePanneau.dimensionsLShape ? { ...lignePanneau.dimensionsLShape } : null,
+    dimensionsTriangle: lignePanneau.dimensionsTriangle ? { ...lignePanneau.dimensionsTriangle } : null,
     formeCustom: lignePanneau.formeCustom ? { ...lignePanneau.formeCustom } : null,
 
     // Pas d'usinages ni perçage sur ligne finition
@@ -450,6 +452,7 @@ export function migrerLigneToV4(ligne: Partial<LignePrestationV3>): LignePrestat
     forme: ligne.forme || 'rectangle',
     chantsConfig: ligne.chantsConfig || DEFAULT_CHANTS_BY_SHAPE['rectangle'],
     dimensionsLShape: ligne.dimensionsLShape || null,
+    dimensionsTriangle: ligne.dimensionsTriangle || null,
     formeCustom: ligne.formeCustom || null,
   } as LignePrestationV3;
 }

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers } from 'lucide-react';
 import { getRALByCode } from '@/lib/configurateur/ral-colors';
-import type { LignePrestationV3, TypeFinition, Brillance, FormePanneau, ChantsConfig, DimensionsLShape } from '@/lib/configurateur/types';
+import type { LignePrestationV3, TypeFinition, Brillance, FormePanneau, ChantsConfig, DimensionsLShape, DimensionsTriangle } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import {
@@ -17,10 +17,11 @@ import {
   DEFAULT_CHANTS_BY_SHAPE,
 } from '@/lib/configurateur/constants';
 import SelecteurForme from './SelecteurForme';
-import { getEtatLigne, getChampsManquants, formaterPrix } from '@/lib/configurateur/calculs';
+import { getEtatLigne, getChampsManquants, formaterPrix, calculerMetresLineairesParForme } from '@/lib/configurateur/calculs';
 import PopupLaque from './dialogs/PopupLaque';
 import PopupEnConstruction from './dialogs/PopupEnConstruction';
 import PopupFormePentagon from './dialogs/PopupFormePentagon';
+import PopupFormeTriangle from './dialogs/PopupFormeTriangle';
 
 interface LignePanneauProps {
   ligne: LignePrestationV3;
@@ -55,6 +56,7 @@ export default function LignePanneau({
   const [showEnConstruction, setShowEnConstruction] = useState<'usinages' | 'percage' | null>(null);
   const [showLaque, setShowLaque] = useState(false);
   const [showPentagon, setShowPentagon] = useState(false);
+  const [showTriangle, setShowTriangle] = useState(false);
   const [showEtatTooltip, setShowEtatTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const etatRef = useRef<HTMLSpanElement>(null);
@@ -63,6 +65,20 @@ export default function LignePanneau({
   const etat = getEtatLigne(ligne);
   const indicateur = ETAT_INDICATEURS[etat];
   const champsManquants = getChampsManquants(ligne);
+
+  // Calcul des ml de chants selon la forme
+  // Pour rectangle, toujours utiliser ligne.chants (qui est synchronisé avec les boutons)
+  const chantsConfigPourCalcul = (ligne.forme || 'rectangle') === 'rectangle'
+    ? { type: 'rectangle' as const, edges: ligne.chants }
+    : ligne.chantsConfig || { type: 'rectangle' as const, edges: ligne.chants };
+
+  const mlChants = calculerMetresLineairesParForme(
+    ligne.forme,
+    ligne.dimensions,
+    chantsConfigPourCalcul,
+    ligne.dimensionsLShape,
+    ligne.formeCustom
+  );
 
   // Position du tooltip
   const handleEtatMouseEnter = () => {
@@ -196,9 +212,11 @@ export default function LignePanneau({
           <SelecteurForme
             forme={ligne.forme || 'rectangle'}
             onChange={(forme: FormePanneau, chantsConfig: ChantsConfig) => {
-              // Pour pentagon, ouvrir le popup au lieu de changer directement
+              // Pour pentagon et triangle, ouvrir le popup au lieu de changer directement
               if (forme === 'pentagon') {
                 setShowPentagon(true);
+              } else if (forme === 'triangle') {
+                setShowTriangle(true);
               } else {
                 onUpdate({ forme, chantsConfig });
               }
@@ -468,6 +486,13 @@ export default function LignePanneau({
                 <span className="chant-edge-right" />
                 <span className="chant-letter">D</span>
               </button>
+              {/* Affichage ml total */}
+              {mlChants > 0 && (
+                <span className="chants-ml-total">
+                  <span className="ml-value">{mlChants.toFixed(2)}</span>
+                  <span className="ml-unit">ml</span>
+                </span>
+              )}
             </div>
           )}
 
@@ -512,6 +537,13 @@ export default function LignePanneau({
                 >
                   <span className="chant-letter">C</span>
                 </button>
+                {/* Affichage ml total */}
+                {mlChants > 0 && (
+                  <span className="chants-ml-total">
+                    <span className="ml-value">{mlChants.toFixed(2)}</span>
+                    <span className="ml-unit">ml</span>
+                  </span>
+                )}
               </div>
             );
           })()}
@@ -576,6 +608,13 @@ export default function LignePanneau({
                   <span className="chant-edge-diagonal" />
                   <span className="chant-letter">E</span>
                 </button>
+                {/* Affichage ml total */}
+                {mlChants > 0 && (
+                  <span className="chants-ml-total">
+                    <span className="ml-value">{mlChants.toFixed(2)}</span>
+                    <span className="ml-unit">ml</span>
+                  </span>
+                )}
               </div>
             );
           })()}
@@ -596,6 +635,13 @@ export default function LignePanneau({
                 <span className="curved-icon">⟳</span>
                 <span className="curved-label">{t('configurateur.edges.contour')}</span>
               </button>
+              {/* Affichage ml total */}
+              {mlChants > 0 && (
+                <span className="chants-ml-total">
+                  <span className="ml-value">{mlChants.toFixed(2)}</span>
+                  <span className="ml-unit">ml</span>
+                </span>
+              )}
             </div>
           )}
         </td>
@@ -642,6 +688,35 @@ export default function LignePanneau({
             setShowPentagon(false);
           }}
           initialDimensions={ligne.dimensionsLShape}
+        />
+
+        {/* Popup Triangle (Triangle rectangle) */}
+        <PopupFormeTriangle
+          isOpen={showTriangle}
+          onClose={() => setShowTriangle(false)}
+          onValidate={(dimensions) => {
+            // Mettre à jour avec les dimensions du triangle
+            onUpdate({
+              forme: 'triangle',
+              chantsConfig: DEFAULT_CHANTS_BY_SHAPE['triangle'],
+              dimensionsTriangle: dimensions,
+              // Mettre à jour aussi les dimensions classiques pour la compatibilité
+              dimensions: {
+                longueur: dimensions.base,
+                largeur: dimensions.hauteur,
+                epaisseur: dimensions.epaisseur,
+              },
+            });
+            setShowTriangle(false);
+          }}
+          initialDimensions={ligne.dimensionsTriangle}
+          epaisseur={
+            panneauMulticouche
+              ? panneauMulticouche.epaisseurTotale
+              : panneauGlobal
+                ? panneauGlobal.epaisseurs[0]
+                : undefined
+          }
         />
 
         {/* Finition optionnelle */}
@@ -1393,6 +1468,30 @@ export default function LignePanneau({
           gap: 0.125rem;
         }
 
+        /* Affichage ml total inline à droite */
+        .chants-ml-total {
+          display: inline-flex;
+          align-items: baseline;
+          gap: 0.125rem;
+          margin-left: 0.5rem;
+          padding-left: 0.5rem;
+          border-left: 1px solid var(--admin-border-subtle, rgba(255,255,255,0.15));
+        }
+
+        .chants-ml-total .ml-value {
+          font-family: 'JetBrains Mono', 'Space Grotesk', monospace;
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: var(--admin-olive, #a3b763);
+        }
+
+        .chants-ml-total .ml-unit {
+          font-size: 0.5625rem;
+          font-weight: 500;
+          color: var(--admin-text-muted, #888);
+          text-transform: lowercase;
+        }
+
         /* Labels séparés (L1, l1, L2, l2) */
         .chant-label {
           font-size: 0.5rem;
@@ -1531,6 +1630,9 @@ export default function LignePanneau({
         /* Contour courbé (Circle, Ellipse, Custom) */
         .chants-curved {
           display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
         }
 
         .chant-btn-curved {

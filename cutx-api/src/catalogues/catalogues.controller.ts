@@ -50,23 +50,28 @@ export class CataloguesController {
     @Query('epaisseur') epaisseur?: string,
     @Query('enStock') enStock?: string,
     @Query('catalogue') catalogueSlug?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDirection') sortDirection?: string,
   ) {
     const result = await this.cataloguesService.findAllPanels({
       search,
       page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : undefined, // Pas de limite par défaut
+      limit: limit ? parseInt(limit, 10) : undefined,
       sousCategorie,
       productType,
       epaisseur: epaisseur ? parseFloat(epaisseur) : undefined,
       enStock: enStock === 'true',
       catalogueSlug,
+      sortBy: sortBy as 'name' | 'reference' | 'pricePerM2' | 'defaultThickness' | 'stockStatus' | undefined,
+      sortDirection: sortDirection as 'asc' | 'desc' | undefined,
     });
 
     return {
       panels: result.panels,
       total: result.total,
-      page: page ? parseInt(page, 10) : 1,
-      limit: result.panels.length,
+      page: result.page,
+      limit: result.limit,
+      hasMore: result.hasMore,
     };
   }
 

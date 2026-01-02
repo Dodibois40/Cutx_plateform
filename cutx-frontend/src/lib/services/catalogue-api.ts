@@ -164,10 +164,29 @@ export async function searchCatalogues(params: SearchParams = {}): Promise<Searc
   if (params.enStock) queryParams.append('enStock', 'true');
   if (params.catalogue) queryParams.append('catalogue', params.catalogue);
 
+  // Tri côté serveur - mapper les noms frontend vers backend
+  if (params.sortBy) {
+    const sortByMap: Record<string, string> = {
+      nom: 'name',
+      reference: 'reference',
+      prix: 'pricePerM2',
+      epaisseur: 'defaultThickness',
+      stock: 'stockStatus',
+    };
+    queryParams.append('sortBy', sortByMap[params.sortBy] || 'name');
+  }
+  if (params.sortDirection) queryParams.append('sortDirection', params.sortDirection);
+
   // Utiliser l'endpoint unifié /panels qui retourne tous les catalogues
   const endpoint = `/api/catalogues/panels?${queryParams}`;
 
-  const response = await apiCall<{ panels: ApiPanel[]; total: number }>(endpoint);
+  const response = await apiCall<{
+    panels: ApiPanel[];
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+  }>(endpoint);
 
   // Transformer les panels en produits
   const produits = (response.panels || []).map(transformPanel);
@@ -175,9 +194,9 @@ export async function searchCatalogues(params: SearchParams = {}): Promise<Searc
   return {
     produits,
     total: response.total || produits.length,
-    page: 1,
-    limit: params.limit || 100,
-    hasMore: false,
+    page: response.page || 1,
+    limit: response.limit || params.limit || 100,
+    hasMore: response.hasMore ?? false,
   };
 }
 

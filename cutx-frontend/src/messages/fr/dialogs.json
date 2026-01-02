@@ -228,5 +228,11 @@
     "reset": "Réinitialiser",
     "cancel": "Annuler",
     "validate": "Valider"
+  },
+  "triangle": {
+    "title": "Triangle rectangle",
+    "reset": "Réinitialiser",
+    "cancel": "Annuler",
+    "validate": "Valider"
   }
 }

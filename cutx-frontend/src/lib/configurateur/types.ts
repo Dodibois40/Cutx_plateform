@@ -84,6 +84,14 @@ export interface DimensionsLShape {
   coinCoupe?: CoinCoupe;    // Coin où se trouve la coupe (E1=haut-gauche, E2=haut-droite, E3=bas-droite, E4=bas-gauche)
 }
 
+// Dimensions spécifiques pour triangle rectangle
+export interface DimensionsTriangle {
+  base: number;             // A: Base du triangle (mm)
+  hauteur: number;          // B: Hauteur du triangle (mm)
+  hypotenuse: number;       // C: Hypoténuse calculée (mm) - √(A² + B²)
+  epaisseur: number;        // Épaisseur (mm)
+}
+
 // Forme personnalisée depuis DXF
 export interface FormeCustom {
   dxfData: string;           // Contenu DXF encodé base64
@@ -127,6 +135,7 @@ export interface LignePrestationV3 {
   forme: FormePanneau;              // Forme géométrique (défaut: 'rectangle')
   chantsConfig: ChantsConfig;       // Configuration chants dynamique selon forme
   dimensionsLShape: DimensionsLShape | null;  // Dimensions L-shape (si forme='pentagon')
+  dimensionsTriangle: DimensionsTriangle | null;  // Dimensions triangle (si forme='triangle')
   formeCustom: FormeCustom | null;  // Données forme custom DXF (si forme='custom')
 
   // Options panneau

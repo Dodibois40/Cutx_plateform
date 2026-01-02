@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import {
@@ -13,15 +13,17 @@ import {
   ArrowUp,
   ArrowDown,
   ImageIcon,
+  Loader2,
 } from 'lucide-react';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
 import {
-  searchCatalogues as searchCataloguesAPI,
   getSousCategories as getCategoriesAPI,
   getCatalogues as getCataloguesAPI,
   type CatalogueProduit,
 } from '@/lib/services/catalogue-api';
+import { useCatalogueSearch } from '@/lib/hooks/useCatalogueSearch';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 type SortColumn = 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
 type SortDirection = 'asc' | 'desc';
@@ -88,6 +90,7 @@ function ProductImage({ src, alt }: { src: string | undefined; alt: string }) {
         src={src}
         alt={alt}
         style={imageStyle}
+        loading="lazy"
         onLoad={() => setIsLoading(false)}
         onError={() => {
           setIsLoading(false);
@@ -136,12 +139,11 @@ export default function PopupSelectionPanneau({
 }: PopupSelectionPanneauProps) {
   const t = useTranslations('dialogs.panelSelection');
   const [mounted, setMounted] = useState(false);
-  const [produits, setProduits] = useState<CatalogueProduit[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // Recherche et filtres
   const [search, setSearch] = useState(initialSearch);
+  const debouncedSearch = useDebounce(search, 300); // Debounce 300ms
   const [filtreSousCategories, setFiltreSousCategories] = useState<string[]>(initialSousCategories);
   const [filtreProductType, setFiltreProductType] = useState<string>('');
   const [filtreEpaisseur, setFiltreEpaisseur] = useState<number | null>(null);
@@ -150,80 +152,58 @@ export default function PopupSelectionPanneau({
   const [sousCategories, setSousCategories] = useState<string[]>([]);
   const [catalogues, setCatalogues] = useState<{ slug: string; name: string }[]>([]);
 
-  // Tri (100% côté client)
+  // Tri
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-  // Total pour affichage
-  const [total, setTotal] = useState(0);
+  // React Query pour le chargement des produits avec cache
+  const {
+    produits,
+    total,
+    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    isError,
+    error,
+    fetchNextPage,
+  } = useCatalogueSearch({
+    search: debouncedSearch || undefined,
+    productType: filtreProductType || undefined,
+    sousCategorie: filtreSousCategories.length === 1 ? filtreSousCategories[0] : undefined,
+    epaisseur: filtreEpaisseur || undefined,
+    enStock: filtreEnStock || undefined,
+    catalogue: filtreCatalogue || undefined,
+    sortBy: sortColumn || undefined,
+    sortDirection: sortColumn ? sortDirection : undefined,
+    enabled: open && mounted,
+  });
+
+  // Filtrage côté client pour multi sous-catégories
+  const filteredProduits = filtreSousCategories.length > 1
+    ? produits.filter(p => filtreSousCategories.includes(p.sousCategorie))
+    : produits;
 
   // Épaisseurs dynamiques selon le type de produit
   const epaisseurs = filtreProductType === 'BANDE_DE_CHANT' ? EPAISSEURS_CHANTS : EPAISSEURS_PANNEAUX;
 
   const hasFilters = search || filtreSousCategories.length > 0 || filtreProductType || filtreEpaisseur || filtreEnStock || filtreCatalogue;
 
-  // Charger les produits avec filtrage côté serveur
-  const loadProduits = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  // Détecter le scroll pour charger plus (infinite scroll)
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (!container || !open) return;
 
-      // Envoyer les filtres au backend
-      const result = await searchCataloguesAPI({
-        q: search || undefined,
-        productType: filtreProductType || undefined,
-        sousCategorie: filtreSousCategories.length === 1 ? filtreSousCategories[0] : undefined,
-        epaisseurMin: filtreEpaisseur || undefined,
-        enStock: filtreEnStock || undefined,
-        catalogue: filtreCatalogue || undefined,
-      });
-
-      let filteredProduits = result.produits as CatalogueProduit[];
-
-      // Filtrage côté client uniquement pour les cas complexes
-      // (plusieurs sous-catégories sélectionnées)
-      if (filtreSousCategories.length > 1) {
-        filteredProduits = filteredProduits.filter(p => filtreSousCategories.includes(p.sousCategorie));
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      // Charger plus quand on est à 200px du bas
+      if (scrollHeight - scrollTop - clientHeight < 200 && hasMore && !isFetchingNextPage) {
+        fetchNextPage();
       }
+    };
 
-      // Tri côté client
-      if (sortColumn) {
-        filteredProduits.sort((a, b) => {
-          let comparison = 0;
-          switch (sortColumn) {
-            case 'reference':
-              comparison = (a.reference || '').localeCompare(b.reference || '');
-              break;
-            case 'nom':
-              comparison = (a.nom || '').localeCompare(b.nom || '');
-              break;
-            case 'epaisseur':
-              comparison = (a.epaisseur || 0) - (b.epaisseur || 0);
-              break;
-            case 'prix':
-              const prixA = a.prixVenteM2 || a.prixAchatM2 || a.prixMl || 0;
-              const prixB = b.prixVenteM2 || b.prixAchatM2 || b.prixMl || 0;
-              comparison = prixA - prixB;
-              break;
-            case 'stock':
-              const stockA = a.stock === 'EN STOCK' ? 0 : 1;
-              const stockB = b.stock === 'EN STOCK' ? 0 : 1;
-              comparison = stockA - stockB;
-              break;
-          }
-          return sortDirection === 'asc' ? comparison : -comparison;
-        });
-      }
-
-      setProduits(filteredProduits);
-      setTotal(filteredProduits.length);
-    } catch (err: unknown) {
-      console.error('❌ Erreur chargement:', err);
-      setError(err instanceof Error ? err.message : 'Erreur lors du chargement des produits');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [search, filtreProductType, filtreSousCategories, filtreEpaisseur, filtreEnStock, filtreCatalogue, sortColumn, sortDirection]);
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [hasMore, isFetchingNextPage, fetchNextPage, open]);
 
   // Charger les catégories et catalogues disponibles
   useEffect(() => {
@@ -243,17 +223,11 @@ export default function PopupSelectionPanneau({
     loadFilters();
   }, [open]);
 
-  // Ref pour tracker l'état précédent de open et éviter les doublons
+  // Reset des filtres quand on ouvre la popup
   const wasOpenRef = useRef(false);
-  // Ref pour savoir si c'est le premier chargement après ouverture
-  const isFirstLoadRef = useRef(false);
-
-  // Reset et chargement SEULEMENT quand on ouvre (open passe de false à true)
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      // Marquer qu'on vient d'ouvrir - le prochain render aura les bons filtres
-      isFirstLoadRef.current = true;
-      // Initialiser avec les valeurs des props
+      // Reset aux valeurs initiales à l'ouverture
       setSearch(initialSearch);
       setFiltreSousCategories(initialSousCategories);
       setFiltreProductType('');
@@ -265,29 +239,26 @@ export default function PopupSelectionPanneau({
     }
     wasOpenRef.current = open;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]); // Intentionnellement on n'inclut pas initialSearch/initialSousCategories
-
-  // Charger les produits quand les filtres changent (après le reset)
-  useEffect(() => {
-    // Ne charger que si la popup est ouverte
-    if (!open) return;
-
-    // Skip le premier effet quand open devient true (les filtres ne sont pas encore mis à jour)
-    // loadProduits sera appelé au prochain render quand les filtres seront mis à jour
-    if (isFirstLoadRef.current) {
-      isFirstLoadRef.current = false;
-      // On ne charge pas ici - on attend que les filtres soient mis à jour
-      // Ce qui va recréer loadProduits et déclencher cet effet à nouveau
-      return;
-    }
-
-    loadProduits();
-  }, [open, loadProduits]);
+  }, [open]);
 
   // Montage client
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fermer le dropdown catégories quand on clique ailleurs
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const dropdown = document.getElementById('categories-dropdown');
+      const trigger = (e.target as HTMLElement).closest('.filter-dropdown');
+      if (dropdown && !trigger) {
+        dropdown.classList.remove('open');
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [open]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -379,11 +350,10 @@ export default function PopupSelectionPanneau({
           </button>
         </div>
 
-        {/* Barre de filtres compacts */}
-        <div className="filters-bar">
-          {/* Recherche */}
-          <div className="search-box">
-            <Search size={14} className="search-icon" />
+        {/* Barre de filtres - Ligne 1: Recherche principale */}
+        <div className="filters-row-main">
+          <div className="search-box-large">
+            <Search size={18} className="search-icon" />
             <input
               type="text"
               placeholder={t('searchPlaceholder')}
@@ -394,26 +364,40 @@ export default function PopupSelectionPanneau({
             />
             {search && (
               <button className="btn-clear" onClick={() => setSearch('')}>
-                <X size={12} />
+                <X size={14} />
               </button>
             )}
           </div>
 
-          <div className="separator" />
+          {/* Compteur et Reset */}
+          <div className="search-meta">
+            <span className="result-count">
+              {filteredProduits.length < total
+                ? t('loadedCount', { loaded: filteredProduits.length, total })
+                : t('resultsCount', { count: total })}
+            </span>
+            {hasFilters && (
+              <button onClick={resetFilters} className="btn-reset-main" title={t('resetFilters')}>
+                <RotateCcw size={14} />
+                <span>{t('resetFilters')}</span>
+              </button>
+            )}
+          </div>
+        </div>
 
+        {/* Barre de filtres - Ligne 2: Filtres secondaires */}
+        <div className="filters-row-secondary">
           {/* Filtre Catalogue */}
           <select
             value={filtreCatalogue}
             onChange={(e) => setFiltreCatalogue(e.target.value)}
-            className={`filter-select filter-catalogue ${filtreCatalogue ? 'active' : ''}`}
+            className={`filter-select ${filtreCatalogue ? 'active' : ''}`}
           >
             <option value="">{t('catalogueFilter')}</option>
             {catalogues.map(cat => (
               <option key={cat.slug} value={cat.slug}>{cat.name}</option>
             ))}
           </select>
-
-          <div className="separator" />
 
           {/* Filtre Type de produit */}
           <select
@@ -427,17 +411,33 @@ export default function PopupSelectionPanneau({
             ))}
           </select>
 
-          {/* Filtre Catégories (multi-sélection avec chips) */}
-          <div className="filter-categories-wrapper">
-            {sousCategories.map(sc => (
-              <button
-                key={sc}
-                onClick={() => toggleSousCategorie(sc)}
-                className={`filter-chip ${filtreSousCategories.includes(sc) ? 'active' : ''}`}
-              >
-                {sc}
-              </button>
-            ))}
+          {/* Filtre Catégories (dropdown multi-select) */}
+          <div className="filter-dropdown">
+            <button
+              className={`filter-dropdown-trigger ${filtreSousCategories.length > 0 ? 'active' : ''}`}
+              onClick={() => {
+                const el = document.getElementById('categories-dropdown');
+                if (el) el.classList.toggle('open');
+              }}
+            >
+              <span>{t('categoryFilter')}</span>
+              {filtreSousCategories.length > 0 && (
+                <span className="filter-count">{filtreSousCategories.length}</span>
+              )}
+              <ArrowDown size={12} />
+            </button>
+            <div id="categories-dropdown" className="filter-dropdown-menu">
+              {sousCategories.map(sc => (
+                <label key={sc} className="dropdown-item">
+                  <input
+                    type="checkbox"
+                    checked={filtreSousCategories.includes(sc)}
+                    onChange={() => toggleSousCategorie(sc)}
+                  />
+                  <span>{sc}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Filtre Épaisseur */}
@@ -460,24 +460,52 @@ export default function PopupSelectionPanneau({
             <CheckCircle2 size={12} />
             <span>{t('stockFilter')}</span>
           </button>
-
-          {/* Reset */}
-          {hasFilters && (
-            <button onClick={resetFilters} className="btn-reset" title={t('resetFilters')}>
-              <RotateCcw size={12} />
-            </button>
-          )}
-
-          <div className="separator" />
-
-          {/* Compteur */}
-          <span className="result-count">
-            {t('resultsCount', { count: total })}
-          </span>
         </div>
 
+        {/* Ligne 3: Tags des filtres actifs */}
+        {hasFilters && (
+          <div className="active-filters-row">
+            {search && (
+              <span className="filter-tag">
+                <span className="tag-label">{t('searchLabel')}:</span> {search}
+                <button onClick={() => setSearch('')}><X size={12} /></button>
+              </span>
+            )}
+            {filtreCatalogue && (
+              <span className="filter-tag">
+                {catalogues.find(c => c.slug === filtreCatalogue)?.name}
+                <button onClick={() => setFiltreCatalogue('')}><X size={12} /></button>
+              </span>
+            )}
+            {filtreProductType && (
+              <span className="filter-tag">
+                {t(`productTypes.${filtreProductType}`)}
+                <button onClick={() => setFiltreProductType('')}><X size={12} /></button>
+              </span>
+            )}
+            {filtreSousCategories.map(cat => (
+              <span key={cat} className="filter-tag">
+                {cat}
+                <button onClick={() => toggleSousCategorie(cat)}><X size={12} /></button>
+              </span>
+            ))}
+            {filtreEpaisseur && (
+              <span className="filter-tag">
+                {filtreEpaisseur}mm
+                <button onClick={() => setFiltreEpaisseur(null)}><X size={12} /></button>
+              </span>
+            )}
+            {filtreEnStock && (
+              <span className="filter-tag">
+                {t('stockFilter')}
+                <button onClick={() => setFiltreEnStock(false)}><X size={12} /></button>
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Tableau */}
-        <div className="table-container">
+        <div className="table-container" ref={tableContainerRef}>
           {isLoading ? (
             <table className="products-table">
               <thead>
@@ -498,9 +526,9 @@ export default function PopupSelectionPanneau({
                 ))}
               </tbody>
             </table>
-          ) : error ? (
-            <div className="error-message">{error}</div>
-          ) : produits.length === 0 ? (
+          ) : isError ? (
+            <div className="error-message">{error?.message || 'Erreur de chargement'}</div>
+          ) : filteredProduits.length === 0 ? (
             <div className="no-results">
               {hasFilters ? t('noResults') : t('noProducts')}
             </div>
@@ -544,7 +572,7 @@ export default function PopupSelectionPanneau({
                 </tr>
               </thead>
               <tbody>
-                {produits.map((produit) => {
+                {filteredProduits.map((produit) => {
                   const isEnStock = produit.stock === 'EN STOCK';
                   const prixM2 = produit.prixVenteM2 || produit.prixAchatM2 || 0;
                   const prixMl = produit.prixMl || 0;
@@ -578,8 +606,14 @@ export default function PopupSelectionPanneau({
                         <ProductImage src={produit.imageUrl} alt={produit.nom} />
                       </td>
                       <td className="col-ref">{produit.reference}</td>
-                      <td className="col-nom">{produit.nom}</td>
-                      <td className="col-type">{produit.productType ? t(`productTypes.${produit.productType}`) : '-'}</td>
+                      <td className="col-nom">
+                        <div className="col-nom-content" title={produit.nom}>{produit.nom}</div>
+                      </td>
+                      <td className="col-type">
+                        {produit.productType ? (
+                          <span className="type-badge">{t(`productTypes.${produit.productType}`)}</span>
+                        ) : '-'}
+                      </td>
                       <td className="col-dim">{produit.epaisseur}mm</td>
                       <td className="col-dimensions">{dimensionsDisplay}</td>
                       <td className="col-prix">{prix > 0 ? `${prix.toFixed(2)} ${prixUnit}` : '-'}</td>
@@ -601,6 +635,21 @@ export default function PopupSelectionPanneau({
                 })}
               </tbody>
             </table>
+          )}
+
+          {/* Indicateur de chargement infinite scroll */}
+          {isFetchingNextPage && (
+            <div className="loading-more">
+              <Loader2 size={20} className="spinner" />
+              <span>{t('loadingMore')}</span>
+            </div>
+          )}
+
+          {/* Message fin de liste */}
+          {!isLoading && !isFetchingNextPage && !hasMore && filteredProduits.length > 0 && filteredProduits.length === total && (
+            <div className="end-of-list">
+              {t('allProductsLoaded', { count: total })}
+            </div>
           )}
         </div>
 
@@ -658,37 +707,30 @@ export default function PopupSelectionPanneau({
             color: var(--admin-status-danger);
           }
 
-          /* Barre de filtres - alignée sur une ligne */
-          .filters-bar {
+          /* Ligne 1: Recherche principale */
+          .filters-row-main {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
             background: var(--admin-bg-card);
             border-bottom: 1px solid var(--admin-border-subtle);
             flex-shrink: 0;
-            overflow-x: auto;
           }
 
-          .separator {
-            width: 1px;
-            height: 24px;
-            background: var(--admin-border-subtle);
-            flex-shrink: 0;
-          }
-
-          .search-box {
+          .search-box-large {
             position: relative;
-            width: 160px;
-            height: 32px;
-            flex-shrink: 0;
+            flex: 1;
+            max-width: 500px;
+            height: 40px;
             display: flex;
             align-items: center;
           }
 
-          .search-icon {
+          .search-box-large .search-icon {
             position: absolute;
-            left: 10px;
+            left: 14px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--admin-text-muted);
@@ -696,38 +738,39 @@ export default function PopupSelectionPanneau({
             z-index: 1;
           }
 
-          .search-input {
+          .search-box-large .search-input {
             width: 100%;
-            height: 32px;
-            padding: 0 28px 0 32px;
+            height: 40px;
+            padding: 0 40px 0 44px;
             background: var(--admin-bg-tertiary);
             border: 1px solid var(--admin-border-default);
-            border-radius: 6px;
-            font-size: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
             color: var(--admin-text-primary);
             outline: none;
-            transition: border-color 0.15s;
+            transition: all 0.15s;
             box-sizing: border-box;
           }
 
-          .search-input:focus {
+          .search-box-large .search-input:focus {
             border-color: var(--admin-olive);
+            box-shadow: 0 0 0 3px var(--admin-olive-bg);
           }
 
-          .search-input::placeholder {
+          .search-box-large .search-input::placeholder {
             color: var(--admin-text-muted);
           }
 
-          .btn-clear {
+          .search-box-large .btn-clear {
             position: absolute;
-            right: 6px;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 18px;
-            height: 18px;
+            width: 24px;
+            height: 24px;
             background: var(--admin-bg-hover);
             border: none;
             border-radius: 4px;
@@ -735,15 +778,63 @@ export default function PopupSelectionPanneau({
             cursor: pointer;
           }
 
-          .btn-clear:hover {
+          .search-box-large .btn-clear:hover {
             background: var(--admin-status-danger-bg);
             color: var(--admin-status-danger);
           }
 
+          .search-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+          }
+
+          .result-count {
+            font-size: 0.8125rem;
+            color: var(--admin-text-muted);
+            white-space: nowrap;
+          }
+
+          .btn-reset-main {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 32px;
+            padding: 0 12px;
+            background: transparent;
+            border: 1px solid var(--admin-border-default);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--admin-text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+          }
+
+          .btn-reset-main:hover {
+            background: var(--admin-status-danger-bg);
+            border-color: var(--admin-status-danger);
+            color: var(--admin-status-danger);
+          }
+
+          /* Ligne 2: Filtres secondaires */
+          .filters-row-secondary {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--admin-bg-tertiary);
+            border-bottom: 1px solid var(--admin-border-subtle);
+            flex-shrink: 0;
+            overflow: visible;
+            position: relative;
+            z-index: 50;
+          }
+
           .filter-select {
             height: 32px;
-            padding: 0 24px 0 8px;
-            background: var(--admin-bg-tertiary);
+            padding: 0 28px 0 10px;
+            background: var(--admin-bg-card);
             border: 1px solid var(--admin-border-default);
             border-radius: 6px;
             font-size: 0.75rem;
@@ -754,8 +845,8 @@ export default function PopupSelectionPanneau({
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 6px center;
-            min-width: 80px;
+            background-position: right 8px center;
+            min-width: 100px;
             box-sizing: border-box;
             flex-shrink: 0;
           }
@@ -777,49 +868,100 @@ export default function PopupSelectionPanneau({
             padding: 0.5rem;
           }
 
-          .filter-sous-type {
-            max-width: 130px;
-          }
-
-          .filter-categories-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 4px;
+          /* Dropdown multi-select pour catégories */
+          .filter-dropdown {
+            position: relative;
             flex-shrink: 0;
           }
 
-          .filter-chip {
-            height: 28px;
+          .filter-dropdown-trigger {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 32px;
             padding: 0 10px;
-            background: var(--admin-bg-tertiary);
+            background: var(--admin-bg-card);
             border: 1px solid var(--admin-border-default);
-            border-radius: 14px;
-            font-size: 0.7rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
             color: var(--admin-text-secondary);
             cursor: pointer;
             transition: all 0.15s;
-            white-space: nowrap;
           }
 
-          .filter-chip:hover {
+          .filter-dropdown-trigger:hover {
             border-color: var(--admin-border-hover);
+          }
+
+          .filter-dropdown-trigger.active {
+            background-color: var(--admin-olive-bg);
+            border-color: var(--admin-olive);
+            color: var(--admin-olive);
+          }
+
+          .filter-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            background: var(--admin-olive);
+            color: white;
+            border-radius: 9px;
+            font-size: 0.625rem;
+            font-weight: 700;
+          }
+
+          .filter-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            min-width: 220px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--admin-bg-elevated, #2a2a2a);
+            border: 1px solid var(--admin-border-default);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            padding: 0.5rem;
+          }
+
+          .filter-dropdown-menu.open {
+            display: block;
+          }
+
+          .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8125rem;
+            color: var(--admin-text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.1s;
+          }
+
+          .dropdown-item:hover {
             background: var(--admin-bg-hover);
           }
 
-          .filter-chip.active {
-            background: var(--admin-olive-bg);
-            border-color: var(--admin-olive);
-            color: var(--admin-olive);
-            font-weight: 600;
+          .dropdown-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--admin-olive);
           }
 
           .filter-toggle {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             height: 32px;
-            padding: 0 10px;
-            background: var(--admin-bg-tertiary);
+            padding: 0 12px;
+            background: var(--admin-bg-card);
             border: 1px solid var(--admin-border-default);
             border-radius: 6px;
             font-size: 0.75rem;
@@ -841,34 +983,55 @@ export default function PopupSelectionPanneau({
             font-weight: 600;
           }
 
-          .btn-reset {
+          /* Ligne 3: Tags des filtres actifs */
+          .active-filters-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--admin-bg-secondary);
+            border-bottom: 1px solid var(--admin-border-subtle);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+          }
+
+          .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 26px;
+            padding: 0 8px;
+            background: var(--admin-olive-bg);
+            border: 1px solid var(--admin-olive);
+            border-radius: 13px;
+            font-size: 0.6875rem;
+            color: var(--admin-olive);
+            font-weight: 500;
+          }
+
+          .filter-tag .tag-label {
+            color: var(--admin-text-muted);
+            font-weight: 400;
+          }
+
+          .filter-tag button {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 32px;
-            height: 32px;
-            background: var(--admin-bg-tertiary);
-            border: 1px solid var(--admin-border-default);
-            border-radius: 6px;
-            color: var(--admin-text-muted);
+            width: 16px;
+            height: 16px;
+            background: transparent;
+            border: none;
+            border-radius: 50%;
+            color: var(--admin-olive);
             cursor: pointer;
-            transition: all 0.15s;
-            box-sizing: border-box;
-            flex-shrink: 0;
+            transition: all 0.1s;
+            padding: 0;
           }
 
-          .btn-reset:hover {
-            background: var(--admin-status-danger-bg);
-            border-color: var(--admin-status-danger);
-            color: var(--admin-status-danger);
-          }
-
-          .result-count {
-            font-size: 0.75rem;
-            color: var(--admin-text-muted);
-            flex-shrink: 0;
-            white-space: nowrap;
-            line-height: 32px;
+          .filter-tag button:hover {
+            background: var(--admin-olive);
+            color: white;
           }
 
           /* Tableau */
@@ -876,6 +1039,31 @@ export default function PopupSelectionPanneau({
             flex: 1;
             overflow: auto;
             min-height: 0;
+          }
+
+          /* Infinite scroll loading */
+          .loading-more {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            color: var(--admin-text-muted);
+            font-size: 0.875rem;
+          }
+
+          .loading-more :global(.spinner) {
+            animation: spin 1s linear infinite;
+          }
+
+          .end-of-list {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            color: var(--admin-text-muted);
+            font-size: 0.75rem;
+            opacity: 0.7;
           }
 
           @keyframes spin {
@@ -1122,27 +1310,44 @@ export default function PopupSelectionPanneau({
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.75rem;
             color: var(--admin-olive);
+            white-space: nowrap;
           }
 
           .col-nom {
-            max-width: 280px;
-            white-space: nowrap;
+            min-width: 200px;
+            max-width: 350px;
+          }
+
+          .col-nom-content {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+            line-height: 1.4;
+            font-size: 0.8125rem;
           }
 
           .col-type {
-            font-size: 0.75rem;
-            color: var(--admin-text-muted);
-            max-width: 120px;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+          }
+
+          .type-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+            background: var(--admin-bg-tertiary);
+            border-radius: 4px;
+            font-size: 0.6875rem;
+            color: var(--admin-text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
           }
 
           .col-dim {
             text-align: right;
             font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
           }
 
           .col-dimensions {
@@ -1150,6 +1355,7 @@ export default function PopupSelectionPanneau({
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.75rem;
             color: var(--admin-text-muted);
+            white-space: nowrap;
           }
 
           .col-prix {
@@ -1157,6 +1363,7 @@ export default function PopupSelectionPanneau({
             font-family: 'JetBrains Mono', monospace;
             font-weight: 600;
             color: var(--admin-sable);
+            white-space: nowrap;
           }
 
           .col-stock {
@@ -1184,48 +1391,85 @@ export default function PopupSelectionPanneau({
           }
 
           /* Responsive */
+          @media (max-width: 1100px) {
+            .col-dimensions {
+              display: none;
+            }
+          }
+
           @media (max-width: 900px) {
-            .filters-bar {
+            .filters-row-main {
+              flex-wrap: wrap;
+            }
+
+            .search-box-large {
+              max-width: 100%;
+              order: 1;
+            }
+
+            .search-meta {
+              order: 2;
+              width: 100%;
+              justify-content: space-between;
+              margin-top: 0.5rem;
+            }
+
+            .filters-row-secondary {
               gap: 0.375rem;
               padding: 0.5rem;
             }
 
-            .search-box {
-              width: 140px;
-            }
-
             .filter-select {
-              min-width: 65px;
+              min-width: 70px;
               padding-left: 6px;
-              padding-right: 20px;
+              padding-right: 22px;
               font-size: 0.7rem;
             }
 
-            .col-dimensions,
             .col-type {
               display: none;
             }
 
             .col-nom {
-              max-width: 150px;
+              max-width: 200px;
+            }
+
+            .col-nom-content {
+              -webkit-line-clamp: 1;
+            }
+          }
+
+          @media (max-width: 700px) {
+            .col-prix {
+              display: none;
             }
           }
 
           @media (max-width: 600px) {
-            .separator {
-              display: none;
+            .filters-row-secondary {
+              flex-wrap: wrap;
             }
 
-            .search-box {
-              width: 120px;
-            }
-
+            .filter-dropdown,
             .filter-select {
-              min-width: 55px;
+              flex: 1 1 calc(50% - 0.25rem);
+              min-width: 0;
+            }
+
+            .filter-toggle {
+              flex: 0 0 auto;
             }
 
             .result-count {
               display: none;
+            }
+
+            .col-ref {
+              font-size: 0.65rem;
+            }
+
+            .col-nom {
+              max-width: 140px;
             }
           }
         `}</style>

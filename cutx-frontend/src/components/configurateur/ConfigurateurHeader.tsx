@@ -103,7 +103,6 @@ export default function ConfigurateurHeader({
       <div className="cx-header-section panel-section">
         {/* Panneau Classique */}
         <div className="header-field header-field--panel">
-          <label className="header-field-label">{t('configurateur.header.panneau')}</label>
           <button
             onClick={() => setShowPanneauPopup(true)}
             className={`panel-selector ${hasPanneauClassique ? 'panel-selector--selected' : ''} ${!hasPanneauClassique && !hasPanneauMulticouche ? 'panel-selector--empty' : ''} ${hasPanneauMulticouche ? 'panel-selector--inactive' : ''}`}
@@ -139,14 +138,8 @@ export default function ConfigurateurHeader({
           )}
         </div>
 
-        {/* Separator */}
-        <div className="panel-separator">
-          <span className="panel-separator-text">{t('common.misc.or')}</span>
-        </div>
-
         {/* Panneau Multicouche */}
         <div className="header-field header-field--panel">
-          <label className="header-field-label">{t('configurateur.header.panneauMulticouche')}</label>
           <button
             onClick={() => setShowMulticouchePopup(true)}
             className={`panel-selector panel-selector--multicouche ${hasPanneauMulticouche ? 'panel-selector--selected' : ''} ${!hasPanneauClassique && !hasPanneauMulticouche ? 'panel-selector--empty' : ''} ${hasPanneauClassique ? 'panel-selector--inactive' : ''}`}

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { routing } from '@/i18n/routing';
 import { PreferencesProvider } from '@/components/providers/PreferencesProvider';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -48,9 +49,11 @@ export default async function LocaleLayout({ children, params }: Props) {
     <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <NextIntlClientProvider messages={messages}>
-          <PreferencesProvider>
-            {children}
-          </PreferencesProvider>
+          <QueryProvider>
+            <PreferencesProvider>
+              {children}
+            </PreferencesProvider>
+          </QueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>

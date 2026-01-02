@@ -1,7 +1,8 @@
 // lib/configurateur/tarif-chants.ts
 // Calcul du placage de chants et fourniture pour panneaux
 
-import type { Chants } from './types';
+import type { Chants, FormePanneau, ChantsConfig, DimensionsLShape, FormeCustom } from './types';
+import { calculerMetresLineairesParForme } from './calculs';
 
 /**
  * Tarifs de placage de chants
@@ -35,12 +36,15 @@ export interface CalculChantDebit {
   reference: string;
   dimensions: { longueur: number; largeur: number };
   chants: Chants;
+  forme?: FormePanneau;
+  chantsConfig?: ChantsConfig;
   metresLineairesChants: number;          // ml total de chants à plaquer
   detailChants: {
     A: number;  // ml du chant A (longueur)
     B: number;  // ml du chant B (largeur)
     C: number;  // ml du chant C (longueur)
     D: number;  // ml du chant D (largeur)
+    E?: number; // ml du chant E (pour pentagon)
   };
 }
 
@@ -77,16 +81,55 @@ export interface ResultatCalculChants {
 
 /**
  * Calcule les mètres linéaires de chants pour un débit
+ * Supporte toutes les formes: rectangle, pentagon, circle, ellipse, triangle, custom
  */
 export function calculerMlChantsDebit(
   debitId: string,
   reference: string,
   dimensions: { longueur: number; largeur: number },
-  chants: Chants
+  chants: Chants,
+  options?: {
+    forme?: FormePanneau;
+    chantsConfig?: ChantsConfig;
+    dimensionsLShape?: DimensionsLShape | null;
+    formeCustom?: FormeCustom | null;
+  }
 ): CalculChantDebit {
   const { longueur, largeur } = dimensions;
+  const forme = options?.forme || 'rectangle';
+  const chantsConfig = options?.chantsConfig;
 
-  // A et C = longueurs, B et D = largeurs
+  // Si on a une forme non-rectangle avec chantsConfig, utiliser le calcul par forme
+  if (forme !== 'rectangle' && chantsConfig) {
+    const metresLineairesChants = calculerMetresLineairesParForme(
+      forme,
+      { longueur, largeur, epaisseur: 0 },
+      chantsConfig,
+      options?.dimensionsLShape,
+      options?.formeCustom
+    );
+
+    // Créer le détail selon la forme
+    const detailChants = buildDetailChantsForShape(
+      forme,
+      dimensions,
+      chantsConfig,
+      options?.dimensionsLShape
+    );
+
+    return {
+      debitId,
+      reference,
+      dimensions,
+      chants,
+      forme,
+      chantsConfig,
+      metresLineairesChants,
+      detailChants,
+    };
+  }
+
+  // Rectangle classique: A et C = longueurs, B et D = largeurs
   const detailChants = {
     A: chants.A ? longueur / 1000 : 0,
     B: chants.B ? largeur / 1000 : 0,
@@ -101,13 +144,87 @@ export function calculerMlChantsDebit(
     reference,
     dimensions,
     chants,
+    forme: 'rectangle',
     metresLineairesChants,
     detailChants,
   };
 }
 
 /**
+ * Construit le détail des chants selon la forme
+ */
+function buildDetailChantsForShape(
+  forme: FormePanneau,
+  dimensions: { longueur: number; largeur: number },
+  chantsConfig: ChantsConfig,
+  dimensionsLShape?: DimensionsLShape | null
+): { A: number; B: number; C: number; D: number; E?: number } {
+  const { longueur, largeur } = dimensions;
+
+  switch (forme) {
+    case 'pentagon':
+      if (chantsConfig.type === 'pentagon' && dimensionsLShape) {
+        const edges = chantsConfig.edges;
+        const { longueurTotale, largeurTotale, longueurEncoche, largeurEncoche } = dimensionsLShape;
+        return {
+          A: edges.A ? longueurTotale / 1000 : 0,
+          B: edges.B ? largeurTotale / 1000 : 0,
+          C: edges.C ? (longueurTotale - longueurEncoche) / 1000 : 0,
+          D: edges.D ? (largeurTotale - largeurEncoche) / 1000 : 0,
+          E: edges.E ? longueurEncoche / 1000 : 0,
+        };
+      }
+      break;
+
+    case 'triangle':
+      if (chantsConfig.type === 'triangle') {
+        const edges = chantsConfig.edges;
+        const base = longueur / 1000;
+        const hauteur = largeur / 1000;
+        const hypotenuse = Math.sqrt(base * base + hauteur * hauteur);
+        return {
+          A: edges.A ? base : 0,
+          B: edges.B ? hauteur : 0,
+          C: edges.C ? hypotenuse : 0,
+          D: 0,
+        };
+      }
+      break;
+
+    case 'circle':
+      if (chantsConfig.type === 'curved') {
+        const contour = chantsConfig.edges.contour ? Math.PI * (longueur / 1000) : 0;
+        return { A: contour, B: 0, C: 0, D: 0 };
+      }
+      break;
+
+    case 'ellipse':
+      if (chantsConfig.type === 'curved') {
+        // Approximation de Ramanujan pour le périmètre de l'ellipse
+        const a = (longueur / 1000) / 2;
+        const b = (largeur / 1000) / 2;
+        const contour = chantsConfig.edges.contour
+          ? Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)))
+          : 0;
+        return { A: contour, B: 0, C: 0, D: 0 };
+      }
+      break;
+
+    case 'custom':
+      // Pour custom, le périmètre est stocké dans formeCustom (géré en amont)
+      if (chantsConfig.type === 'curved') {
+        return { A: 0, B: 0, C: 0, D: 0 }; // Sera calculé via formeCustom.perimetreM
+      }
+      break;
+  }
+
+  // Fallback rectangle
+  return { A: 0, B: 0, C: 0, D: 0 };
+}
+
+/**
  * Calcule le prix de placage et fourniture pour un panneau avec ses débits
+ * Supporte toutes les formes: rectangle, pentagon, circle, ellipse, triangle, custom
  */
 export function calculerChantsPanneau(
   panneauId: string,
@@ -117,6 +234,10 @@ export function calculerChantsPanneau(
     reference: string;
     dimensions: { longueur: number; largeur: number };
     chants: Chants;
+    forme?: FormePanneau;
+    chantsConfig?: ChantsConfig;
+    dimensionsLShape?: DimensionsLShape | null;
+    formeCustom?: FormeCustom | null;
   }>,
   options?: {
     prixMlPlacage?: number;
@@ -128,9 +249,14 @@ export function calculerChantsPanneau(
   const minimumPlacage = options?.minimumPlacage ?? TARIF_CHANTS.MINIMUM_PLACAGE_PANNEAU;
   const chantAssocie = options?.chantAssocie;
 
-  // Calculer les ml pour chaque débit
+  // Calculer les ml pour chaque débit (avec support des formes)
   const debitsCalcules = debits.map(d =>
-    calculerMlChantsDebit(d.id, d.reference, d.dimensions, d.chants)
+    calculerMlChantsDebit(d.id, d.reference, d.dimensions, d.chants, {
+      forme: d.forme,
+      chantsConfig: d.chantsConfig,
+      dimensionsLShape: d.dimensionsLShape,
+      formeCustom: d.formeCustom,
+    })
   );
 
   // Total ml
@@ -231,6 +357,7 @@ export function trouverChantCorrespondant(
 
 /**
  * Calcul global pour plusieurs panneaux
+ * Supporte toutes les formes: rectangle, pentagon, circle, ellipse, triangle, custom
  */
 export function calculerTousLesChants(
   panneaux: Array<{
@@ -241,6 +368,10 @@ export function calculerTousLesChants(
       reference: string;
       dimensions: { longueur: number; largeur: number };
       chants: Chants;
+      forme?: FormePanneau;
+      chantsConfig?: ChantsConfig;
+      dimensionsLShape?: DimensionsLShape | null;
+      formeCustom?: FormeCustom | null;
     }>;
     chantAssocie?: ChantCatalogue;
   }>,
@@ -272,11 +403,16 @@ export function calculerTousLesChants(
 
 /**
  * Calcul simplifié pour une liste de débits (sans groupement par panneau)
+ * Supporte toutes les formes: rectangle, pentagon, circle, ellipse, triangle, custom
  */
 export function estimerPrixChants(
   debits: Array<{
     dimensions: { longueur: number; largeur: number };
     chants: Chants;
+    forme?: FormePanneau;
+    chantsConfig?: ChantsConfig;
+    dimensionsLShape?: DimensionsLShape | null;
+    formeCustom?: FormeCustom | null;
   }>,
   options?: {
     prixMlPlacage?: number;
@@ -304,16 +440,29 @@ export function estimerPrixChants(
     };
   }
 
-  // Calculer le total de ml
+  // Calculer le total de ml (avec support des formes)
   let metresLineaires = 0;
   for (const debit of debits) {
     const { longueur, largeur } = debit.dimensions;
-    const { A, B, C, D } = debit.chants;
+    const forme = debit.forme || 'rectangle';
 
-    if (A) metresLineaires += longueur / 1000;
-    if (B) metresLineaires += largeur / 1000;
-    if (C) metresLineaires += longueur / 1000;
-    if (D) metresLineaires += largeur / 1000;
+    // Si on a une forme non-rectangle avec chantsConfig, utiliser le calcul par forme
+    if (forme !== 'rectangle' && debit.chantsConfig) {
+      metresLineaires += calculerMetresLineairesParForme(
+        forme,
+        { longueur, largeur, epaisseur: 0 },
+        debit.chantsConfig,
+        debit.dimensionsLShape,
+        debit.formeCustom
+      );
+    } else {
+      // Rectangle classique
+      const { A, B, C, D } = debit.chants;
+      if (A) metresLineaires += longueur / 1000;
+      if (B) metresLineaires += largeur / 1000;
+      if (C) metresLineaires += longueur / 1000;
+      if (D) metresLineaires += largeur / 1000;
+    }
   }
 
   // Prix placage

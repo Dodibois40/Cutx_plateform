@@ -2,6 +2,8 @@
 // Calcul des traits de scie pour découpe de panneaux avec scie numérique à plat
 
 import type { PanneauOptimise, ResultatOptimisation, DebitPlace } from './optimiseur/types';
+import type { FormePanneau, ChantsConfig, DimensionsLShape, FormeCustom, Dimensions } from './types';
+import { calculerMetresLineairesParForme } from './calculs';
 
 /**
  * Tarifs de découpe
@@ -243,6 +245,91 @@ export function estimerTraitsScie(
   }
 
   const metresLineaires = (perimetreTotal / 2) / 1000;
+  const prixAvantMinimum = metresLineaires * prixMl;
+  const prixDecoupe = Math.max(prixAvantMinimum, minimum);
+
+  return {
+    metresLineaires,
+    prixDecoupe,
+    minimumApplique: prixAvantMinimum < minimum,
+  };
+}
+
+/**
+ * Interface pour un débit avec informations de forme
+ */
+export interface DebitAvecForme {
+  longueur: number;
+  largeur: number;
+  forme?: FormePanneau;
+  chantsConfig?: ChantsConfig;
+  dimensionsLShape?: DimensionsLShape | null;
+  formeCustom?: FormeCustom | null;
+}
+
+/**
+ * Calcul simplifié pour une liste de débits avec support des formes
+ * Utilise calculerMetresLineairesParForme pour les formes non-rectangulaires
+ *
+ * Formule : périmètre total des pièces / 2 = mètres linéaires de trait
+ */
+export function estimerTraitsScieAvecFormes(
+  debits: DebitAvecForme[],
+  options?: { prixMl?: number; minimum?: number }
+): { metresLineaires: number; prixDecoupe: number; minimumApplique: boolean } {
+  const prixMl = options?.prixMl ?? TARIF_DECOUPE.PRIX_ML_TRAIT_SCIE;
+  const minimum = options?.minimum ?? TARIF_DECOUPE.MINIMUM_DECOUPE;
+
+  if (debits.length === 0) {
+    return { metresLineaires: 0, prixDecoupe: 0, minimumApplique: false };
+  }
+
+  // Calculer le périmètre total selon la forme de chaque pièce
+  let perimetreTotalM = 0;
+  for (const debit of debits) {
+    const forme = debit.forme || 'rectangle';
+    const dimensions: Dimensions = {
+      longueur: debit.longueur,
+      largeur: debit.largeur,
+      epaisseur: 0, // Pas utilisé pour le périmètre
+    };
+
+    // Pour le calcul découpe, on considère le périmètre complet (tous les côtés)
+    // Créer une config avec tous les chants actifs pour calculer le périmètre complet
+    let chantsConfigComplet: ChantsConfig;
+
+    switch (forme) {
+      case 'rectangle':
+        chantsConfigComplet = { type: 'rectangle', edges: { A: true, B: true, C: true, D: true } };
+        break;
+      case 'pentagon':
+        chantsConfigComplet = { type: 'pentagon', edges: { A: true, B: true, C: true, D: true, E: true } };
+        break;
+      case 'triangle':
+        chantsConfigComplet = { type: 'triangle', edges: { A: true, B: true, C: true } };
+        break;
+      case 'circle':
+      case 'ellipse':
+      case 'custom':
+        chantsConfigComplet = { type: 'curved', edges: { contour: true } };
+        break;
+      default:
+        chantsConfigComplet = { type: 'rectangle', edges: { A: true, B: true, C: true, D: true } };
+    }
+
+    const perimetreM = calculerMetresLineairesParForme(
+      forme,
+      dimensions,
+      chantsConfigComplet,
+      debit.dimensionsLShape,
+      debit.formeCustom
+    );
+
+    perimetreTotalM += perimetreM;
+  }
+
+  // Périmètre / 2 car traits partagés entre pièces
+  const metresLineaires = perimetreTotalM / 2;
   const prixAvantMinimum = metresLineaires * prixMl;
   const prixDecoupe = Math.max(prixAvantMinimum, minimum);
 

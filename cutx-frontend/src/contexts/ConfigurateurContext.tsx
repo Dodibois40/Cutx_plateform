@@ -29,7 +29,7 @@ import {
   calculerTotaux,
 } from '@/lib/configurateur/calculs';
 import { validerConfigurateur, validerLigne } from '@/lib/configurateur/validation';
-import { estimerTraitsScie, estimerPrixChants } from '@/lib/configurateur';
+import { estimerTraitsScieAvecFormes, estimerPrixChants } from '@/lib/configurateur';
 import { parseExcelAuto } from '@/lib/configurateur/import';
 import type { ColonneDuplicable } from '@/components/configurateur/TableauPrestations';
 
@@ -218,21 +218,33 @@ export function ConfigurateurProvider({
     const lignesPanneau = lignes.filter(l =>
       l.typeLigne === 'panneau' &&
       l.dimensions.longueur > 0 &&
-      l.dimensions.largeur > 0
+      (l.dimensions.largeur > 0 || l.forme === 'circle') // Cercle n'a pas besoin de largeur
     );
 
     if (lignesPanneau.length === 0) {
       return { decoupe: null, chants: null };
     }
 
-    const debits = lignesPanneau.map(l => ({
-      longueur: l.dimensions.longueur,
-      largeur: l.dimensions.largeur,
-      chants: l.chants,
-      dimensions: l.dimensions,
-    }));
+    // Construire les débits avec informations de forme
+    const debits = lignesPanneau.map(l => {
+      // Pour les rectangles, synchroniser chantsConfig avec l.chants
+      const chantsConfig = (l.forme || 'rectangle') === 'rectangle'
+        ? { type: 'rectangle' as const, edges: l.chants }
+        : l.chantsConfig || { type: 'rectangle' as const, edges: l.chants };
 
-    const decoupe = estimerTraitsScie(debits);
+      return {
+        longueur: l.dimensions.longueur,
+        largeur: l.dimensions.largeur,
+        chants: l.chants,
+        dimensions: l.dimensions,
+        forme: l.forme,
+        chantsConfig,
+        dimensionsLShape: l.dimensionsLShape,
+        formeCustom: l.formeCustom,
+      };
+    });
+
+    const decoupe = estimerTraitsScieAvecFormes(debits);
     const chants = estimerPrixChants(debits, { prixMlChant: 0.80 });
 
     return { decoupe, chants };

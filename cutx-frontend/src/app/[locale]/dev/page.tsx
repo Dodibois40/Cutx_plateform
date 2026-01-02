@@ -69,6 +69,12 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'core-7', title: 'Copie de lignes', description: 'Avec modal de renommage', status: 'completed', priority: 'medium' },
       { id: 'core-8', title: 'Auto-save localStorage', description: 'Sauvegarde automatique toutes les 500ms', status: 'completed', priority: 'high' },
       { id: 'core-9', title: 'Sens du fil', description: 'Longueur ou largeur pour le panneau', status: 'completed', priority: 'medium' },
+      { id: 'core-10', title: 'Forme panneau (5/6)', description: 'Rectangle, Pentagon, Triangle, Cercle, Ellipse ✓ | DXF à faire', status: 'completed', priority: 'high' },
+      { id: 'core-11', title: 'SelecteurForme dropdown', description: 'Dropdown avec icônes SVG pour toutes les formes', status: 'completed', priority: 'high' },
+      { id: 'core-12', title: 'PopupFormePentagon', description: 'Popup L-shape avec 4 dimensions + coin coupé', status: 'completed', priority: 'high' },
+      { id: 'core-13', title: 'PopupFormeTriangle', description: 'Popup triangle rectangle avec angles calculés', status: 'completed', priority: 'high' },
+      { id: 'core-14', title: 'Chants dynamiques par forme', description: 'A/B/C/D rectangle, A/B/C triangle, 5 côtés pentagon, contour courbé', status: 'completed', priority: 'high' },
+      { id: 'core-15', title: 'Calculs surface/périmètre par forme', description: 'Cercle, ellipse, triangle, L-shape avec Pythagore et Ramanujan', status: 'completed', priority: 'high' },
     ]
   },
   {
@@ -94,12 +100,13 @@ const getInitialTodos = (): TodoCategory[] => [
   },
   {
     id: 'dxf',
-    name: 'DXF & Formes',
+    name: 'DXF & Forme Custom',
     icon: <FileCode size={18} />,
     color: '#0EA5E9',
     todos: [
       { id: 'dxf-1', title: 'Parser DXF', description: 'Bibliothèque dxf-parser intégrée', status: 'completed', priority: 'high' },
-      { id: 'dxf-2', title: 'Import fichier DXF', description: 'Upload et parsing des fichiers DXF', status: 'pending', priority: 'critical' },
+      { id: 'dxf-0', title: 'Types FormeCustom', description: 'Interface DXF avec surface, périmètre, boundingBox', status: 'completed', priority: 'high' },
+      { id: 'dxf-2', title: 'PopupImportDxf', description: 'Popup pour forme "Autre (DXF)" dans SelecteurForme', status: 'pending', priority: 'critical' },
       { id: 'dxf-3', title: 'Viewer DXF 2D', description: 'Affichage graphique des formes DXF', status: 'pending', priority: 'critical' },
       { id: 'dxf-4', title: 'Stockage DXF (API)', description: 'Sauvegarde des fichiers DXF en base', status: 'pending', priority: 'high' },
       { id: 'dxf-5', title: 'Bouton visualisation DXF', description: 'Icône pour voir le DXF attaché à une pièce', status: 'pending', priority: 'high' },
@@ -206,6 +213,12 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'cat-8', title: 'Scraping Dispano', description: 'Import automatique depuis Dispano', status: 'in_progress', priority: 'medium' },
       { id: 'cat-9', title: 'Plans de travail', description: 'Ajout catégorie plans de travail', status: 'pending', priority: 'medium' },
       { id: 'cat-10', title: 'Gestion des prix dynamiques', description: 'Mise à jour automatique des tarifs', status: 'pending', priority: 'medium' },
+      { id: 'cat-11', title: 'Refonte filtres UX', description: 'Affiner et réorganiser les filtres pour une meilleure UX', status: 'pending', priority: 'high' },
+      { id: 'cat-12', title: 'Améliorer mise en page catalogue', description: 'Infos produits tronquées - revoir le layout visuel', status: 'pending', priority: 'high' },
+      { id: 'cat-13', title: 'Optimisation code catalogue', description: 'Rendre le code propre, rapide et maintenable', status: 'pending', priority: 'high' },
+      { id: 'cat-14', title: 'Pagination/virtualisation', description: '3344+ articles - implémenter scroll virtualisé ou pagination', status: 'pending', priority: 'critical' },
+      { id: 'cat-15', title: 'Hooks React Query/SWR', description: 'Cache et gestion état serveur pour performances', status: 'pending', priority: 'high' },
+      { id: 'cat-16', title: 'Recherche full-text', description: 'Recherche rapide avec indexation (Algolia, MeiliSearch ou API)', status: 'pending', priority: 'medium' },
     ]
   },
   {

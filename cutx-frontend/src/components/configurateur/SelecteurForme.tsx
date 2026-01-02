@@ -207,8 +207,14 @@ export default function SelecteurForme({
           }
 
           .selecteur-forme-option.active {
-            background: rgba(212, 168, 75, 0.15);
-            color: var(--color-primary, #D4A84B);
+            background: rgba(163, 183, 99, 0.25);
+            color: var(--admin-olive, #a3b763);
+            border-left: 3px solid var(--admin-olive, #a3b763);
+            padding-left: calc(0.625rem - 3px);
+          }
+
+          .selecteur-forme-option.active :global(.selecteur-forme-option-icon) {
+            color: var(--admin-olive, #a3b763);
           }
 
           .selecteur-forme-option :global(.selecteur-forme-option-icon) {

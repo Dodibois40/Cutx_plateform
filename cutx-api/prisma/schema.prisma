@@ -1,6 +1,3 @@
-// CutX Platform - Prisma Schema
-// PostgreSQL database on Railway
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,57 +7,238 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// USERS & ORGANIZATIONS
-// ============================================
-
 model User {
-  id            String    @id @default(cuid())
-  clerkId       String    @unique // Clerk user ID
-  email         String    @unique
-  firstName     String?
-  lastName      String?
-  phone         String?
-  company       String?
-  role          UserRole  @default(USER)
-
-  // Relations
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  devis          Devis[]
-  orders         Order[]
+  id                   String                       @id @default(cuid())
+  clerkId              String                       @unique
+  email                String                       @unique
+  firstName            String?
+  lastName             String?
+  phone                String?
+  company              String?
+  role                 UserRole                     @default(USER)
+  organizationId       String?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  devis                Devis[]
+  orders               Order[]
   multicoucheTemplates PanneauMulticoucheTemplate[]
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  organization         Organization?                @relation(fields: [organizationId], references: [id])
 
   @@index([clerkId])
   @@index([email])
 }
 
 model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  siret       String?
-  address     String?
-  city        String?
-  postalCode  String?
-  country     String   @default("FR")
-
-  // Relations
-  users       User[]
-  devis       Devis[]
-  orders      Order[]
-
-  // Subscription
-  plan        PlanType @default(FREE)
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  siret            String?
+  address          String?
+  city             String?
+  postalCode       String?
+  country          String   @default("FR")
+  plan             PlanType @default(FREE)
   stripeCustomerId String?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  devis            Devis[]
+  orders           Order[]
+  users            User[]
 
   @@index([slug])
+}
+
+model Catalogue {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?
+  logoUrl     String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  categories  Category[]
+  panels      Panel[]
+
+  @@index([slug])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String
+  parentId    String?
+  catalogueId String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  catalogue   Catalogue  @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
+  panels      Panel[]
+
+  @@unique([catalogueId, slug])
+  @@index([catalogueId])
+  @@index([parentId])
+  @@index([name])
+}
+
+model Panel {
+  id               String      @id @default(cuid())
+  reference        String
+  name             String
+  description      String?
+  thickness        Float[]
+  defaultLength    Int
+  defaultWidth     Int
+  pricePerM2       Float?
+  pricePerPanel    Float?
+  material         String?
+  finish           String?
+  colorCode        String?
+  imageUrl         String?
+  isActive         Boolean     @default(true)
+  catalogueId      String
+  categoryId       String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  stockStatus      String?
+  certification    String?
+  colorChoice      String?
+  decor            String?
+  defaultThickness Float?
+  isVariableLength Boolean     @default(false)
+  manufacturerRef  String?
+  pricePerMl       Float?
+  pricePerUnit     Float?
+  productType      String?
+  stockLocations   String?
+  supplierCode     String?
+  supportQuality   String?
+  metadata         String?
+  devisLines       DevisLine[]
+  catalogue        Catalogue   @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  category         Category?   @relation(fields: [categoryId], references: [id])
+
+  @@unique([catalogueId, reference])
+  @@index([catalogueId])
+  @@index([reference])
+  @@index([name])
+  @@index([isActive])
+  @@index([categoryId])
+  @@index([catalogueId, isActive])
+  @@index([finish])
+}
+
+model Devis {
+  id             String        @id @default(cuid())
+  reference      String        @unique
+  name           String?
+  status         DevisStatus   @default(DRAFT)
+  clientName     String?
+  clientEmail    String?
+  clientPhone    String?
+  clientAddress  String?
+  totalHT        Float         @default(0)
+  totalTVA       Float         @default(0)
+  totalTTC       Float         @default(0)
+  tvaRate        Float         @default(20)
+  notes          String?
+  validUntil     DateTime?
+  userId         String
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+  lines          DevisLine[]
+  order          Order?
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
+}
+
+model DevisLine {
+  id             String   @id @default(cuid())
+  panelReference String
+  panelName      String
+  thickness      Float
+  length         Int
+  width          Int
+  quantity       Int      @default(1)
+  chantHaut      String?
+  chantBas       String?
+  chantGauche    String?
+  chantDroit     String?
+  unitPriceHT    Float
+  totalHT        Float
+  position       Int      @default(0)
+  devisId        String
+  panelId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  devis          Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
+  panel          Panel?   @relation(fields: [panelId], references: [id])
+
+  @@index([devisId])
+}
+
+model Order {
+  id                String        @id @default(cuid())
+  reference         String        @unique
+  status            OrderStatus   @default(PENDING)
+  totalHT           Float
+  totalTVA          Float
+  totalTTC          Float
+  stripePaymentId   String?
+  paidAt            DateTime?
+  deliveryAddress   String?
+  deliveryNotes     String?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  userId            String
+  organizationId    String?
+  devisId           String        @unique
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  devis             Devis         @relation(fields: [devisId], references: [id])
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+  user              User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
+}
+
+model PanneauMulticoucheTemplate {
+  id              String   @id @default(cuid())
+  nom             String
+  description     String?
+  modeCollage     String
+  couches         String
+  epaisseurTotale Float
+  prixEstimeM2    Float
+  userId          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CutxImportSession {
+  id              String    @id @default(cuid())
+  data            String
+  projectName     String?
+  sketchupVersion String?
+  pluginVersion   String?
+  ipAddress       String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([createdAt])
 }
 
 enum UserRole {
@@ -75,200 +253,6 @@ enum PlanType {
   ENTERPRISE
 }
 
-// ============================================
-// CATALOGUES & PANELS
-// ============================================
-
-model Catalogue {
-  id          String   @id @default(cuid())
-  name        String   // "Bouney", "Egger", etc.
-  slug        String   @unique
-  description String?
-  logoUrl     String?
-  isActive    Boolean  @default(true)
-
-  // Relations
-  categories  Category[]
-  panels      Panel[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([slug])
-}
-
-model Category {
-  id          String   @id @default(cuid())
-  name        String   // "Mélaminés", "Stratifiés", etc.
-  slug        String
-  parentId    String?
-  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryTree")
-
-  // Relations
-  catalogueId String
-  catalogue   Catalogue @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
-  panels      Panel[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([catalogueId, slug])
-  @@index([catalogueId])
-  @@index([parentId])
-  @@index([name])
-}
-
-model Panel {
-  id              String   @id @default(cuid())
-  reference       String   // Code fournisseur (79133)
-  name            String   // Nom commercial complet
-  description     String?
-
-  // Identification fabricant
-  manufacturerRef String?  // Référence fabricant (005)
-  supplierCode    String?  // Code fournisseur (redondant avec reference pour clarté)
-
-  // Dimensions disponibles
-  thickness       Float[]  // Épaisseurs dispo en mm [8, 16, 19, 22]
-  defaultThickness Float?  // Épaisseur par défaut
-  defaultLength   Int      // Longueur standard en mm
-  defaultWidth    Int      // Largeur standard en mm
-  isVariableLength Boolean @default(false) // Pour les chants avec longueur variable
-
-  // Prix
-  pricePerM2      Float?   // Prix au m²
-  pricePerMl      Float?   // Prix au mètre linéaire (chants)
-  pricePerUnit    Float?   // Prix unitaire
-  pricePerPanel   Float?   // Prix par panneau
-
-  // Caractéristiques techniques
-  material        String?  // MDF, Agglo, Contreplaqué, etc.
-  supportQuality  String?  // "panneau de particules standard P2", "hpl", etc.
-  finish          String?  // Mat, Brillant, Texturé, FA, etc.
-  productType     String?  // MELAMINE, STRATIFIE, BANDE_DE_CHANT, COMPACT
-
-  // Décor et couleur
-  decor           String?  // Décor/Essence (unis, bois, matières)
-  colorCode       String?  // Code couleur (005)
-  colorChoice     String?  // Coloris/Choix descriptif
-
-  // Certification et qualité
-  certification   String?  // "PEFC 70%", "FSC", etc.
-
-  imageUrl        String?
-
-  // Stock détaillé
-  stockStatus     String?  // "EN STOCK", "Sur commande"
-  stockLocations  String?  // JSON: [{"location":"Bouney, Anglet","inStock":true}]
-
-  // Métadonnées étendues (JSON) - pour données supplémentaires fournisseur
-  // Ex Dispano: refMarque, codeEAN, poids, classeFeu, CO2, etc.
-  metadata        String?  // JSON stringifié
-
-  isActive        Boolean  @default(true)
-
-  // Relations
-  catalogueId     String
-  catalogue       Catalogue @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
-  categoryId      String?
-  category        Category? @relation(fields: [categoryId], references: [id])
-  devisLines      DevisLine[]
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@unique([catalogueId, reference])
-  @@index([catalogueId])
-  @@index([reference])
-  // Index pour optimiser les recherches
-  @@index([name])
-  @@index([isActive])
-  @@index([categoryId])
-  @@index([catalogueId, isActive])
-  @@index([finish]) // Pour recherche par marque
-}
-
-// ============================================
-// DEVIS (QUOTES)
-// ============================================
-
-model Devis {
-  id              String      @id @default(cuid())
-  reference       String      @unique // DEV-2024-001
-  name            String?     // Nom du projet
-  status          DevisStatus @default(DRAFT)
-
-  // Client info
-  clientName      String?
-  clientEmail     String?
-  clientPhone     String?
-  clientAddress   String?
-
-  // Totals
-  totalHT         Float       @default(0)
-  totalTVA        Float       @default(0)
-  totalTTC        Float       @default(0)
-  tvaRate         Float       @default(20)
-
-  // Metadata
-  notes           String?
-  validUntil      DateTime?
-
-  // Relations
-  userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  organizationId  String?
-  organization    Organization? @relation(fields: [organizationId], references: [id])
-  lines           DevisLine[]
-  order           Order?
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  @@index([userId])
-  @@index([reference])
-  @@index([status])
-}
-
-model DevisLine {
-  id              String   @id @default(cuid())
-
-  // Panel info (snapshot at creation time)
-  panelReference  String
-  panelName       String
-  thickness       Float    // Épaisseur choisie
-
-  // Dimensions pièce
-  length          Int      // Longueur en mm
-  width           Int      // Largeur en mm
-  quantity        Int      @default(1)
-
-  // Chants
-  chantHaut       String?  // Type de chant (ABS 1mm, etc.)
-  chantBas        String?
-  chantGauche     String?
-  chantDroit      String?
-
-  // Prix
-  unitPriceHT     Float
-  totalHT         Float
-
-  // Position
-  position        Int      @default(0)
-
-  // Relations
-  devisId         String
-  devis           Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
-  panelId         String?
-  panel           Panel?   @relation(fields: [panelId], references: [id])
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([devisId])
-}
-
 enum DevisStatus {
   DRAFT
   SENT
@@ -278,46 +262,6 @@ enum DevisStatus {
   CONVERTED
 }
 
-// ============================================
-// ORDERS
-// ============================================
-
-model Order {
-  id              String      @id @default(cuid())
-  reference       String      @unique // ORD-2024-001
-  status          OrderStatus @default(PENDING)
-
-  // Amounts
-  totalHT         Float
-  totalTVA        Float
-  totalTTC        Float
-
-  // Payment
-  stripePaymentId String?
-  paidAt          DateTime?
-
-  // Delivery
-  deliveryAddress String?
-  deliveryNotes   String?
-  estimatedDelivery DateTime?
-  deliveredAt     DateTime?
-
-  // Relations
-  userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  organizationId  String?
-  organization    Organization? @relation(fields: [organizationId], references: [id])
-  devisId         String      @unique
-  devis           Devis       @relation(fields: [devisId], references: [id])
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  @@index([userId])
-  @@index([reference])
-  @@index([status])
-}
-
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -325,48 +269,4 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
-}
-
-// ============================================
-// PANNEAU MULTICOUCHE TEMPLATES
-// ============================================
-
-model PanneauMulticoucheTemplate {
-  id              String   @id @default(cuid())
-  nom             String   // Nom du template donné par l'utilisateur
-  description     String?  // Description optionnelle
-
-  // Données du panneau multicouche (stockées en JSON)
-  modeCollage     String   // 'fournisseur' | 'client'
-  couches         String   // JSON array des CoucheMulticouche
-  epaisseurTotale Float    // Épaisseur totale calculée
-  prixEstimeM2    Float    // Prix estimé au m²
-
-  // Ownership
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([userId])
-}
-
-// ============================================
-// CUTX IMPORT SESSIONS (Plugin SketchUp)
-// ============================================
-
-model CutxImportSession {
-  id              String    @id @default(cuid())
-  data            String    // JSON des panneaux (dimensions, chants, finition, DXF...)
-  projectName     String?
-  sketchupVersion String?
-  pluginVersion   String?
-  ipAddress       String?
-  expiresAt       DateTime  // TTL de 1 heure
-  usedAt          DateTime? // Marqué quand récupéré
-  createdAt       DateTime  @default(now())
-
-  @@index([expiresAt])
-  @@index([createdAt])
 }
