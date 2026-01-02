@@ -13,7 +13,9 @@
     "importing": "Import...",
     "spreadsheetMode": "Tableur",
     "perPanel": "/panneau",
-    "perM2": "/m2"
+    "perM2": "/m2",
+    "createCaisson": "Configurer un caisson",
+    "caissonDescription": "Meuble de cuisine pre-configure"
   },
   "columns": {
     "status": "Etat",

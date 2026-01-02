@@ -216,76 +216,85 @@ export default function PopupFormeTriangle({
 
         {/* Content */}
         <div className="popup-content">
-          {/* SVG à gauche */}
+          {/* SVG à gauche - Design professionnel */}
           <div className="shape-preview">
-            <svg viewBox="0 0 340 280" className="shape-svg">
-              {/* Triangle: sommets fixes */}
-              {/* P1 = bas-gauche (angle droit 90°) */}
-              {/* P2 = haut-gauche (angle C) */}
-              {/* P3 = bas-droite (angle A) */}
+            <svg viewBox="0 0 340 260" className="shape-svg">
+              {/* Fond */}
+              <rect width="340" height="260" fill="#fff"/>
 
-              {/* Remplissage triangle */}
-              <polygon
-                points="50,230 50,50 300,230"
-                fill="rgba(163, 183, 99, 0.12)"
-              />
+              {/* Triangle rectangle - Points: */}
+              {/* P1 = bas-gauche (90°): 50, 200 */}
+              {/* P2 = haut-gauche (angle C): 50, 40 */}
+              {/* P3 = bas-droite (angle A): 290, 200 */}
 
-              {/* Côté vertical (hauteur b) */}
-              <line x1="50" y1="230" x2="50" y2="50" stroke="#a3b763" strokeWidth="3" strokeLinecap="round" />
-
-              {/* Côté horizontal (base a) */}
-              <line x1="50" y1="230" x2="300" y2="230" stroke="#a3b763" strokeWidth="3" strokeLinecap="round" />
-
-              {/* Hypoténuse (c) - en rouge */}
-              <line x1="50" y1="50" x2="300" y2="230" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+              {/* Lignes du triangle */}
+              {/* Hauteur (b) - vertical */}
+              <line x1="50" y1="200" x2="50" y2="40" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Base (a) - horizontal */}
+              <line x1="50" y1="200" x2="290" y2="200" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Hypoténuse (c) */}
+              <line x1="50" y1="40" x2="290" y2="200" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
 
               {/* Carré angle droit (90°) en bas-gauche */}
-              <rect x="50" y="210" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+              <rect x="50" y="180" width="20" height="20" fill="none" stroke="#000" strokeWidth="1" />
 
-              {/* === ANGLE A (en bas-droite, entre base et hypoténuse) === */}
-              {/* Arc bleu */}
+              {/* === ARC ANGLE C (en haut, entre hauteur et hypoténuse) - VERT === */}
               <path
-                d={`M 260,230 A 40,40 0 0,0 ${300 - 40 * Math.cos((angleA || 45) * Math.PI / 180)},${230 - 40 * Math.sin((angleA || 45) * Math.PI / 180)}`}
+                d={`M 50,80 A 40,40 0 0,0 ${50 + 40 * Math.sin((angleC || 45) * Math.PI / 180)},${40 + 40 * Math.cos((angleC || 45) * Math.PI / 180)}`}
                 fill="none"
-                stroke="#3b82f6"
-                strokeWidth="3"
+                stroke="#3aaa35"
+                strokeWidth="1.5"
                 strokeLinecap="round"
               />
-              {/* Valeur angle A */}
-              <text x="235" y="210" className="angle-val blue">{angleA > 0 ? `${angleA.toFixed(1)}°` : '?'}</text>
-              <text x="235" y="195" className="angle-lbl blue">Angle A</text>
+              {/* Lignes de cotation angle C */}
+              <line x1="50" y1="40" x2="50" y2="65" stroke="#000" strokeWidth="0.99" strokeLinecap="round" />
+              <line x1="50" y1="40" x2={50 + 25 * Math.sin((angleC || 45) * Math.PI / 180)} y2={40 + 25 * Math.cos((angleC || 45) * Math.PI / 180)} stroke="#000" strokeWidth="0.99" strokeLinecap="round" />
 
-              {/* === ANGLE C (en haut-gauche, entre hauteur et hypoténuse) === */}
-              {/* Arc violet */}
+              {/* === ARC ANGLE A (en bas-droite, entre base et hypoténuse) - BLEU === */}
               <path
-                d={`M 50,90 A 40,40 0 0,0 ${50 + 40 * Math.sin((angleC || 45) * Math.PI / 180)},${50 + 40 * Math.cos((angleC || 45) * Math.PI / 180)}`}
+                d={`M 250,200 A 40,40 0 0,0 ${290 - 40 * Math.cos((angleA || 45) * Math.PI / 180)},${200 - 40 * Math.sin((angleA || 45) * Math.PI / 180)}`}
                 fill="none"
-                stroke="#8b5cf6"
-                strokeWidth="3"
+                stroke="#1d71b8"
+                strokeWidth="1.5"
                 strokeLinecap="round"
               />
-              {/* Valeur angle C */}
-              <text x="75" y="95" className="angle-val purple">{angleC > 0 ? `${angleC.toFixed(1)}°` : '?'}</text>
-              <text x="75" y="80" className="angle-lbl purple">Angle C</text>
+              {/* Lignes de cotation angle A */}
+              <line x1="290" y1="200" x2="265" y2="200" stroke="#000" strokeWidth="0.99" strokeLinecap="round" />
+              <line x1="290" y1="200" x2={290 - 25 * Math.cos((angleA || 45) * Math.PI / 180)} y2={200 - 25 * Math.sin((angleA || 45) * Math.PI / 180)} stroke="#000" strokeWidth="0.99" strokeLinecap="round" />
 
-              {/* Label 90° */}
-              <text x="78" y="222" className="label-90">90°</text>
+              {/* === ARC ANGLE DROIT (90°) - ROUGE === */}
+              <path
+                d="M 50,160 A 40,40 0 0,0 90,200"
+                fill="none"
+                stroke="#e30613"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+
+              {/* Labels des angles */}
+              <text x="85" y="55" className="angle-val green">{angleC > 0 ? `${angleC.toFixed(1)}°` : '?'}</text>
+              <text x="85" y="42" className="angle-lbl green">C</text>
+
+              <text x="220" y="185" className="angle-val blue">{angleA > 0 ? `${angleA.toFixed(1)}°` : '?'}</text>
+              <text x="220" y="172" className="angle-lbl blue">A</text>
+
+              <text x="95" y="175" className="angle-val red">90°</text>
 
               {/* Labels des côtés */}
               {/* Base (a) - horizontal en bas */}
-              <text x="175" y="260" textAnchor="middle" className="side-lbl">
+              <text x="170" y="230" textAnchor="middle" className="side-lbl">
                 <tspan className="letter">a</tspan>
                 <tspan className="value"> = {base || '?'} mm</tspan>
               </text>
 
               {/* Hauteur (b) - vertical à gauche */}
-              <text x="30" y="140" textAnchor="middle" transform="rotate(-90, 30, 140)" className="side-lbl">
+              <text x="25" y="120" textAnchor="middle" transform="rotate(-90, 25, 120)" className="side-lbl">
                 <tspan className="letter">b</tspan>
                 <tspan className="value"> = {hauteur || '?'} mm</tspan>
               </text>
 
               {/* Hypoténuse (c) - sur la diagonale */}
-              <text x="200" y="120" textAnchor="middle" transform="rotate(-36, 200, 120)" className="side-lbl hypo">
+              <text x="195" y="105" textAnchor="middle" transform="rotate(-33.7, 195, 105)" className="side-lbl hypo">
                 <tspan className="letter">c</tspan>
                 <tspan className="value"> = {hypotenuse > 0 ? Math.round(hypotenuse) : '?'} mm</tspan>
               </text>
@@ -498,26 +507,18 @@ export default function PopupFormeTriangle({
         .shape-svg .side-lbl .letter {
           font-size: 15px;
           font-weight: 700;
-          fill: #a3b763;
+          fill: #000;
         }
 
         .shape-svg .side-lbl .value {
           font-size: 12px;
           font-weight: 500;
-          fill: rgba(255,255,255,0.6);
+          fill: #666;
         }
 
         .shape-svg .side-lbl.hypo .letter,
         .shape-svg .side-lbl.hypo .value {
-          fill: #ef4444;
-        }
-
-        /* Angle 90° */
-        .shape-svg .label-90 {
-          font-size: 11px;
-          font-weight: 500;
-          fill: rgba(255,255,255,0.4);
-          font-family: 'Space Grotesk', sans-serif;
+          fill: #000;
         }
 
         /* Valeurs des angles */
@@ -527,20 +528,21 @@ export default function PopupFormeTriangle({
           font-family: 'JetBrains Mono', monospace;
         }
 
-        .shape-svg .angle-val.blue { fill: #3b82f6; }
-        .shape-svg .angle-val.purple { fill: #8b5cf6; }
+        .shape-svg .angle-val.blue { fill: #1d71b8; }
+        .shape-svg .angle-val.green { fill: #3aaa35; }
+        .shape-svg .angle-val.red { fill: #e30613; }
 
-        /* Labels "Angle A" / "Angle C" */
+        /* Labels "A" / "C" */
         .shape-svg .angle-lbl {
-          font-size: 9px;
-          font-weight: 600;
+          font-size: 11px;
+          font-weight: 700;
           font-family: 'Space Grotesk', sans-serif;
           text-transform: uppercase;
           letter-spacing: 0.08em;
         }
 
-        .shape-svg .angle-lbl.blue { fill: #3b82f6; }
-        .shape-svg .angle-lbl.purple { fill: #8b5cf6; }
+        .shape-svg .angle-lbl.blue { fill: #1d71b8; }
+        .shape-svg .angle-lbl.green { fill: #3aaa35; }
 
         /* Form */
         .form-section {
@@ -577,11 +579,11 @@ export default function PopupFormeTriangle({
         }
 
         .form-row .label-angle-a {
-          color: #3b82f6;
+          color: #1d71b8;
         }
 
         .form-row .label-angle-c {
-          color: #8b5cf6;
+          color: #3aaa35;
         }
 
         .input-group {

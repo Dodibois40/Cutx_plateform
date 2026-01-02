@@ -13,7 +13,9 @@
     "importing": "Importing...",
     "spreadsheetMode": "Spreadsheet",
     "perPanel": "/panel",
-    "perM2": "/sq.m"
+    "perM2": "/sq.m",
+    "createCaisson": "Configure a cabinet",
+    "caissonDescription": "Pre-configured kitchen cabinet"
   },
   "columns": {
     "status": "Status",

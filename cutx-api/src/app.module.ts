@@ -10,6 +10,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { CutxImportModule } from './cutx-import/cutx-import.module';
 import { DevisModule } from './devis/devis.module';
 import { MulticoucheTemplatesModule } from './multicouche-templates/multicouche-templates.module';
+import { CaissonsModule } from './caissons/caissons.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MulticoucheTemplatesModule } from './multicouche-templates/multicouche-
     CutxImportModule,
     DevisModule,
     MulticoucheTemplatesModule,
+    CaissonsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

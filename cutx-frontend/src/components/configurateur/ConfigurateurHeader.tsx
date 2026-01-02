@@ -3,13 +3,15 @@
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, Package, FileSpreadsheet, Layers, Code2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Package, FileSpreadsheet, Layers, Code2, Box } from 'lucide-react';
 import { formaterPrix } from '@/lib/configurateur/calculs';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
 import PopupSelectionPanneau from './PopupSelectionPanneau';
 import PopupMulticouche from './PopupMulticouche';
+import { PopupCaissonConfig } from './caissons';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
+import type { ResultatCalculCaisson } from '@/lib/caissons/types';
 import { LocaleSwitcher } from '@/components/ui/LocaleSwitcher';
 
 interface ConfigurateurHeaderProps {
@@ -25,6 +27,8 @@ interface ConfigurateurHeaderProps {
   // Multicouche
   panneauMulticouche?: PanneauMulticouche | null;
   onSelectMulticouche?: (panneau: PanneauMulticouche | null) => void;
+  // Caisson
+  onCaissonValidate?: (resultat: ResultatCalculCaisson) => void;
 }
 
 export default function ConfigurateurHeader({
@@ -39,12 +43,14 @@ export default function ConfigurateurHeader({
   onSelectPanneau,
   panneauMulticouche,
   onSelectMulticouche,
+  onCaissonValidate,
 }: ConfigurateurHeaderProps) {
   const t = useTranslations();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPanneauPopup, setShowPanneauPopup] = useState(false);
   const [showMulticouchePopup, setShowMulticouchePopup] = useState(false);
+  const [showCaissonPopup, setShowCaissonPopup] = useState(false);
 
   // Panel price calculation
   const DIMENSIONS_PANNEAU_BRUT = { longueur: 2800, largeur: 2070 };
@@ -171,6 +177,26 @@ export default function ConfigurateurHeader({
           )}
         </div>
 
+        {/* Caisson Button */}
+        <div className="header-field header-field--panel">
+          <button
+            onClick={() => setShowCaissonPopup(true)}
+            className="panel-selector panel-selector--caisson"
+          >
+            <div className="panel-selector-placeholder panel-selector-placeholder--caisson">
+              <Box size={16} />
+            </div>
+            <div className="panel-selector-content">
+              <span className="panel-selector-name">
+                {t('configurateur.header.createCaisson')}
+              </span>
+              <span className="panel-selector-meta">
+                {t('configurateur.header.caissonDescription')}
+              </span>
+            </div>
+          </button>
+        </div>
+
         {/* Panel Selection Popup */}
         <PopupSelectionPanneau
           open={showPanneauPopup}
@@ -225,6 +251,19 @@ export default function ConfigurateurHeader({
             setShowMulticouchePopup(false);
           }}
           onClose={() => setShowMulticouchePopup(false)}
+        />
+
+        {/* Caisson Popup */}
+        <PopupCaissonConfig
+          open={showCaissonPopup}
+          panneauxCatalogue={panneauxCatalogue}
+          onValidate={(resultat) => {
+            if (onCaissonValidate) {
+              onCaissonValidate(resultat);
+            }
+            setShowCaissonPopup(false);
+          }}
+          onClose={() => setShowCaissonPopup(false)}
         />
       </div>
 
@@ -421,6 +460,21 @@ export default function ConfigurateurHeader({
         .panel-selector-placeholder--active {
           background: var(--cx-accent);
           color: var(--cx-surface-1);
+        }
+
+        .panel-selector--caisson {
+          min-width: 180px;
+          border-color: var(--cx-border-default);
+        }
+
+        .panel-selector--caisson:hover {
+          border-color: var(--cx-accent);
+          background: var(--cx-accent-subtle);
+        }
+
+        .panel-selector-placeholder--caisson {
+          background: linear-gradient(135deg, #f59e0b, #d97706);
+          color: white;
         }
 
         .panel-selector-content {
