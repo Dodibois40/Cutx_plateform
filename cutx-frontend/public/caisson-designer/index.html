@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurateur de Caisson 3D - CutX</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- CSS Modules -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/texture.css">
+
+  <!-- Three.js Import Map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- ================================================
+       CONTENEUR PRINCIPAL (Canvas Three.js)
+       ================================================ -->
+  <div id="container"></div>
+
+  <!-- ================================================
+       PANNEAU DE CONFIGURATION
+       ================================================ -->
+  <div id="config-panel">
+    <h2>Configurateur de Caisson</h2>
+
+    <!-- Boutons Actions -->
+    <div class="config-group action-buttons">
+      <button id="explode-btn" class="explode-btn">
+        <span class="explode-icon">💥</span>
+        <span class="explode-text">Vue Eclatee</span>
+      </button>
+      <button id="optimize-btn" class="optimize-btn">
+        <span>🧩</span>
+        <span>Optimiser le Debit</span>
+      </button>
+    </div>
+
+    <!-- ===== DIMENSIONS ===== -->
+    <div class="config-group">
+      <h3>Dimensions (mm)</h3>
+
+      <div class="input-group">
+        <label for="width">Largeur</label>
+        <div class="input-wrapper">
+          <input type="number" id="width" value="600" min="200" max="1200" step="10">
+          <span class="unit">mm</span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="height">Hauteur</label>
+        <div class="input-wrapper">
+          <input type="number" id="height" value="900" min="300" max="2400" step="10">
+          <span class="unit">mm</span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="depth">Profondeur</label>
+        <div class="input-wrapper">
+          <input type="number" id="depth" value="350" min="200" max="800" step="10">
+          <span class="unit">mm</span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="thickness">Epaisseur panneaux</label>
+        <div class="input-wrapper">
+          <input type="number" id="thickness" value="18" min="10" max="30" step="1">
+          <span class="unit">mm</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CONFIGURATION PORTE (Collapsible) ===== -->
+    <div class="config-group">
+      <div class="collapsible-header" onclick="toggleCollapsible('door-config')">
+        <h3>Configuration Porte</h3>
+        <span class="collapsible-icon" id="door-config-icon">▼</span>
+      </div>
+
+      <div class="collapsible-content" id="door-config-content">
+        <div class="checkbox-group">
+          <input type="checkbox" id="show-door" checked>
+          <label for="show-door">Afficher la porte</label>
+        </div>
+
+        <div class="input-group">
+          <label for="door-thickness">Epaisseur porte</label>
+          <div class="input-wrapper">
+            <input type="number" id="door-thickness" value="18" min="10" max="30" step="1">
+            <span class="unit">mm</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="gap-top">Jeu haut</label>
+          <div class="input-wrapper">
+            <input type="number" id="gap-top" value="3" min="-200" max="200" step="0.5">
+            <span class="unit">mm</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="gap-bottom">Jeu bas</label>
+          <div class="input-wrapper">
+            <input type="number" id="gap-bottom" value="0" min="-200" max="200" step="0.5">
+            <span class="unit">mm</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="gap-left">Jeu gauche</label>
+          <div class="input-wrapper">
+            <input type="number" id="gap-left" value="0" min="-200" max="200" step="0.5">
+            <span class="unit">mm</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="gap-right">Jeu droit</label>
+          <div class="input-wrapper">
+            <input type="number" id="gap-right" value="0" min="-200" max="200" step="0.5">
+            <span class="unit">mm</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="door-offset">Decalage porte</label>
+          <div class="input-wrapper">
+            <input type="number" id="door-offset" value="3" min="0" max="50" step="1">
+            <span class="unit">mm</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ETAGERES ===== -->
+    <div class="config-group">
+      <div class="collapsible-header" onclick="toggleCollapsible('shelves-config')">
+        <h3>Etageres</h3>
+        <span class="collapsible-icon" id="shelves-config-icon">▼</span>
+      </div>
+
+      <div class="collapsible-content" id="shelves-config-content">
+        <button id="add-shelf-btn" class="add-shelf-btn">
+          <span>+</span>
+          <span>Ajouter une etagere</span>
+        </button>
+
+        <div id="shelves-list" class="shelves-list">
+          <!-- Les etageres seront ajoutees dynamiquement ici -->
+        </div>
+
+        <p id="no-shelves-msg" class="no-shelves-msg">Aucune etagere configuree</p>
+      </div>
+    </div>
+
+    <!-- ===== MATERIAUX ===== -->
+    <div class="config-group">
+      <h3>Materiaux</h3>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label style="display: block; font-size: 0.75rem; color: var(--olive-light); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Caisson</label>
+        <div class="color-picker" id="caisson-colors">
+          <div class="color-option selected" data-target="caisson" data-color="#FFFFFF" style="background: #FFFFFF;"></div>
+          <div class="color-option" data-target="caisson" data-color="#F5F5DC" style="background: #F5F5DC;"></div>
+          <div class="color-option" data-target="caisson" data-color="#D2B48C" style="background: #D2B48C;"></div>
+          <div class="color-option" data-target="caisson" data-color="#8B7355" style="background: #8B7355;"></div>
+          <div class="color-option" data-target="caisson" data-color="#696969" style="background: #696969;"></div>
+          <div class="color-option" data-target="caisson" data-color="#2C3E50" style="background: #2C3E50;"></div>
+        </div>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.75rem; color: var(--ardoise-light); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Facade / Porte</label>
+        <div class="color-picker" id="door-colors">
+          <div class="color-option selected" data-target="door" data-color="#FFFFFF" style="background: #FFFFFF;"></div>
+          <div class="color-option" data-target="door" data-color="#F5F5DC" style="background: #F5F5DC;"></div>
+          <div class="color-option" data-target="door" data-color="#D2B48C" style="background: #D2B48C;"></div>
+          <div class="color-option" data-target="door" data-color="#8B7355" style="background: #8B7355;"></div>
+          <div class="color-option" data-target="door" data-color="#696969" style="background: #696969;"></div>
+          <div class="color-option" data-target="door" data-color="#2C3E50" style="background: #2C3E50;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================
+       PANNEAU LISTE DE DEBIT
+       ================================================ -->
+  <div id="cutting-list">
+    <div class="collapsible-header" onclick="toggleCollapsible('cutting-list')">
+      <h3>Liste des Debits</h3>
+      <span class="collapsible-icon" id="cutting-list-icon">▼</span>
+    </div>
+    <div class="collapsible-content" id="cutting-list-content"></div>
+  </div>
+
+  <!-- ================================================
+       PANNEAU DE SELECTION DE TEXTURES
+       ================================================ -->
+  <div id="texture-panel">
+    <div class="collapsible-header" onclick="toggleCollapsible('texture-panel')">
+      <h3>Textures</h3>
+      <span class="collapsible-icon" id="texture-panel-icon">▼</span>
+    </div>
+    <div class="collapsible-content" id="texture-panel-content">
+      <div id="texture-list">
+        <div class="texture-item" data-texture="textures/Agglo Chêne - horizontale.png">
+          <img src="textures/Agglo Chêne - horizontale.png" alt="Chene Horizontal">
+          <span>Chene Horizontal</span>
+        </div>
+        <div class="texture-item" data-texture="textures/Agglo Chêne verticale.png">
+          <img src="textures/Agglo Chêne verticale.png" alt="Chene Vertical">
+          <span>Chene Vertical</span>
+        </div>
+        <div class="texture-item texture-remove">
+          <div class="remove-icon">X</div>
+          <span>Retirer</span>
+        </div>
+      </div>
+      <div id="paint-mode-indicator" class="hidden">
+        <span>Mode Peinture</span>
+        <small>Cliquez sur un panneau pour appliquer la texture</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================
+       PANNEAU D'INFORMATIONS
+       ================================================ -->
+  <div id="info">
+    Clic gauche : Selectionner | Alt+Clic ou Molette : Rotation | Clic droit : Pan | Scroll : Zoom
+  </div>
+
+  <!-- ================================================
+       PANNEAU DE SELECTION (Element selectionne)
+       ================================================ -->
+  <div id="panel-info" class="hidden">
+    <div class="panel-info-header">
+      <span id="selected-panel-name">-</span>
+    </div>
+    <div class="panel-info-dimensions">
+      <span class="panel-info-label">Dimensions:</span>
+      <span id="selected-panel-dimensions">-</span>
+    </div>
+  </div>
+
+  <!-- ================================================
+       MODALE D'OPTIMISATION
+       ================================================ -->
+  <div id="optimizer-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Optimisation de Debit</h2>
+        <button class="modal-close">X</button>
+      </div>
+      <div class="modal-body">
+        <div class="optimizer-config">
+          <div class="config-section">
+            <h3>Dimensions du Panneau</h3>
+            <div class="input-group">
+              <label for="panel-length">Longueur panneau</label>
+              <div class="input-wrapper">
+                <input type="number" id="panel-length" value="2500" min="500" max="5000" step="10">
+                <span class="unit">mm</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="panel-width">Largeur panneau</label>
+              <div class="input-wrapper">
+                <input type="number" id="panel-width" value="1250" min="300" max="3000" step="10">
+                <span class="unit">mm</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h3>Parametres de Decoupe</h3>
+            <div class="input-group">
+              <label for="saw-kerf">Trait de scie</label>
+              <div class="input-wrapper">
+                <input type="number" id="saw-kerf" value="3" min="0" max="10" step="0.5">
+                <span class="unit">mm</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="edge-margin">Marge de bord</label>
+              <div class="input-wrapper">
+                <input type="number" id="edge-margin" value="10" min="0" max="50" step="5">
+                <span class="unit">mm</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h3>Orientation du Fil</h3>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input type="radio" name="optimization-mode" value="vertical" checked>
+                <span>Vertical (fil du bois)</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="optimization-mode" value="horizontal">
+                <span>Horizontal (fil du bois)</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="optimization-mode" value="optimized">
+                <span>Optimise (rotation auto)</span>
+              </label>
+            </div>
+          </div>
+
+          <button id="run-optimizer" class="run-btn">Lancer l'Optimisation</button>
+        </div>
+
+        <div class="optimizer-display">
+          <div class="canvas-container">
+            <canvas id="optimizer-canvas"></canvas>
+          </div>
+          <div class="optimizer-stats">
+            <div class="stat-item">
+              <span class="stat-label">Panneaux utilises</span>
+              <span class="stat-value" id="stat-panels">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Taux d'utilisation</span>
+              <span class="stat-value" id="stat-efficiency">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Surface de chutes</span>
+              <span class="stat-value" id="stat-waste">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Pieces placees</span>
+              <span class="stat-value" id="stat-pieces">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================
+       APPLICATION JAVASCRIPT (Module ES6)
+       ================================================ -->
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>

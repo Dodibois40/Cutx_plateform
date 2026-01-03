@@ -1,0 +1,109 @@
+/* ================================================
+   DESIGN SYSTEM - La Manufacture de la Finition sur Bois
+   ================================================ */
+
+:root {
+  /* ===== PALETTE DE COULEURS ===== */
+
+  /* Olive (Principale) */
+  --olive: #8B9A4B;
+  --olive-light: #A4B563;
+  --olive-dark: #6F7A3A;
+  --olive-hover: #9FAD5A;
+  --olive-bg: rgba(139, 154, 75, 0.1);
+  --olive-border: rgba(139, 154, 75, 0.3);
+
+  /* Noyer (Secondaire) */
+  --noyer: #8B5A3C;
+  --noyer-light: #A67C5D;
+  --noyer-dark: #6F4830;
+  --noyer-hover: #9F6C4A;
+  --noyer-bg: rgba(139, 90, 60, 0.1);
+  --noyer-border: rgba(139, 90, 60, 0.3);
+
+  /* Sable (Neutre clair) */
+  --sable: #C9B896;
+  --sable-light: #D9CCB3;
+  --sable-dark: #B3A680;
+
+  /* Ardoise (Neutre foncé) */
+  --ardoise: #7A8B9A;
+  --ardoise-light: #8FA0AE;
+  --ardoise-dark: #647482;
+
+  /* ===== COULEURS DE FOND ===== */
+  --bg-primary: #0F0E0D;      /* Fond principal très sombre */
+  --bg-secondary: #1C1B19;     /* Fond secondaire */
+  --bg-tertiary: #2A2926;      /* Fond tertiaire */
+  --bg-card: rgba(28, 27, 25, 0.95);  /* Cartes avec transparence */
+  --bg-elevated: #0A0A09;      /* Éléments surélevés */
+  --bg-hover: #3A3835;         /* Survol */
+
+  /* ===== COULEURS DE TEXTE ===== */
+  --text-primary: #F5F4F1;     /* Texte principal */
+  --text-secondary: #E0DFDA;   /* Texte secondaire */
+  --text-muted: #B3B1AA;       /* Texte désactivé */
+  --text-faint: #8A8880;       /* Texte très discret */
+
+  /* ===== COULEURS DE BORDURE ===== */
+  --border-default: #3A3835;   /* Bordure par défaut */
+  --border-subtle: #2A2926;    /* Bordure subtile */
+  --border-hover: #4A4845;     /* Bordure au survol */
+
+  /* ===== TYPOGRAPHIE ===== */
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
+
+  /* Tailles de police */
+  --text-xs: 0.6875rem;    /* 11px */
+  --text-sm: 0.75rem;      /* 12px */
+  --text-base: 0.8125rem;  /* 13px */
+  --text-lg: 0.875rem;     /* 14px */
+  --text-xl: 1rem;         /* 16px */
+  --text-2xl: 1.125rem;    /* 18px */
+  --text-3xl: 1.5rem;      /* 24px */
+
+  /* ===== ESPACEMENTS ===== */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 0.75rem;   /* 12px */
+  --spacing-lg: 1rem;      /* 16px */
+  --spacing-xl: 1.5rem;    /* 24px */
+  --spacing-2xl: 2rem;     /* 32px */
+
+  /* ===== BORDER RADIUS ===== */
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 0.625rem;   /* 10px */
+  --radius-xl: 0.75rem;    /* 12px */
+
+  /* ===== TRANSITIONS ===== */
+  --transition: all 0.2s ease;
+  --transition-slow: all 0.3s ease;
+
+  /* ===== OMBRES ===== */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== RESET DE BASE ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ===== CLASSE UTILITAIRE ===== */
+.hidden {
+  display: none !important;
+}

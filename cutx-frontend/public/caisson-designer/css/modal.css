@@ -1,0 +1,276 @@
+/* ================================================
+   MODAL - Modale d'optimisation de débit
+   ================================================ */
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.modal.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 10, 9, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+.modal-content {
+  position: relative;
+  width: 95vw;
+  height: 90vh;
+  max-width: 1600px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  border: none;
+  padding: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+}
+
+.modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ===== PANNEAU DE CONFIGURATION ===== */
+.optimizer-config {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.optimizer-config::-webkit-scrollbar {
+  width: 8px;
+}
+
+.optimizer-config::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.optimizer-config::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: var(--radius-sm);
+}
+
+.optimizer-config::-webkit-scrollbar-thumb:hover {
+  background: var(--noyer);
+}
+
+.config-section {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+
+.config-section h3 {
+  font-size: var(--text-sm);
+  color: var(--noyer-light);
+  text-transform: uppercase;
+  margin: 0 0 1rem 0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ===== RADIO BUTTONS ===== */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.radio-option:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+
+.radio-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--noyer);
+}
+
+.radio-option span {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.radio-option:has(input:checked) {
+  border-color: var(--noyer-border);
+  background: var(--noyer-bg);
+}
+
+.radio-option:has(input:checked) span {
+  color: var(--noyer-light);
+  font-weight: 600;
+}
+
+/* ===== BOUTON D'EXÉCUTION ===== */
+.run-btn {
+  width: 100%;
+  padding: 1.125rem 1.5rem;
+  background: linear-gradient(135deg, var(--olive-dark) 0%, var(--olive) 100%);
+  color: var(--text-primary);
+  border: 1px solid var(--olive-border);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  box-shadow: 0 4px 12px var(--olive-bg);
+  margin-top: auto;
+}
+
+.run-btn:hover {
+  background: linear-gradient(135deg, var(--olive) 0%, var(--olive-light) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--olive-bg);
+}
+
+.run-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px var(--olive-bg);
+}
+
+/* ===== AFFICHAGE DES RÉSULTATS ===== */
+.optimizer-display {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.canvas-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  padding: 2rem;
+  overflow: auto;
+}
+
+#optimizer-canvas {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-elevated);
+}
+
+/* ===== STATISTIQUES ===== */
+.optimizer-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  padding: 1.5rem 2rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.stat-item:last-child {
+  border-right: none;
+}
+
+.stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: var(--text-3xl);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}

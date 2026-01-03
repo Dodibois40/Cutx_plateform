@@ -1,0 +1,121 @@
+/* ================================================
+   TEXTURE - Panneau de sélection de textures
+   ================================================ */
+
+#texture-panel {
+  /* Positionnement géré par layout.css et ui-handlers.js */
+}
+
+#texture-panel h3 {
+  font-size: var(--text-base);
+  margin: 0 0 0.875rem 0;
+  color: var(--olive-light);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#texture-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.texture-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.texture-item:hover {
+  border-color: var(--olive);
+  background: var(--bg-hover);
+  transform: translateX(2px);
+}
+
+.texture-item.selected {
+  border-color: var(--olive);
+  background: var(--olive-bg);
+  box-shadow: 0 0 0 3px var(--olive-bg);
+}
+
+.texture-item img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hover);
+}
+
+.texture-item span {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.texture-item.selected span {
+  color: var(--olive-light);
+}
+
+/* ===== BOUTON DE SUPPRESSION ===== */
+.texture-remove {
+  background: var(--bg-secondary);
+  border-color: var(--border-hover);
+  justify-content: center;
+}
+
+.texture-remove:hover {
+  border-color: #dc3545;
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.remove-icon {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-3xl);
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.15);
+  border-radius: var(--radius-sm);
+}
+
+/* ===== INDICATEUR MODE PEINTURE ===== */
+#paint-mode-indicator {
+  margin-top: 1rem;
+  padding: 0.875rem;
+  background: linear-gradient(135deg, var(--olive-dark) 0%, var(--olive) 100%);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+#paint-mode-indicator span {
+  display: block;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: var(--text-base);
+  margin-bottom: 0.25rem;
+}
+
+#paint-mode-indicator small {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+/* ===== CURSEUR PERSONNALISÉ MODE PEINTURE ===== */
+body.paint-mode {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="rgba(139,154,75,0.5)" stroke="%238B9A4B" stroke-width="2"/><path d="M16 8 L16 24 M8 16 L24 16" stroke="%238B9A4B" stroke-width="2"/></svg>') 16 16, crosshair !important;
+}
+
+body.paint-mode #container {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="rgba(139,154,75,0.5)" stroke="%238B9A4B" stroke-width="2"/><path d="M16 8 L16 24 M8 16 L24 16" stroke="%238B9A4B" stroke-width="2"/></svg>') 16 16, crosshair !important;
+}
