@@ -15,6 +15,7 @@ interface EtapeFondProps {
   caisson: UseCaissonCalculsReturn;
   panneauxCatalogue: PanneauCatalogue[];
   validation: { isValid: boolean; erreurs: string[] };
+  onOpenPanelSelector?: () => void;
 }
 
 export default function EtapeFond({
@@ -22,6 +23,7 @@ export default function EtapeFond({
   caisson,
   panneauxCatalogue,
   validation,
+  onOpenPanelSelector,
 }: EtapeFondProps) {
   const {
     setTypeFond,
@@ -145,7 +147,7 @@ export default function EtapeFond({
             </div>
             <button
               className={styles.panelSelectorChange}
-              onClick={() => setPanneauFond(null)}
+              onClick={onOpenPanelSelector}
             >
               Changer
             </button>
@@ -153,7 +155,7 @@ export default function EtapeFond({
         ) : (
           <div className={`${styles.panelSelector} ${styles.panelSelectorEmpty}`}>
             <p style={{ marginBottom: 8 }}>Aucun panneau selectionne</p>
-            <button className={styles.optionBtn}>
+            <button className={styles.optionBtn} onClick={onOpenPanelSelector}>
               Selectionner un panneau
             </button>
           </div>

@@ -159,7 +159,16 @@
       "STRATIFIE": "Laminate",
       "PLACAGE": "Veneer / Fine Wood",
       "BANDE_DE_CHANT": "Edge",
-      "COMPACT": "Compact"
+      "COMPACT": "Compact",
+      "MDF": "MDF",
+      "CONTREPLAQUE": "Plywood",
+      "PANNEAU_MASSIF": "Solid panel",
+      "OSB": "OSB",
+      "PARTICULE": "Particle board",
+      "PLAN_DE_TRAVAIL": "Worktop",
+      "PANNEAU_DECORATIF": "Decorative panel",
+      "PANNEAU_3_PLIS": "3-ply panel",
+      "SOLID_SURFACE": "Solid Surface"
     }
   },
   "multilayer": {

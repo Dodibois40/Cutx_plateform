@@ -159,7 +159,16 @@
       "STRATIFIE": "Stratifie",
       "PLACAGE": "Placage / Essence Fine",
       "BANDE_DE_CHANT": "Chant",
-      "COMPACT": "Compact"
+      "COMPACT": "Compact",
+      "MDF": "MDF",
+      "CONTREPLAQUE": "Contreplaque",
+      "PANNEAU_MASSIF": "Panneau massif",
+      "OSB": "OSB",
+      "PARTICULE": "Particule",
+      "PLAN_DE_TRAVAIL": "Plan de travail",
+      "PANNEAU_DECORATIF": "Panneau decoratif",
+      "PANNEAU_3_PLIS": "Panneau 3 plis",
+      "SOLID_SURFACE": "Solid Surface"
     }
   },
   "multilayer": {

@@ -15,6 +15,7 @@ interface EtapeStructureProps {
   caisson: UseCaissonCalculsReturn;
   panneauxCatalogue: PanneauCatalogue[];
   validation: { isValid: boolean; erreurs: string[] };
+  onOpenPanelSelector?: () => void;
 }
 
 export default function EtapeStructure({
@@ -22,6 +23,7 @@ export default function EtapeStructure({
   caisson,
   panneauxCatalogue,
   validation,
+  onOpenPanelSelector,
 }: EtapeStructureProps) {
   const {
     setHauteur,
@@ -136,7 +138,7 @@ export default function EtapeStructure({
             </div>
             <button
               className={styles.panelSelectorChange}
-              onClick={() => setPanneauStructure(null)}
+              onClick={onOpenPanelSelector}
             >
               Changer
             </button>
@@ -144,7 +146,7 @@ export default function EtapeStructure({
         ) : (
           <div className={`${styles.panelSelector} ${styles.panelSelectorEmpty}`}>
             <p style={{ marginBottom: 8 }}>Aucun panneau selectionne</p>
-            <button className={styles.optionBtn}>
+            <button className={styles.optionBtn} onClick={onOpenPanelSelector}>
               Selectionner un panneau
             </button>
           </div>

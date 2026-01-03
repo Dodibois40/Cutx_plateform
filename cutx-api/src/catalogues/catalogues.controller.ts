@@ -40,6 +40,15 @@ export class CataloguesController {
     return { categories };
   }
 
+  @Get('panels/by-reference/:reference')
+  async findPanelByRef(@Param('reference') reference: string) {
+    const panel = await this.cataloguesService.findPanelByReferenceGlobal(reference);
+    if (!panel) {
+      throw new NotFoundException(`Panel "${reference}" not found`);
+    }
+    return { panel };
+  }
+
   @Get('panels')
   async findAllPanels(
     @Query('search') search?: string,

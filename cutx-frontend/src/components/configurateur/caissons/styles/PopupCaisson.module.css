@@ -690,6 +690,18 @@
   color: #c4a87c;
 }
 
+.previewToggleMode {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.previewToggleMode:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+}
+
 /* 3D Canvas */
 .previewCanvas {
   flex: 1;
@@ -746,6 +758,11 @@
 .legendDotStructure { background: #d4a84b; }
 .legendDotFond { background: #7c6b4c; }
 .legendDotFacade { background: #8b7355; }
+.legendDotDrilling {
+  background: #1a1a1a;
+  border-radius: 50%;
+  border: 1px solid #555;
+}
 
 /* Summary Panel */
 .previewSummary {
@@ -978,4 +995,105 @@
 
 .container {
   animation: slideUp 0.3s ease-out;
+}
+
+/* ============================================================
+   DRILLING STATS (System 32)
+   ============================================================ */
+
+.drillingStats {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 10px;
+}
+
+.drillingStatsTitle {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #60a5fa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.drillingStatsLoading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--cx-text-muted, #666);
+}
+
+.drillingStatsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drillingStatRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--cx-text-secondary, #999);
+}
+
+.drillingStatRow strong {
+  color: #60a5fa;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.drillingStatDivider {
+  height: 1px;
+  background: rgba(59, 130, 246, 0.15);
+  margin: 6px 0;
+}
+
+.drillingStatsError {
+  font-size: 12px;
+  color: #f87171;
+}
+
+/* Export DXF Button */
+.exportDxfBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  color: #60a5fa;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.exportDxfBtn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+}
+
+.exportDxfBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Spin animation for loading */
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

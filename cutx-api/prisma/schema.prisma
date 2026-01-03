@@ -270,3 +270,322 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
 }
+
+// ============================================
+// QUINCAILLERIE & CAISSONS
+// ============================================
+
+// Catalogue de quincaillerie (ferrures)
+model Fitting {
+  id              String             @id @default(cuid())
+  reference       String             @unique
+  name            String
+  brand           FittingBrand
+  category        FittingCategory
+
+  // Donnees techniques
+  drillingPattern String?            // JSON: pattern de percage
+  mountingData    String?            // JSON: donnees installation
+  specifications  String?            // JSON: specs techniques
+
+  // Compatibilite panneaux
+  minThickness    Float?             // Epaisseur min panneau (mm)
+  maxThickness    Float?             // Epaisseur max panneau (mm)
+
+  // Dimensions
+  angle           Int?               // Angle ouverture (charnieres)
+  length          Float?             // Longueur (coulisses)
+
+  // Prix
+  priceHT         Float
+  priceUnit       String             @default("piece")
+
+  // Media
+  imageUrl        String?
+  documentUrl     String?            // Fiche technique PDF
+  cadFileUrl      String?            // Fichier CAD/DXF
+
+  // Relations
+  accessories     FittingAccessory[]
+  cabinetFittings CabinetFitting[]
+
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([brand])
+  @@index([category])
+  @@index([isActive])
+}
+
+// Accessoires lies a une ferrure (embase, cache, vis...)
+model FittingAccessory {
+  id          String   @id @default(cuid())
+  reference   String
+  name        String
+  priceHT     Float
+  quantity    Int      @default(1)  // Quantite par ferrure principale
+  isRequired  Boolean  @default(true)
+
+  fittingId   String
+  fitting     Fitting  @relation(fields: [fittingId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([fittingId])
+}
+
+// Template de caisson (modeles predefinis)
+model CabinetTemplate {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  type        CabinetType
+  source      String      @default("custom")  // blum, hettich, custom
+
+  // Dimensions par defaut (mm)
+  defaultWidth    Int
+  defaultHeight   Int
+  defaultDepth    Int
+
+  // Contraintes dimensions (mm)
+  minWidth    Int         @default(100)
+  maxWidth    Int         @default(1200)
+  minHeight   Int         @default(200)
+  maxHeight   Int         @default(2800)
+  minDepth    Int         @default(100)
+  maxDepth    Int         @default(800)
+
+  // Epaisseurs par defaut (mm)
+  defaultStructureThickness Float   @default(19)
+  defaultBackThickness      Float   @default(8)
+  defaultDoorThickness      Float   @default(19)
+
+  // Configuration par defaut
+  defaultBackType   BackType    @default(APPLIQUE)
+  defaultDoorType   DoorType    @default(APPLIQUE)
+
+  imageUrl    String?
+
+  // Relations
+  cabinets    Cabinet[]
+
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+}
+
+// Caisson configure
+model Cabinet {
+  id          String          @id @default(cuid())
+  name        String
+
+  // Template source (optionnel)
+  templateId  String?
+  template    CabinetTemplate? @relation(fields: [templateId], references: [id])
+
+  // Dimensions (mm)
+  width       Int
+  height      Int
+  depth       Int
+
+  // Epaisseurs (mm)
+  structureThickness Float
+  backThickness      Float
+  doorThickness      Float?
+
+  // Configuration
+  backType    BackType
+  doorType    DoorType?
+  hasDoor     Boolean         @default(true)
+  doorGap     Float           @default(1.5)  // Jeu facade (mm)
+
+  // Charnieres
+  hingePosition String?       // gauche, droite
+  hingeCount    Int?
+
+  // Panneaux generes
+  panels      CabinetPanel[]
+
+  // Quincaillerie
+  fittings    CabinetFitting[]
+
+  // Percages calcules
+  drillings   CabinetDrilling[]
+
+  // Prix calcules
+  totalPanelsHT    Float       @default(0)
+  totalEdgingHT    Float       @default(0)
+  totalFittingsHT  Float       @default(0)
+  totalDrillingHT  Float       @default(0)
+  totalHT          Float       @default(0)
+
+  // Lien vers devis (optionnel)
+  devisId     String?
+  userId      String?
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([templateId])
+  @@index([userId])
+}
+
+// Panneau d'un caisson
+model CabinetPanel {
+  id          String   @id @default(cuid())
+
+  cabinetId   String
+  cabinet     Cabinet  @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+
+  // Type et nom
+  type        PanelType
+  name        String          // "Cote gauche", "Panneau superieur"...
+  shortName   String?         // "CG", "PS"...
+
+  // Dimensions (mm)
+  length      Float
+  width       Float
+  thickness   Float
+
+  // Surface
+  surfaceM2       Float
+  surfaceCharged  Float       // Avec minimum 0.25m2
+
+  // Chants (true = chant applique)
+  edgeA       Boolean         @default(false)  // Longueur cote 1
+  edgeB       Boolean         @default(false)  // Largeur cote 1
+  edgeC       Boolean         @default(false)  // Longueur cote 2
+  edgeD       Boolean         @default(false)  // Largeur cote 2
+  edgeMeters  Float           @default(0)      // Total metres lineaires
+
+  // Percages sur ce panneau
+  drillings   CabinetDrilling[]
+
+  // Reference panneau catalogue (optionnel)
+  panelId     String?
+
+  createdAt   DateTime        @default(now())
+
+  @@index([cabinetId])
+  @@index([type])
+}
+
+// Percage sur un panneau de caisson
+model CabinetDrilling {
+  id          String        @id @default(cuid())
+
+  cabinetId   String
+  cabinet     Cabinet       @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+
+  panelId     String
+  panel       CabinetPanel  @relation(fields: [panelId], references: [id], onDelete: Cascade)
+
+  // Position sur le panneau (mm depuis coin bas-gauche)
+  x           Float
+  y           Float
+
+  // Caracteristiques du trou
+  diameter    Float         // mm
+  depth       Float         // mm
+  type        DrillingType  @default(BLIND)
+
+  // Origine du percage
+  source      DrillingSource @default(SYSTEM32)
+
+  // Lie a une ferrure (optionnel)
+  fittingId   String?
+  fittingName String?
+
+  @@index([cabinetId])
+  @@index([panelId])
+}
+
+// Ferrure utilisee dans un caisson
+model CabinetFitting {
+  id          String   @id @default(cuid())
+
+  cabinetId   String
+  cabinet     Cabinet  @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+
+  fittingId   String
+  fitting     Fitting  @relation(fields: [fittingId], references: [id])
+
+  quantity    Int
+  position    String?       // gauche, droite, haut, bas
+
+  // Prix (copie au moment de l'ajout)
+  unitPriceHT Float
+  totalHT     Float
+
+  @@index([cabinetId])
+  @@index([fittingId])
+}
+
+// === ENUMS QUINCAILLERIE ===
+
+enum FittingBrand {
+  BLUM
+  HETTICH
+  HAFELE
+  GRASS
+  SALICE
+  OTHER
+}
+
+enum FittingCategory {
+  HINGE              // Charnieres
+  DRAWER_RUNNER      // Coulisses tiroirs
+  SHELF_SUPPORT      // Supports etageres
+  CONNECTOR          // Connecteurs (excentrique, tourillon)
+  LIFT_SYSTEM        // Relevables (AVENTOS)
+  DAMPER             // Amortisseurs
+  SLIDE              // Glissieres
+}
+
+enum CabinetType {
+  BASE               // Bas cuisine
+  WALL               // Haut mural
+  TALL               // Colonne
+  DRAWER             // Tiroirs
+  CORNER             // Angle
+  CUSTOM             // Libre
+}
+
+enum BackType {
+  APPLIQUE           // Fond en applique (visse derriere)
+  GROOVE             // Fond dans rainure
+  REBATE             // Fond en feuillure
+}
+
+enum DoorType {
+  APPLIQUE           // Facade recouvre les cotes
+  INSET              // Facade entre les cotes
+}
+
+enum PanelType {
+  LEFT_SIDE          // Cote gauche
+  RIGHT_SIDE         // Cote droit
+  TOP                // Dessus
+  BOTTOM             // Dessous
+  BACK               // Fond
+  DOOR               // Porte/Facade
+  SHELF              // Etagere
+  DRAWER_FRONT       // Face tiroir
+}
+
+enum DrillingType {
+  BLIND              // Borgne (ne traverse pas)
+  THROUGH            // Traversant
+}
+
+enum DrillingSource {
+  SYSTEM32           // Percage System 32 (etageres)
+  HINGE              // Percage charniere
+  CONNECTOR          // Percage connecteur
+  DRAWER_RUNNER      // Percage coulisse
+  CUSTOM             // Percage manuel/custom
+}

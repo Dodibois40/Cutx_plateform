@@ -1,16 +1,27 @@
 'use client';
 
 // components/configurateur/caissons/CaissonPreview3D.tsx
-// Previsualisation 3D d'un caisson avec Three.js
+// Previsualisation 3D d'un caisson avec Three.js + System 32 drillings
 
-import { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useRef, useMemo, useCallback } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, Text } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import type { ConfigCaisson, PanneauCalcule } from '@/lib/caissons/types';
 
 // Facteur d'echelle (1mm = 0.001 unite 3D)
 const SCALE = 0.001;
+
+// Configuration System 32 (standard industriel)
+const SYSTEM32 = {
+  holeSpacing: 32,         // Espacement entre trous (mm)
+  frontEdgeDistance: 37,   // Distance du bord avant (mm)
+  backEdgeDistance: 37,    // Distance du bord arriere (mm)
+  holeDiameter: 5,         // Diametre des trous (mm)
+  holeDepth: 13,           // Profondeur des trous (mm)
+  firstHoleOffset: 32,     // Premier trou depuis le bas (mm)
+};
 
 // Couleurs des panneaux
 const COULEURS = {
@@ -19,6 +30,8 @@ const COULEURS = {
   facade: '#8b7355',       // Bois fonce
   chants: '#5c4033',       // Marron fonce
   wireframe: '#333333',
+  drilling: '#1a1a1a',     // Trous de percage (noir)
+  drillingHover: '#333333',
 };
 
 interface PanneauMeshProps {
@@ -63,15 +76,69 @@ function PanneauMesh({
   );
 }
 
+// Interface pour un trou de percage
+interface DrillingHoleProps {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  diameter: number;  // en mm
+  depth: number;     // en mm
+}
+
+// Composant pour un trou de percage (cylindre)
+function DrillingHole({ position, rotation = [0, 0, 0], diameter, depth }: DrillingHoleProps) {
+  const radius = (diameter * SCALE) / 2;
+  const height = depth * SCALE;
+
+  return (
+    <mesh position={position} rotation={rotation}>
+      <cylinderGeometry args={[radius, radius, height, 16]} />
+      <meshStandardMaterial
+        color={COULEURS.drilling}
+        roughness={0.2}
+        metalness={0.3}
+      />
+    </mesh>
+  );
+}
+
+// Calcule les positions des trous System 32 pour un cote
+function calculateSystem32Holes(
+  panelHeight: number,  // Hauteur du panneau (mm)
+  panelDepth: number,   // Profondeur du panneau (mm)
+): Array<{ y: number; z: number }> {
+  const holes: Array<{ y: number; z: number }> = [];
+
+  // Ligne de trous cote avant (37mm du bord avant)
+  const frontZ = panelDepth / 2 - SYSTEM32.frontEdgeDistance;
+  // Ligne de trous cote arriere (37mm du bord arriere)
+  const backZ = -panelDepth / 2 + SYSTEM32.backEdgeDistance;
+
+  // Calculer les positions Y (hauteur) des trous
+  let currentY = -panelHeight / 2 + SYSTEM32.firstHoleOffset;
+  const maxY = panelHeight / 2 - SYSTEM32.firstHoleOffset;
+
+  while (currentY <= maxY) {
+    // Trou ligne avant
+    holes.push({ y: currentY, z: frontZ });
+    // Trou ligne arriere
+    holes.push({ y: currentY, z: backZ });
+
+    currentY += SYSTEM32.holeSpacing;
+  }
+
+  return holes;
+}
+
 interface CaissonMeshProps {
   config: ConfigCaisson;
   panneaux: PanneauCalcule[];
   showDimensions?: boolean;
   showFacade?: boolean;
+  showDrillings?: boolean;
 }
 
 // Composant principal du caisson
-function CaissonMesh({ config, panneaux, showDimensions = true, showFacade = true }: CaissonMeshProps) {
+function CaissonMesh({ config, panneaux, showDimensions = true, showFacade = true, showDrillings = false }: CaissonMeshProps) {
   const groupRef = useRef<THREE.Group>(null);
 
   // Convertir les dimensions en unites 3D
@@ -148,13 +215,37 @@ function CaissonMesh({ config, panneaux, showDimensions = true, showFacade = tru
     return positions;
   }, [H, L, P, ep, epFond, epFacade, config.avecFacade, config.jeuFacade, showFacade]);
 
-  // Animation douce de rotation
-  useFrame((state) => {
-    if (groupRef.current) {
-      // Rotation automatique lente
-      // groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.3) * 0.1;
-    }
-  });
+  // Calculer les positions des trous System 32 pour les cotes
+  const drillingPositions = useMemo(() => {
+    if (!showDrillings) return { leftSide: [], rightSide: [] };
+
+    const holes = calculateSystem32Holes(config.hauteur, config.profondeur);
+
+    // Trous sur le cote gauche (face interne = vers la droite, +X)
+    const leftSideX = -L / 2 + ep; // Position X du bord interne du cote gauche
+    const leftSide = holes.map((hole) => ({
+      position: [
+        leftSideX + (SYSTEM32.holeDepth * SCALE) / 2, // Centre du cylindre dans l'epaisseur
+        hole.y * SCALE,
+        hole.z * SCALE,
+      ] as [number, number, number],
+      rotation: [0, 0, Math.PI / 2] as [number, number, number], // Rotation pour orienter le cylindre en X
+    }));
+
+    // Trous sur le cote droit (face interne = vers la gauche, -X)
+    const rightSideX = L / 2 - ep; // Position X du bord interne du cote droit
+    const rightSide = holes.map((hole) => ({
+      position: [
+        rightSideX - (SYSTEM32.holeDepth * SCALE) / 2, // Centre du cylindre dans l'epaisseur
+        hole.y * SCALE,
+        hole.z * SCALE,
+      ] as [number, number, number],
+      rotation: [0, 0, -Math.PI / 2] as [number, number, number], // Rotation opposee
+    }));
+
+    return { leftSide, rightSide };
+  }, [showDrillings, config.hauteur, config.profondeur, L, ep]);
+
 
   return (
     <group ref={groupRef}>
@@ -168,6 +259,32 @@ function CaissonMesh({ config, panneaux, showDimensions = true, showFacade = tru
           name={panneau.type}
         />
       ))}
+
+      {/* Trous de percage System 32 */}
+      {showDrillings && (
+        <>
+          {/* Trous cote gauche */}
+          {drillingPositions.leftSide.map((hole, index) => (
+            <DrillingHole
+              key={`drill-left-${index}`}
+              position={hole.position}
+              rotation={hole.rotation}
+              diameter={SYSTEM32.holeDiameter}
+              depth={SYSTEM32.holeDepth}
+            />
+          ))}
+          {/* Trous cote droit */}
+          {drillingPositions.rightSide.map((hole, index) => (
+            <DrillingHole
+              key={`drill-right-${index}`}
+              position={hole.position}
+              rotation={hole.rotation}
+              diameter={SYSTEM32.holeDiameter}
+              depth={SYSTEM32.holeDepth}
+            />
+          ))}
+        </>
+      )}
 
       {/* Affichage des dimensions */}
       {showDimensions && (
@@ -217,6 +334,7 @@ interface CaissonPreview3DProps {
   panneaux: PanneauCalcule[];
   showDimensions?: boolean;
   showFacade?: boolean;
+  showDrillings?: boolean;
   className?: string;
 }
 
@@ -225,6 +343,7 @@ export default function CaissonPreview3D({
   panneaux,
   showDimensions = true,
   showFacade = true,
+  showDrillings = false,
   className = '',
 }: CaissonPreview3DProps) {
   // Calculer la distance de camera en fonction de la taille du caisson
@@ -241,11 +360,14 @@ export default function CaissonPreview3D({
           fov={45}
         />
 
-        {/* Controles orbitaux */}
+        {/* Controles orbitaux - sans inertie */}
         <OrbitControls
           enablePan={true}
           enableZoom={true}
           enableRotate={true}
+          enableDamping={false}
+          dampingFactor={0}
+          rotateSpeed={0.5}
           minDistance={0.5}
           maxDistance={5}
           target={[0, 0, 0]}
@@ -274,6 +396,7 @@ export default function CaissonPreview3D({
           panneaux={panneaux}
           showDimensions={showDimensions}
           showFacade={showFacade}
+          showDrillings={showDrillings}
         />
       </Canvas>
 
@@ -288,9 +411,15 @@ export default function CaissonPreview3D({
           <span>Fond</span>
         </div>
         {config.avecFacade && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-1">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: COULEURS.facade }} />
             <span>Facade</span>
+          </div>
+        )}
+        {showDrillings && (
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COULEURS.drilling }} />
+            <span>Percages System 32</span>
           </div>
         )}
       </div>

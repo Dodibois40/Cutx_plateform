@@ -3,7 +3,7 @@
 // components/configurateur/caissons/PopupCaissonConfig.tsx
 // Popup principale de configuration d'un caisson - Design CutX
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronLeft,
@@ -17,12 +17,27 @@ import {
   RotateCcw,
   Eye,
   EyeOff,
+  Download,
+  Loader2,
+  Circle,
+  Grid3X3,
+  Box as BoxIcon,
 } from 'lucide-react';
 import { useCaissonCalculs } from '@/hooks/useCaissonCalculs';
 import type { ResultatCalculCaisson } from '@/lib/caissons/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { ProduitCatalogue } from '@/lib/catalogues';
 import dynamic from 'next/dynamic';
 import styles from './styles/PopupCaisson.module.css';
+import PopupSelectionPanneau from '../PopupSelectionPanneau';
+import {
+  calculateDrillings,
+  exportDxf,
+  downloadDxfFile,
+  configToApiParams,
+  type DrillingStatistics,
+} from '@/lib/caissons/api';
+import { generateCaissonDxf, downloadDxfZip } from '@/lib/caissons/dxf-generator';
 
 // Import dynamique pour eviter SSR avec Three.js
 const CaissonPreview3D = dynamic(() => import('./CaissonPreview3D'), {
@@ -33,6 +48,9 @@ const CaissonPreview3D = dynamic(() => import('./CaissonPreview3D'), {
     </div>
   ),
 });
+
+// Import des vues techniques 2D (Maker.js - meme moteur que export DXF)
+import MakerJsVuesTechniques from './MakerJsVuesTechniques';
 
 // Import des etapes
 import EtapeStructure from './etapes/EtapeStructure';
@@ -47,6 +65,9 @@ const ETAPES = [
   { numero: 3, nom: 'Facade', icon: DoorOpen, description: 'Porte et jeu' },
   { numero: 4, nom: 'Charnieres', icon: Settings2, description: 'Position et type' },
 ];
+
+// Types de selection de panneau
+type PanelSelectionType = 'structure' | 'fond' | 'facade' | null;
 
 interface PopupCaissonConfigProps {
   open: boolean;
@@ -65,12 +86,24 @@ export default function PopupCaissonConfig({
 }: PopupCaissonConfigProps) {
   const [showFacade, setShowFacade] = useState(true);
   const [showDimensions, setShowDimensions] = useState(true);
+  const [showDrillings, setShowDrillings] = useState(false);
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
   const [mounted, setMounted] = useState(false);
 
+  // State pour le selecteur de panneau
+  const [panelSelectorOpen, setPanelSelectorOpen] = useState<PanelSelectionType>(null);
+
+  // State pour export DXF et statistiques percages
+  const [drillingStats, setDrillingStats] = useState<DrillingStatistics | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [isExportingDxf, setIsExportingDxf] = useState(false);
+  const [isExportingMakerJs, setIsExportingMakerJs] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
   // Mount check for portal
-  useState(() => {
+  useEffect(() => {
     setMounted(true);
-  });
+  }, []);
 
   const caisson = useCaissonCalculs(templateId);
   const {
@@ -85,6 +118,9 @@ export default function PopupCaissonConfig({
     peutAllerPrecedente,
     reinitialiser,
     validerEtape,
+    setPanneauStructure,
+    setPanneauFond,
+    setPanneauFacade,
   } = caisson;
 
   // Gerer la validation finale
@@ -93,6 +129,126 @@ export default function PopupCaissonConfig({
       onValidate(resultat);
       onClose();
     }
+  };
+
+  // Charger les statistiques de percages System 32
+  const loadDrillingStats = useCallback(async () => {
+    if (!config) return;
+
+    setIsLoadingStats(true);
+    setExportError(null);
+
+    try {
+      const params = configToApiParams(config);
+      const response = await calculateDrillings(params);
+      setDrillingStats(response.statistics);
+    } catch (error) {
+      console.error('Erreur chargement stats percages:', error);
+      setExportError('Erreur lors du calcul des percages');
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [config]);
+
+  // Charger les stats quand on arrive a l'etape 4
+  useEffect(() => {
+    if (etapeActive === 4 && config && !drillingStats && !isLoadingStats) {
+      loadDrillingStats();
+    }
+  }, [etapeActive, config, drillingStats, isLoadingStats, loadDrillingStats]);
+
+  // Exporter en DXF (API backend)
+  const handleExportDxf = async () => {
+    if (!config) return;
+
+    setIsExportingDxf(true);
+    setExportError(null);
+
+    try {
+      const params = configToApiParams(config);
+      const blob = await exportDxf(params);
+      const filename = `caisson_${config.largeur}x${config.hauteur}x${config.profondeur}.dxf`;
+      downloadDxfFile(blob, filename);
+    } catch (error) {
+      console.error('Erreur export DXF:', error);
+      setExportError('Erreur lors de l\'export DXF');
+    } finally {
+      setIsExportingDxf(false);
+    }
+  };
+
+  // Exporter en DXF avec Maker.js (local, tous panneaux dans ZIP)
+  const handleExportMakerJs = async () => {
+    if (!config || !resultat) return;
+
+    setIsExportingMakerJs(true);
+    setExportError(null);
+
+    try {
+      // Generer les DXF pour tous les panneaux
+      const dxfFiles = generateCaissonDxf(config, resultat, {
+        includeSystem32: true,
+        includeAssemblage: true,
+        includeRainure: config.typeFond === 'rainure' || config.typeFond === 'encastre',
+        includeCotations: true,
+        typeAssemblage: 'minifix',
+        units: 'mm',
+      });
+
+      // Telecharger en ZIP
+      const nomCaisson = `caisson_${config.largeur}x${config.hauteur}x${config.profondeur}`;
+      await downloadDxfZip(dxfFiles, nomCaisson);
+    } catch (error) {
+      console.error('Erreur export Maker.js:', error);
+      setExportError('Erreur lors de l\'export DXF');
+    } finally {
+      setIsExportingMakerJs(false);
+    }
+  };
+
+  // Ouvrir le selecteur pour un type de panneau
+  const openPanelSelector = (type: PanelSelectionType) => {
+    setPanelSelectorOpen(type);
+  };
+
+  // Fermer le selecteur de panneau
+  const closePanelSelector = () => {
+    setPanelSelectorOpen(null);
+  };
+
+  // Gerer la selection d'un panneau depuis le catalogue
+  const handleSelectCatalogue = (produit: ProduitCatalogue) => {
+    // Transformer le produit catalogue en PanneauCatalogue
+    const panneau: PanneauCatalogue = {
+      id: produit.reference,
+      nom: produit.nom,
+      categorie: 'agglo_plaque',
+      essence: null,
+      epaisseurs: [produit.epaisseur],
+      prixM2: { [produit.epaisseur]: produit.prixVenteM2 || 0 },
+      fournisseur: produit.marque || null,
+      disponible: produit.stock === 'EN STOCK',
+      description: null,
+      ordre: 0,
+      imageUrl: produit.imageUrl,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Affecter au bon element selon le type
+    switch (panelSelectorOpen) {
+      case 'structure':
+        setPanneauStructure(panneau);
+        break;
+      case 'fond':
+        setPanneauFond(panneau);
+        break;
+      case 'facade':
+        setPanneauFacade(panneau);
+        break;
+    }
+
+    closePanelSelector();
   };
 
   // Affichage de l'etape courante
@@ -105,6 +261,7 @@ export default function PopupCaissonConfig({
             caisson={caisson}
             panneauxCatalogue={panneauxCatalogue}
             validation={validerEtape(1)}
+            onOpenPanelSelector={() => openPanelSelector('structure')}
           />
         );
       case 2:
@@ -114,6 +271,7 @@ export default function PopupCaissonConfig({
             caisson={caisson}
             panneauxCatalogue={panneauxCatalogue}
             validation={validerEtape(2)}
+            onOpenPanelSelector={() => openPanelSelector('fond')}
           />
         );
       case 3:
@@ -123,6 +281,7 @@ export default function PopupCaissonConfig({
             caisson={caisson}
             panneauxCatalogue={panneauxCatalogue}
             validation={validerEtape(3)}
+            onOpenPanelSelector={() => openPanelSelector('facade')}
           />
         );
       case 4:
@@ -210,11 +369,22 @@ export default function PopupCaissonConfig({
             </div>
           </div>
 
-          {/* Right: 3D Preview */}
+          {/* Right: Preview (3D or 2D) */}
           <div className={styles.previewPanel}>
             <div className={styles.previewHeader}>
-              <span className={styles.previewTitle}>Previsualisation 3D</span>
+              <span className={styles.previewTitle}>
+                {viewMode === '3d' ? 'Previsualisation 3D' : 'Vues Techniques 2D'}
+              </span>
               <div className={styles.previewControls}>
+                {/* Toggle 3D / 2D */}
+                <button
+                  className={`${styles.previewToggle} ${styles.previewToggleMode}`}
+                  onClick={() => setViewMode(viewMode === '3d' ? '2d' : '3d')}
+                  title={viewMode === '3d' ? 'Passer en vue 2D technique' : 'Passer en vue 3D'}
+                >
+                  {viewMode === '3d' ? <Grid3X3 size={12} /> : <BoxIcon size={12} />}
+                  {viewMode === '3d' ? '2D Tech' : '3D'}
+                </button>
                 <button
                   className={`${styles.previewToggle} ${showDimensions ? styles.previewToggleActive : ''}`}
                   onClick={() => setShowDimensions(!showDimensions)}
@@ -222,29 +392,50 @@ export default function PopupCaissonConfig({
                   {showDimensions ? <Eye size={12} /> : <EyeOff size={12} />}
                   Cotes
                 </button>
+                {viewMode === '3d' && (
+                  <button
+                    className={`${styles.previewToggle} ${showFacade ? styles.previewToggleActive : ''}`}
+                    onClick={() => setShowFacade(!showFacade)}
+                  >
+                    <DoorOpen size={12} />
+                    Facade
+                  </button>
+                )}
                 <button
-                  className={`${styles.previewToggle} ${showFacade ? styles.previewToggleActive : ''}`}
-                  onClick={() => setShowFacade(!showFacade)}
+                  className={`${styles.previewToggle} ${showDrillings ? styles.previewToggleActive : ''}`}
+                  onClick={() => setShowDrillings(!showDrillings)}
+                  title="Afficher les percages System 32"
                 >
-                  <DoorOpen size={12} />
-                  Facade
+                  <Circle size={12} />
+                  Percages
                 </button>
               </div>
             </div>
 
             <div className={styles.previewCanvas}>
-              <Suspense fallback={
-                <div className={styles.previewLoading}>
-                  <div className={styles.previewSpinner} />
-                </div>
-              }>
-                <CaissonPreview3D
+              {viewMode === '3d' ? (
+                <Suspense fallback={
+                  <div className={styles.previewLoading}>
+                    <div className={styles.previewSpinner} />
+                  </div>
+                }>
+                  <CaissonPreview3D
+                    config={config}
+                    panneaux={resultat?.panneaux || []}
+                    showDimensions={showDimensions}
+                    showFacade={showFacade}
+                    showDrillings={showDrillings}
+                  />
+                </Suspense>
+              ) : (
+                <MakerJsVuesTechniques
                   config={config}
-                  panneaux={resultat?.panneaux || []}
+                  resultat={resultat}
                   showDimensions={showDimensions}
-                  showFacade={showFacade}
+                  showDrillings={showDrillings}
+                  showHinges={config.avecFacade}
                 />
-              </Suspense>
+              )}
             </div>
 
             <div className={styles.previewLegend}>
@@ -260,6 +451,12 @@ export default function PopupCaissonConfig({
                 <span className={`${styles.legendDot} ${styles.legendDotFacade}`} />
                 Facade
               </div>
+              {showDrillings && (
+                <div className={styles.legendItem}>
+                  <span className={`${styles.legendDot} ${styles.legendDotDrilling}`} />
+                  Percages
+                </div>
+              )}
             </div>
 
             {/* Summary */}
@@ -288,6 +485,54 @@ export default function PopupCaissonConfig({
                     </span>
                   </div>
                 </div>
+
+                {/* Statistiques percages System 32 */}
+                {etapeActive === 4 && (
+                  <div className={styles.drillingStats}>
+                    <h5 className={styles.drillingStatsTitle}>
+                      <Circle size={14} style={{ marginRight: 6 }} />
+                      Percages CNC (System 32)
+                    </h5>
+                    {isLoadingStats ? (
+                      <div className={styles.drillingStatsLoading}>
+                        <Loader2 size={16} className={styles.spinIcon} />
+                        Calcul en cours...
+                      </div>
+                    ) : drillingStats ? (
+                      <div className={styles.drillingStatsList}>
+                        <div className={styles.drillingStatRow}>
+                          <span>Total trous</span>
+                          <strong>{drillingStats.totalHoles}</strong>
+                        </div>
+                        {drillingStats.holesBySource && Object.entries(drillingStats.holesBySource).map(([source, count]) => (
+                          <div key={source} className={styles.drillingStatRow}>
+                            <span>
+                              {source === 'system32' ? 'Etageres (System 32)' :
+                               source === 'hinge' ? 'Charnieres' :
+                               source === 'connector' ? 'Connecteurs' : source}
+                            </span>
+                            <span>{count}</span>
+                          </div>
+                        ))}
+                        {drillingStats.holesByDiameter && Object.entries(drillingStats.holesByDiameter).length > 0 && (
+                          <>
+                            <div className={styles.drillingStatDivider} />
+                            <div className={styles.drillingStatRow} style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                              <span>Diametres</span>
+                              <span>
+                                {Object.entries(drillingStats.holesByDiameter)
+                                  .map(([diam, count]) => `ø${diam}mm (${count})`)
+                                  .join(', ')}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : exportError ? (
+                      <div className={styles.drillingStatsError}>{exportError}</div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -321,18 +566,44 @@ export default function PopupCaissonConfig({
                 <ChevronRight size={16} />
               </button>
             ) : (
-              <button
-                className={styles.validateBtn}
-                onClick={handleValidate}
-                disabled={!resultat}
-              >
-                <Check size={18} />
-                Valider et ajouter
-              </button>
+              <>
+                <button
+                  className={styles.exportDxfBtn}
+                  onClick={handleExportMakerJs}
+                  disabled={isExportingMakerJs || !resultat}
+                  title="Telecharger tous les panneaux en DXF (ZIP) - Maker.js"
+                >
+                  {isExportingMakerJs ? (
+                    <Loader2 size={16} className={styles.spinIcon} />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  DXF Plans CNC
+                </button>
+                <button
+                  className={styles.validateBtn}
+                  onClick={handleValidate}
+                  disabled={!resultat}
+                >
+                  <Check size={18} />
+                  Valider et ajouter
+                </button>
+              </>
             )}
           </div>
         </footer>
       </div>
+
+      {/* Popup Selection Panneau */}
+      <PopupSelectionPanneau
+        open={panelSelectorOpen !== null}
+        panneauxCatalogue={panneauxCatalogue}
+        selectedPanneauId={null}
+        epaisseurActuelle={config.epaisseurStructure}
+        onSelect={() => {}}
+        onSelectCatalogue={handleSelectCatalogue}
+        onClose={closePanelSelector}
+      />
     </div>
   );
 

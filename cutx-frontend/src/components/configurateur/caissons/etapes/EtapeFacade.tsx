@@ -15,6 +15,7 @@ interface EtapeFacadeProps {
   caisson: UseCaissonCalculsReturn;
   panneauxCatalogue: PanneauCatalogue[];
   validation: { isValid: boolean; erreurs: string[] };
+  onOpenPanelSelector?: () => void;
 }
 
 export default function EtapeFacade({
@@ -22,6 +23,7 @@ export default function EtapeFacade({
   caisson,
   panneauxCatalogue,
   validation,
+  onOpenPanelSelector,
 }: EtapeFacadeProps) {
   const {
     setAvecFacade,
@@ -147,7 +149,7 @@ export default function EtapeFacade({
                 </div>
                 <button
                   className={styles.panelSelectorChange}
-                  onClick={() => setPanneauFacade(null)}
+                  onClick={onOpenPanelSelector}
                 >
                   Changer
                 </button>
@@ -155,7 +157,7 @@ export default function EtapeFacade({
             ) : (
               <div className={`${styles.panelSelector} ${styles.panelSelectorEmpty}`}>
                 <p style={{ marginBottom: 8 }}>Aucun panneau selectionne</p>
-                <button className={styles.optionBtn}>
+                <button className={styles.optionBtn} onClick={onOpenPanelSelector}>
                   Selectionner un panneau
                 </button>
               </div>

@@ -14,6 +14,7 @@ import {
   ArrowDown,
   ImageIcon,
   Loader2,
+  Info,
 } from 'lucide-react';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
@@ -24,6 +25,7 @@ import {
 } from '@/lib/services/catalogue-api';
 import { useCatalogueSearch } from '@/lib/hooks/useCatalogueSearch';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import PopupFicheProduit, { type PanelDetails } from '@/components/produit/PopupFicheProduit';
 
 type SortColumn = 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
 type SortDirection = 'asc' | 'desc';
@@ -130,6 +132,8 @@ interface PopupSelectionPanneauProps {
   initialSousCategories?: string[]; // Permet de filtrer sur plusieurs catégories (ex: Âme = basique + technique)
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
+
 export default function PopupSelectionPanneau({
   open,
   onSelectCatalogue,
@@ -140,6 +144,11 @@ export default function PopupSelectionPanneau({
   const t = useTranslations('dialogs.panelSelection');
   const [mounted, setMounted] = useState(false);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Panel detail popup state
+  const [selectedPanelDetail, setSelectedPanelDetail] = useState<PanelDetails | null>(null);
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Recherche et filtres
   const [search, setSearch] = useState(initialSearch);
@@ -306,10 +315,37 @@ export default function PopupSelectionPanneau({
     onClose();
   };
 
+  // Fetch panel details and open popup
+  const handleShowPanelDetail = async (reference: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`${API_URL}/api/catalogues/panels/by-reference/${encodeURIComponent(reference)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedPanelDetail(data.panel);
+        setShowDetailPopup(true);
+      } else {
+        console.error('Panel not found:', reference);
+      }
+    } catch (error) {
+      console.error('Error fetching panel details:', error);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleCloseDetailPopup = () => {
+    setShowDetailPopup(false);
+    setSelectedPanelDetail(null);
+  };
+
   if (!open || !mounted) return null;
 
-  return createPortal(
+  return [
+    createPortal(
     <div
+      key="selection-popup"
       className="popup-overlay"
       onClick={onClose}
       style={{
@@ -605,7 +641,17 @@ export default function PopupSelectionPanneau({
                       <td className="col-image">
                         <ProductImage src={produit.imageUrl} alt={produit.nom} />
                       </td>
-                      <td className="col-ref">{produit.reference}</td>
+                      <td className="col-ref">
+                        <span className="ref-text">{produit.reference}</span>
+                        <button
+                          className="btn-info"
+                          onClick={(e) => handleShowPanelDetail(produit.reference, e)}
+                          disabled={loadingDetail}
+                          title="Voir la fiche produit"
+                        >
+                          <Info size={14} />
+                        </button>
+                      </td>
                       <td className="col-nom">
                         <div className="col-nom-content" title={produit.nom}>{produit.nom}</div>
                       </td>
@@ -1307,10 +1353,43 @@ export default function PopupSelectionPanneau({
           }
 
           .col-ref {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.75rem;
             color: var(--admin-olive);
             white-space: nowrap;
+          }
+
+          .ref-text {
+            font-weight: 500;
+          }
+
+          .btn-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            background: transparent;
+            border: 1px solid var(--admin-border-subtle);
+            border-radius: 4px;
+            color: var(--admin-text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+          }
+
+          .btn-info:hover {
+            background: var(--admin-olive-bg);
+            border-color: var(--admin-olive);
+            color: var(--admin-olive);
+          }
+
+          .btn-info:disabled {
+            opacity: 0.5;
+            cursor: wait;
           }
 
           .col-nom {
@@ -1476,5 +1555,21 @@ export default function PopupSelectionPanneau({
       </div>
     </div>,
     document.body
-  );
+  ),
+  <PopupFicheProduit
+    key="panel-detail-popup"
+    open={showDetailPopup}
+    panel={selectedPanelDetail}
+    onClose={handleCloseDetailPopup}
+    onAddToConfigurator={(panel) => {
+      // Find the matching product in the list and select it
+      const matchingProduct = produits.find(p => p.reference === panel.reference);
+      if (matchingProduct && onSelectCatalogue) {
+        onSelectCatalogue(matchingProduct as ProduitCatalogue);
+        handleCloseDetailPopup();
+        onClose();
+      }
+    }}
+  />
+  ];
 }

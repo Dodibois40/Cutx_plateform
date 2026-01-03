@@ -1,0 +1,290 @@
+/* VuesTechniques.module.css */
+/* Styles pour les vues techniques 2D du configurateur caisson */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.resume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.separator {
+  color: #cbd5e1;
+}
+
+/* Grille des vues */
+.viewsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.topRow {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.bottomRow {
+  display: flex;
+  justify-content: center;
+}
+
+.viewWrapper {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewWrapper svg {
+  display: block;
+}
+
+/* Legende globale */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #475569;
+}
+
+.legendColor {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.legendLine {
+  width: 18px;
+  height: 0;
+}
+
+.legendCircle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+/* Tableau des dimensions */
+.dimensionsTable {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.tableTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  padding: 10px 16px;
+  margin: 0;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.table thead {
+  background: #f1f5f9;
+}
+
+.table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.table td {
+  padding: 8px 10px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cellCenter {
+  text-align: center;
+}
+
+.cellRight {
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+
+.cellChants {
+  display: flex;
+  gap: 3px;
+}
+
+.chantBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .topRow {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .viewWrapper {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .legend {
+    gap: 10px;
+  }
+
+  .table {
+    font-size: 10px;
+  }
+
+  .table th,
+  .table td {
+    padding: 6px 8px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .container {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  }
+
+  .header {
+    border-bottom-color: #334155;
+  }
+
+  .title {
+    color: #f1f5f9;
+  }
+
+  .resume {
+    color: #94a3b8;
+  }
+
+  .separator {
+    color: #475569;
+  }
+
+  .viewWrapper {
+    background: #1e293b;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .legend {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .legendItem {
+    color: #cbd5e1;
+  }
+
+  .dimensionsTable {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .tableTitle {
+    background: #0f172a;
+    border-bottom-color: #334155;
+    color: #e2e8f0;
+  }
+
+  .table thead {
+    background: #0f172a;
+  }
+
+  .table th {
+    color: #94a3b8;
+    border-bottom-color: #334155;
+  }
+
+  .table td {
+    color: #e2e8f0;
+    border-bottom-color: #1e293b;
+  }
+
+  .table tbody tr:hover {
+    background: #0f172a;
+  }
+
+  .chantBadge {
+    background: #1e3a8a;
+    color: #93c5fd;
+  }
+}
