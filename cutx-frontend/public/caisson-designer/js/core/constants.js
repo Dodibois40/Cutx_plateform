@@ -33,6 +33,30 @@ export const DEFAULT_DIMENSIONS = {
   doorOffset: 3
 };
 
+// Configuration par defaut des charnieres
+export const DEFAULT_HINGE_CONFIG = {
+  enabled: true,                    // Charnieres activees
+  type: 'CLIP_TOP_BLUMOTION_110',  // Type de charniere Blum
+  side: 'left',                     // Cote de montage (left ou right)
+  count: 2,                         // Nombre de charnieres (auto-calcule si null)
+  showDrillings: true,              // Afficher les percages sur la porte
+  showHinges: true,                 // Afficher les modeles 3D des charnieres
+  mountingPlate: 'STANDARD_0MM'     // Type d'embase
+};
+
+// Specifications des percages charnieres Blum
+export const HINGE_DRILLING_SPECS = {
+  cupDiameter: 35,        // mm - Diametre du trou cup
+  cupDepth: 13,           // mm - Profondeur du trou cup
+  cupDistanceFromEdge: 21, // mm - Distance centre cup au chant (pas 23mm comme INSERTA)
+  fixingDiameter: 8,      // mm - Diametre trous de fixation
+  fixingDepth: 12,        // mm - Profondeur trous de fixation
+  fixingSpacing: 45.5,    // mm - Espacement entre les 2 trous de fixation
+  // Positions Y selon hauteur porte
+  minDistanceFromEdge: 80, // mm du haut/bas de la porte
+  maxSpacing: 500          // mm max entre 2 charnieres
+};
+
 // Couleurs par défaut
 export const DEFAULT_COLORS = {
   caisson: 0xFFFFFF,

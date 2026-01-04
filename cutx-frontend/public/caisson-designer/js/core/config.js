@@ -2,7 +2,7 @@
    CONFIG - Configuration globale de l'application
    ================================================ */
 
-import { DEFAULT_DIMENSIONS, DEFAULT_COLORS } from './constants.js';
+import { DEFAULT_DIMENSIONS, DEFAULT_COLORS, DEFAULT_HINGE_CONFIG } from './constants.js';
 
 /**
  * Configuration globale de l'application
@@ -32,7 +32,9 @@ export function getDefaultCaissonConfig() {
     colorCaisson: DEFAULT_COLORS.caisson,
     colorDoor: DEFAULT_COLORS.door,
     showDoor: true,
-    shelves: []
+    shelves: [],
+    // Configuration des charnieres
+    hingeConfig: { ...DEFAULT_HINGE_CONFIG }
   };
 }
 

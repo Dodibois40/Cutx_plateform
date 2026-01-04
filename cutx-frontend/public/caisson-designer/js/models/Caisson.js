@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
-import { EXPLODE_DISTANCE } from '../core/constants.js';
+import { EXPLODE_DISTANCE, HINGE_DRILLING_SPECS, DEFAULT_HINGE_CONFIG } from '../core/constants.js';
 
 // Configuration des aretes
 const EDGE_CONFIG = {
@@ -36,6 +36,11 @@ export class Caisson {
       this.config.shelves = [];
     }
 
+    // Initialiser la config charnieres si non definie
+    if (!this.config.hingeConfig) {
+      this.config.hingeConfig = { ...DEFAULT_HINGE_CONFIG };
+    }
+
     this.group = new THREE.Group();
     this.group.name = `caisson_${id}`;
     this.group.userData.caissonId = id;
@@ -53,6 +58,9 @@ export class Caisson {
 
     // References aux etageres (tableau)
     this.shelfMeshes = [];
+
+    // References aux charnieres (tableau de groupes)
+    this.hingeMeshes = [];
 
     // Etat de selection
     this.isSelected = false;
@@ -159,6 +167,7 @@ export class Caisson {
 
     // Reinitialiser les references
     this.shelfMeshes = [];
+    this.hingeMeshes = [];
 
     const w = this.config.width;
     const h = this.config.height;
@@ -233,6 +242,11 @@ export class Caisson {
     // Construire les etageres
     this.buildShelves();
 
+    // Construire les charnieres (si porte visible et charnieres activees)
+    if (this.config.showDoor && this.config.hingeConfig && this.config.hingeConfig.enabled) {
+      this.buildHinges();
+    }
+
     // Le caisson reste a l'origine (0,0,0) = coin arriere-bas-gauche
     this.group.position.set(0, 0, 0);
   }
@@ -273,6 +287,272 @@ export class Caisson {
       this.group.add(shelf);
       this.shelfMeshes.push(shelf);
     });
+  }
+
+  /**
+   * Construit les charnieres 3D et les percages
+   * Les charnieres sont positionnees sur la porte et les embases sur le cote
+   */
+  buildHinges() {
+    const hingeConfig = this.config.hingeConfig;
+    if (!hingeConfig || !hingeConfig.enabled) return;
+
+    // Dimensions de la porte
+    const w = this.config.width;
+    const h = this.config.height;
+    const d = this.config.depth;
+    const doorWidth = w - this.config.gapLeft - this.config.gapRight;
+    const doorHeight = h - this.config.gapTop - this.config.gapBottom;
+    const doorT = this.config.doorThickness;
+
+    // Position de la porte dans l'espace
+    const doorX = w / 2 + (this.config.gapRight - this.config.gapLeft) / 2;
+    const doorBaseY = this.config.gapBottom;
+    const doorZ = d + this.config.doorOffset + doorT / 2;
+
+    // Calculer le nombre de charnieres si non specifie
+    const hingeCount = hingeConfig.count || this.getRecommendedHingeCount(doorHeight);
+
+    // Calculer les positions Y des charnieres (relatives a la porte)
+    const hingePositions = this.getHingePositions(doorHeight, hingeCount);
+
+    // Cote de montage (left = charniere a gauche de la porte)
+    const side = hingeConfig.side || 'left';
+
+    // Pour chaque charniere
+    hingePositions.forEach((yPos, index) => {
+      const hingeGroup = new THREE.Group();
+      hingeGroup.name = `hinge_${index}`;
+      hingeGroup.userData.type = 'hinge';
+      hingeGroup.userData.hingeIndex = index;
+
+      // Position Y dans l'espace caisson
+      const hingeY = doorBaseY + yPos;
+
+      // ========== PERCAGES SUR LA PORTE ==========
+      if (hingeConfig.showDrillings) {
+        // Trou cup (Ø35mm, profondeur 13mm)
+        const cupHole = this.createDrillingHole(
+          HINGE_DRILLING_SPECS.cupDiameter,
+          HINGE_DRILLING_SPECS.cupDepth,
+          0xFF4444  // Rouge pour cup
+        );
+
+        // Position X du cup sur la porte
+        let cupX;
+        if (side === 'left') {
+          cupX = -doorWidth / 2 + HINGE_DRILLING_SPECS.cupDistanceFromEdge;
+        } else {
+          cupX = doorWidth / 2 - HINGE_DRILLING_SPECS.cupDistanceFromEdge;
+        }
+
+        // Position relative au centre de la porte
+        cupHole.position.set(
+          doorX + cupX,
+          hingeY,
+          doorZ - doorT / 2 - HINGE_DRILLING_SPECS.cupDepth / 2
+        );
+        cupHole.rotation.x = Math.PI / 2;
+        hingeGroup.add(cupHole);
+
+        // Trous de fixation INSERTA (2 x Ø8mm)
+        const halfSpacing = HINGE_DRILLING_SPECS.fixingSpacing / 2;
+        const fixingX = side === 'left'
+          ? cupX + 9.5  // 9.5mm vers l'interieur
+          : cupX - 9.5;
+
+        [-halfSpacing, halfSpacing].forEach((yOffset, fixIndex) => {
+          const fixingHole = this.createDrillingHole(
+            HINGE_DRILLING_SPECS.fixingDiameter,
+            HINGE_DRILLING_SPECS.fixingDepth,
+            0x4444FF  // Bleu pour INSERTA
+          );
+          fixingHole.position.set(
+            doorX + fixingX,
+            hingeY + yOffset,
+            doorZ - doorT / 2 - HINGE_DRILLING_SPECS.fixingDepth / 2
+          );
+          fixingHole.rotation.x = Math.PI / 2;
+          hingeGroup.add(fixingHole);
+        });
+      }
+
+      // ========== MODELE 3D CHARNIERE (simplifie) ==========
+      if (hingeConfig.showHinges) {
+        const hingeModel = this.createHingeModel(side);
+        hingeModel.position.set(
+          doorX + (side === 'left' ? -doorWidth / 2 : doorWidth / 2),
+          hingeY,
+          doorZ - doorT / 2
+        );
+        if (side === 'right') {
+          hingeModel.rotation.y = Math.PI;
+        }
+        hingeGroup.add(hingeModel);
+      }
+
+      this.group.add(hingeGroup);
+      this.hingeMeshes.push(hingeGroup);
+    });
+  }
+
+  /**
+   * Cree un trou de percage cylindrique (visualisation)
+   */
+  createDrillingHole(diameter, depth, color) {
+    const radius = diameter / 2;
+    const geometry = new THREE.CylinderGeometry(radius, radius, depth, 24);
+    const material = new THREE.MeshStandardMaterial({
+      color: color,
+      metalness: 0.2,
+      roughness: 0.5,
+      transparent: true,
+      opacity: 0.7
+    });
+    const cylinder = new THREE.Mesh(geometry, material);
+    cylinder.userData.type = 'drilling';
+    cylinder.userData.diameter = diameter;
+    cylinder.userData.depth = depth;
+    return cylinder;
+  }
+
+  /**
+   * Cree un modele simplifie de charniere Blum
+   */
+  createHingeModel(side) {
+    const hingeGroup = new THREE.Group();
+
+    // Materiau metal
+    const metalMaterial = new THREE.MeshStandardMaterial({
+      color: 0xB8B8B8,
+      metalness: 0.7,
+      roughness: 0.3
+    });
+
+    // Cup (cylindre qui entre dans le trou Ø35)
+    const cupGeometry = new THREE.CylinderGeometry(17.5, 17.5, 13, 32);
+    const cup = new THREE.Mesh(cupGeometry, metalMaterial.clone());
+    cup.rotation.x = Math.PI / 2;
+    cup.position.z = -6.5;
+    hingeGroup.add(cup);
+
+    // Bras de la charniere
+    const armGeometry = new THREE.BoxGeometry(50, 12, 40);
+    const arm = new THREE.Mesh(armGeometry, metalMaterial.clone());
+    arm.position.set(side === 'left' ? 25 : -25, 0, 15);
+    hingeGroup.add(arm);
+
+    // Pivot
+    const pivotGeometry = new THREE.CylinderGeometry(5, 5, 14, 16);
+    const pivot = new THREE.Mesh(pivotGeometry, metalMaterial.clone());
+    pivot.position.set(side === 'left' ? 50 : -50, 0, 35);
+    hingeGroup.add(pivot);
+
+    // Embase
+    const plateGeometry = new THREE.BoxGeometry(35, 8, 50);
+    const plate = new THREE.Mesh(plateGeometry, metalMaterial.clone());
+    plate.position.set(side === 'left' ? 50 : -50, 3, 50);
+    hingeGroup.add(plate);
+
+    return hingeGroup;
+  }
+
+  /**
+   * Calcule le nombre de charnieres recommande selon la hauteur de porte
+   */
+  getRecommendedHingeCount(doorHeight) {
+    if (doorHeight <= 800) return 2;
+    if (doorHeight <= 1400) return 3;
+    if (doorHeight <= 2000) return 4;
+    return 5;
+  }
+
+  /**
+   * Calcule les positions Y des charnieres sur la porte
+   * Retourne un tableau de distances depuis le bas de la porte
+   */
+  getHingePositions(doorHeight, count) {
+    const minDist = HINGE_DRILLING_SPECS.minDistanceFromEdge;
+    const positions = [];
+
+    if (count === 1) {
+      positions.push(doorHeight / 2);
+    } else if (count === 2) {
+      positions.push(minDist);
+      positions.push(doorHeight - minDist);
+    } else {
+      const usableHeight = doorHeight - 2 * minDist;
+      const spacing = usableHeight / (count - 1);
+      for (let i = 0; i < count; i++) {
+        positions.push(minDist + spacing * i);
+      }
+    }
+
+    return positions;
+  }
+
+  /**
+   * Met a jour la configuration des charnieres
+   */
+  updateHingeConfig(newHingeConfig) {
+    this.config.hingeConfig = { ...this.config.hingeConfig, ...newHingeConfig };
+    this.build();
+  }
+
+  /**
+   * Obtient les informations sur les charnieres
+   */
+  getHingesInfo() {
+    const hingeConfig = this.config.hingeConfig;
+    if (!hingeConfig || !hingeConfig.enabled) {
+      return { enabled: false, count: 0, positions: [], drillings: [] };
+    }
+
+    const doorHeight = this.config.height - this.config.gapTop - this.config.gapBottom;
+    const count = hingeConfig.count || this.getRecommendedHingeCount(doorHeight);
+    const positions = this.getHingePositions(doorHeight, count);
+
+    // Generer les informations de percage
+    const drillings = [];
+    positions.forEach((yPos, index) => {
+      // Cup
+      drillings.push({
+        type: 'CUP',
+        hingeIndex: index,
+        x: HINGE_DRILLING_SPECS.cupDistanceFromEdge,
+        y: yPos,
+        diameter: HINGE_DRILLING_SPECS.cupDiameter,
+        depth: HINGE_DRILLING_SPECS.cupDepth
+      });
+
+      // Trous fixation
+      const halfSpacing = HINGE_DRILLING_SPECS.fixingSpacing / 2;
+      drillings.push({
+        type: 'FIXING',
+        hingeIndex: index,
+        x: HINGE_DRILLING_SPECS.cupDistanceFromEdge + 9.5,
+        y: yPos - halfSpacing,
+        diameter: HINGE_DRILLING_SPECS.fixingDiameter,
+        depth: HINGE_DRILLING_SPECS.fixingDepth
+      });
+      drillings.push({
+        type: 'FIXING',
+        hingeIndex: index,
+        x: HINGE_DRILLING_SPECS.cupDistanceFromEdge + 9.5,
+        y: yPos + halfSpacing,
+        diameter: HINGE_DRILLING_SPECS.fixingDiameter,
+        depth: HINGE_DRILLING_SPECS.fixingDepth
+      });
+    });
+
+    return {
+      enabled: true,
+      type: hingeConfig.type,
+      side: hingeConfig.side,
+      count: count,
+      positions: positions,
+      drillings: drillings
+    };
   }
 
   /**

@@ -74,7 +74,13 @@ function initDimensionInputs() {
 
   Object.keys(inputs).forEach(key => {
     if (inputs[key]) {
-      inputs[key].addEventListener('input', (e) => {
+      // Pré-sélectionner tout le texte au focus
+      inputs[key].addEventListener('focus', (e) => {
+        e.target.select();
+      });
+
+      // Valider seulement au blur ou Entrée (pas pendant la frappe)
+      inputs[key].addEventListener('change', (e) => {
         const value = parseFloat(e.target.value);
 
         // Mettre à jour le caisson sélectionné

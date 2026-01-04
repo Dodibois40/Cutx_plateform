@@ -152,6 +152,63 @@
       </div>
     </div>
 
+    <!-- ===== CHARNIERES ===== -->
+    <div class="config-group">
+      <div class="collapsible-header" onclick="toggleCollapsible('hinges-config')">
+        <h3>Charnieres</h3>
+        <span class="collapsible-icon" id="hinges-config-icon">▼</span>
+      </div>
+
+      <div class="collapsible-content" id="hinges-config-content">
+        <div class="checkbox-group">
+          <input type="checkbox" id="hinges-enabled" checked>
+          <label for="hinges-enabled">Afficher les charnieres</label>
+        </div>
+
+        <div class="input-group">
+          <label for="hinge-side">Cote de montage</label>
+          <select id="hinge-side" class="select-input">
+            <option value="left">Gauche (ouverture droite)</option>
+            <option value="right">Droite (ouverture gauche)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="hinge-count">Nombre de charnieres</label>
+          <select id="hinge-count" class="select-input">
+            <option value="auto">Auto (selon hauteur)</option>
+            <option value="2">2 charnieres</option>
+            <option value="3">3 charnieres</option>
+            <option value="4">4 charnieres</option>
+            <option value="5">5 charnieres</option>
+          </select>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="show-drillings" checked>
+          <label for="show-drillings">Afficher les percages</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="show-hinge-models" checked>
+          <label for="show-hinge-models">Afficher les modeles 3D</label>
+        </div>
+
+        <!-- Info percages -->
+        <div id="hinges-info" class="hinges-info">
+          <div class="hinges-info-title">Percages Blum CLIP top</div>
+          <div class="hinges-info-item">
+            <span class="drilling-color cup"></span>
+            Cup Ø35mm (prof. 13mm)
+          </div>
+          <div class="hinges-info-item">
+            <span class="drilling-color inserta"></span>
+            INSERTA Ø8mm (esp. 45.5mm)
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== ETAGERES ===== -->
     <div class="config-group">
       <div class="collapsible-header" onclick="toggleCollapsible('shelves-config')">

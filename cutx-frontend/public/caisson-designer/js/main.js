@@ -101,6 +101,9 @@ function initUIHandlers() {
   // Gestion des étagères
   initShelvesUI();
 
+  // Gestion des charnières
+  initHingesUI();
+
   console.log('✅ Gestionnaires UI initialisés');
 }
 
@@ -123,7 +126,13 @@ function initDimensionInputs() {
 
   Object.keys(inputs).forEach(key => {
     if (inputs[key]) {
-      inputs[key].addEventListener('input', (e) => {
+      // Pré-sélectionner tout le texte au focus
+      inputs[key].addEventListener('focus', (e) => {
+        e.target.select();
+      });
+
+      // Valider seulement au blur/Entrée (pas pendant la frappe)
+      inputs[key].addEventListener('change', (e) => {
         const value = parseFloat(e.target.value);
         if (caisson) {
           caisson.updateConfig({ [key]: value });
@@ -370,6 +379,120 @@ function updateShelvesUI() {
 }
 
 /**
+ * Initialise l'UI des charnières
+ */
+function initHingesUI() {
+  const hingesEnabled = document.getElementById('hinges-enabled');
+  const hingeSide = document.getElementById('hinge-side');
+  const hingeCount = document.getElementById('hinge-count');
+  const showDrillings = document.getElementById('show-drillings');
+  const showHingeModels = document.getElementById('show-hinge-models');
+
+  // Checkbox activation charnières
+  if (hingesEnabled) {
+    hingesEnabled.addEventListener('change', (e) => {
+      if (caisson) {
+        caisson.updateHingeConfig({ enabled: e.target.checked });
+        updateHingesUI();
+        updateCuttingList();
+      }
+    });
+  }
+
+  // Sélection du côté de montage
+  if (hingeSide) {
+    hingeSide.addEventListener('change', (e) => {
+      if (caisson) {
+        caisson.updateHingeConfig({ side: e.target.value });
+        updateHingesUI();
+      }
+    });
+  }
+
+  // Sélection du nombre de charnières
+  if (hingeCount) {
+    hingeCount.addEventListener('change', (e) => {
+      const value = e.target.value;
+      if (caisson) {
+        if (value === 'auto') {
+          // Mode auto: calcul selon la hauteur
+          const recommendedCount = caisson.getRecommendedHingeCount();
+          caisson.updateHingeConfig({ count: recommendedCount });
+        } else {
+          caisson.updateHingeConfig({ count: parseInt(value) });
+        }
+        updateHingesUI();
+        updateCuttingList();
+      }
+    });
+  }
+
+  // Checkbox affichage perçages
+  if (showDrillings) {
+    showDrillings.addEventListener('change', (e) => {
+      if (caisson) {
+        caisson.updateHingeConfig({ showDrillings: e.target.checked });
+      }
+    });
+  }
+
+  // Checkbox affichage modèles 3D
+  if (showHingeModels) {
+    showHingeModels.addEventListener('change', (e) => {
+      if (caisson) {
+        caisson.updateHingeConfig({ showHinges: e.target.checked });
+      }
+    });
+  }
+
+  // Mise à jour initiale
+  updateHingesUI();
+}
+
+/**
+ * Met à jour l'affichage des informations sur les charnières
+ */
+function updateHingesUI() {
+  if (!caisson) return;
+
+  const hingesInfo = caisson.getHingesInfo();
+  const hingesInfoPanel = document.getElementById('hinges-info');
+  const hingeCount = document.getElementById('hinge-count');
+
+  // Mettre à jour le panneau d'infos
+  if (hingesInfoPanel && hingesInfo) {
+    const sideText = hingesInfo.side === 'left' ? 'Gauche' : 'Droite';
+    const openingText = hingesInfo.side === 'left' ? 'vers la droite' : 'vers la gauche';
+
+    hingesInfoPanel.innerHTML = `
+      <div class="hinges-info-title">Configuration actuelle</div>
+      <div class="hinges-info-item">
+        <span class="hinges-info-label">Nombre:</span>
+        <span class="hinges-info-value">${hingesInfo.count} charnière${hingesInfo.count > 1 ? 's' : ''}</span>
+      </div>
+      <div class="hinges-info-item">
+        <span class="hinges-info-label">Côté:</span>
+        <span class="hinges-info-value">${sideText} (ouverture ${openingText})</span>
+      </div>
+      <div class="hinges-info-item">
+        <span class="hinges-info-label">Positions Y:</span>
+        <span class="hinges-info-value">${hingesInfo.positions.map(p => Math.round(p) + 'mm').join(', ')}</span>
+      </div>
+      <div class="hinges-info-item drilling-legend">
+        <span class="drilling-color cup"></span> Cup Ø35mm
+        <span class="drilling-color inserta"></span> INSERTA Ø8mm
+      </div>
+    `;
+  }
+
+  // Si mode auto, mettre à jour la valeur recommandée
+  if (hingeCount && hingeCount.value === 'auto') {
+    const recommendedCount = caisson.getRecommendedHingeCount();
+    // Ne pas changer la sélection, juste info
+  }
+}
+
+/**
  * Met à jour les inputs avec la configuration du caisson
  */
 function updateInputsFromCaisson() {
@@ -400,6 +523,20 @@ function updateInputsFromCaisson() {
   const showDoorCheckbox = document.getElementById('show-door');
   if (showDoorCheckbox) {
     showDoorCheckbox.checked = config.showDoor;
+  }
+
+  // Mettre à jour les contrôles des charnières
+  const hingeConfig = config.hingeConfig;
+  if (hingeConfig) {
+    const hingesEnabled = document.getElementById('hinges-enabled');
+    const hingeSide = document.getElementById('hinge-side');
+    const showDrillings = document.getElementById('show-drillings');
+    const showHingeModels = document.getElementById('show-hinge-models');
+
+    if (hingesEnabled) hingesEnabled.checked = hingeConfig.enabled;
+    if (hingeSide) hingeSide.value = hingeConfig.side;
+    if (showDrillings) showDrillings.checked = hingeConfig.showDrillings;
+    if (showHingeModels) showHingeModels.checked = hingeConfig.showHinges;
   }
 }
 
