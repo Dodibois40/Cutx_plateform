@@ -4,6 +4,8 @@ import { useState, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers, GripVertical } from 'lucide-react';
+import type { DraggableAttributes } from '@dnd-kit/core';
+import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { getRALByCode } from '@/lib/configurateur/ral-colors';
 import type { LignePrestationV3, TypeFinition, Brillance, FormePanneau, ChantsConfig, DimensionsLShape, DimensionsTriangle } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -27,8 +29,8 @@ import PopupFormeTriangle from './dialogs/PopupFormeTriangle';
 interface DragProps {
   dragRef?: (node: HTMLElement | null) => void;
   dragStyle?: React.CSSProperties;
-  dragAttributes?: Record<string, unknown>;
-  dragListeners?: Record<string, unknown>;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: SyntheticListenerMap;
   isDragging?: boolean;
 }
 

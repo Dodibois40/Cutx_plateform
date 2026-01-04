@@ -49,6 +49,7 @@ export function GroupesContainer({
   const {
     groupes,
     lignesNonAssignees,
+    lignesFinition,
     totauxParGroupe,
     totauxGlobaux,
     creerGroupe,
@@ -61,6 +62,9 @@ export function GroupesContainer({
     updateLigne,
     deplacerLigne,
     adapterEpaisseurLigne,
+    creerLigneFinitionGroupe,
+    supprimerLigneFinitionGroupe,
+    updateLigneFinition,
   } = useGroupes();
 
   // State pour le drag
@@ -221,9 +225,14 @@ export function GroupesContainer({
             prixTotalHT: 0,
           };
 
-          // Pour l'instant, pas de gestion des finitions dans le mode groupes
-          // Map vide - sera implémenté plus tard si nécessaire
+          // Filtrer les lignes de finition qui appartiennent aux lignes de ce groupe
+          const ligneIdsGroupe = new Set(groupe.lignes.map(l => l.id));
           const lignesFinitionGroupe = new Map<string, LignePrestationV3>();
+          lignesFinition.forEach((finition, panneauId) => {
+            if (ligneIdsGroupe.has(panneauId)) {
+              lignesFinitionGroupe.set(panneauId, finition);
+            }
+          });
 
           return (
             <GroupePanneau
@@ -239,13 +248,12 @@ export function GroupesContainer({
               onSupprimerLigne={supprimerLigne}
               onCopierLigne={onCopierLigne}
               onCreerLigneFinition={(lignePanneauId, typeFinition) => {
-                // TODO: Implémenter la gestion des finitions dans GroupesContext
-                console.log('Créer finition:', lignePanneauId, typeFinition);
+                creerLigneFinitionGroupe(lignePanneauId, typeFinition);
               }}
               onSupprimerLigneFinition={(lignePanneauId) => {
-                // TODO: Implémenter la gestion des finitions dans GroupesContext
-                console.log('Supprimer finition:', lignePanneauId);
+                supprimerLigneFinitionGroupe(lignePanneauId);
               }}
+              onUpdateLigneFinition={updateLigneFinition}
             />
           );
         })}
@@ -276,19 +284,28 @@ export function GroupesContainer({
         {/* Zone non assignée */}
         <ZoneNonAssignee
           lignes={lignesNonAssignees}
-          lignesFinition={new Map<string, LignePrestationV3>()}
+          lignesFinition={(() => {
+            // Filtrer les lignes de finition qui appartiennent aux lignes non assignées
+            const ligneIdsNonAssignees = new Set(lignesNonAssignees.map(l => l.id));
+            const lignesFinitionNonAssignees = new Map<string, LignePrestationV3>();
+            lignesFinition.forEach((finition, panneauId) => {
+              if (ligneIdsNonAssignees.has(panneauId)) {
+                lignesFinitionNonAssignees.set(panneauId, finition);
+              }
+            });
+            return lignesFinitionNonAssignees;
+          })()}
           onAjouterLigne={ajouterLigneNonAssignee}
           onUpdateLigne={(ligneId, updates) => updateLigne(ligneId, updates as Partial<LignePrestationV3>)}
           onSupprimerLigne={supprimerLigne}
           onCopierLigne={onCopierLigne}
           onCreerLigneFinition={(lignePanneauId, typeFinition) => {
-            // TODO: Implémenter la gestion des finitions dans GroupesContext
-            console.log('Créer finition:', lignePanneauId, typeFinition);
+            creerLigneFinitionGroupe(lignePanneauId, typeFinition);
           }}
           onSupprimerLigneFinition={(lignePanneauId) => {
-            // TODO: Implémenter la gestion des finitions dans GroupesContext
-            console.log('Supprimer finition:', lignePanneauId);
+            supprimerLigneFinitionGroupe(lignePanneauId);
           }}
+          onUpdateLigneFinition={updateLigneFinition}
         />
 
         <style jsx>{`

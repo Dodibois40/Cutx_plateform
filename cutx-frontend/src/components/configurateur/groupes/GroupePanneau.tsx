@@ -33,6 +33,7 @@ interface GroupePanneauProps {
   onCopierLigne: (ligneId: string) => void;
   onCreerLigneFinition: (lignePanneauId: string, typeFinition: TypeFinition) => void;
   onSupprimerLigneFinition: (lignePanneauId: string) => void;
+  onUpdateLigneFinition: (lignePanneauId: string, updates: Partial<LignePrestationV3>) => void;
 }
 
 export function GroupePanneau({
@@ -48,6 +49,7 @@ export function GroupePanneau({
   onCopierLigne,
   onCreerLigneFinition,
   onSupprimerLigneFinition,
+  onUpdateLigneFinition,
 }: GroupePanneauProps) {
   const t = useTranslations();
   const { setNodeRef, isOver } = useDroppable({
@@ -202,7 +204,7 @@ export function GroupePanneau({
                             groupeId={groupe.id}
                             index={index}
                             onUpdate={(updates) => onUpdateLigne(ligne.id, updates)}
-                            onUpdateFinition={ligneFinition ? (updates) => onUpdateLigne(ligneFinition.id, updates) : undefined}
+                            onUpdateFinition={ligneFinition ? (updates) => onUpdateLigneFinition(ligne.id, updates) : undefined}
                             onSupprimer={() => onSupprimerLigne(ligne.id)}
                             onCopier={() => onCopierLigne(ligne.id)}
                             onCreerFinition={(typeFinition) => onCreerLigneFinition(ligne.id, typeFinition)}

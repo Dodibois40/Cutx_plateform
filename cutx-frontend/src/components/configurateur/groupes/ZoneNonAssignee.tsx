@@ -25,6 +25,7 @@ interface ZoneNonAssigneeProps {
   onCopierLigne: (ligneId: string) => void;
   onCreerLigneFinition: (lignePanneauId: string, typeFinition: TypeFinition) => void;
   onSupprimerLigneFinition: (lignePanneauId: string) => void;
+  onUpdateLigneFinition: (lignePanneauId: string, updates: Partial<LignePrestationV3>) => void;
 }
 
 export function ZoneNonAssignee({
@@ -36,6 +37,7 @@ export function ZoneNonAssignee({
   onCopierLigne,
   onCreerLigneFinition,
   onSupprimerLigneFinition,
+  onUpdateLigneFinition,
 }: ZoneNonAssigneeProps) {
   const t = useTranslations();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -142,7 +144,7 @@ export function ZoneNonAssignee({
                             groupeId={null}
                             index={index}
                             onUpdate={(updates) => onUpdateLigne(ligne.id, updates)}
-                            onUpdateFinition={ligneFinition ? (updates) => onUpdateLigne(ligneFinition.id, updates) : undefined}
+                            onUpdateFinition={ligneFinition ? (updates) => onUpdateLigneFinition(ligne.id, updates) : undefined}
                             onSupprimer={() => onSupprimerLigne(ligne.id)}
                             onCopier={() => onCopierLigne(ligne.id)}
                             onCreerFinition={(typeFinition) => onCreerLigneFinition(ligne.id, typeFinition)}
