@@ -12,6 +12,7 @@
     "importExcel": "Import Excel",
     "importing": "Importing...",
     "spreadsheetMode": "Spreadsheet",
+    "groupsMode": "Groups",
     "perPanel": "/panel",
     "perM2": "/sq.m",
     "createCaisson": "Configure a cabinet",
@@ -213,5 +214,40 @@
   },
   "units": {
     "euroPerM2": "EUR/sq.m"
+  },
+  "import": {
+    "dxf": {
+      "button": "DXF",
+      "importing": "Importing...",
+      "success": "{count} panel(s) imported from DXF file",
+      "error": "Error importing DXF file",
+      "noPanels": "No panels found in DXF file",
+      "warnings": "Import with warnings"
+    }
+  },
+  "dxf": {
+    "popup": {
+      "title": "DXF Details",
+      "dimensions": "Dimensions",
+      "surface": "Surface",
+      "perimeter": "Perimeter",
+      "drillings": "Drillings",
+      "holes": "{count} hole(s)",
+      "noHoles": "None",
+      "layer": "Layer",
+      "project": "Project",
+      "cabinet": "Cabinet",
+      "creator": "Creator",
+      "quantity": "Quantity",
+      "geometryStats": "Geometry",
+      "lines": "lines",
+      "circles": "circles",
+      "arcs": "arcs",
+      "splines": "splines",
+      "dxfInfo": "DXF Information"
+    },
+    "preview": {
+      "clickToView": "Click to view details"
+    }
   }
 }

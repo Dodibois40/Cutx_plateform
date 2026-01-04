@@ -9,6 +9,8 @@ import { OrbitControls, PerspectiveCamera, Environment, Text } from '@react-thre
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import type { ConfigCaisson, PanneauCalcule } from '@/lib/caissons/types';
+import type { TypeEmbaseBlum } from '@/lib/caissons/blum-hardware';
+import PercagesCharnieres3D from './HingeModel3D';
 
 // Facteur d'echelle (1mm = 0.001 unite 3D)
 const SCALE = 0.001;
@@ -135,10 +137,20 @@ interface CaissonMeshProps {
   showDimensions?: boolean;
   showFacade?: boolean;
   showDrillings?: boolean;
+  showHingeDrillings?: boolean;
+  typeEmbase?: TypeEmbaseBlum;
 }
 
 // Composant principal du caisson
-function CaissonMesh({ config, panneaux, showDimensions = true, showFacade = true, showDrillings = false }: CaissonMeshProps) {
+function CaissonMesh({
+  config,
+  panneaux,
+  showDimensions = true,
+  showFacade = true,
+  showDrillings = false,
+  showHingeDrillings = false,
+  typeEmbase = 'EXPANDO_0mm',
+}: CaissonMeshProps) {
   const groupRef = useRef<THREE.Group>(null);
 
   // Convertir les dimensions en unites 3D
@@ -286,6 +298,16 @@ function CaissonMesh({ config, panneaux, showDimensions = true, showFacade = tru
         </>
       )}
 
+      {/* Percages charnieres (cups, INSERTA, embases) */}
+      {showHingeDrillings && config.avecFacade && (
+        <PercagesCharnieres3D
+          config={config}
+          typeEmbase={typeEmbase}
+          showFacadeDrillings={true}
+          showCoteDrillings={true}
+        />
+      )}
+
       {/* Affichage des dimensions */}
       {showDimensions && (
         <>
@@ -335,6 +357,8 @@ interface CaissonPreview3DProps {
   showDimensions?: boolean;
   showFacade?: boolean;
   showDrillings?: boolean;
+  showHingeDrillings?: boolean;
+  typeEmbase?: TypeEmbaseBlum;
   className?: string;
 }
 
@@ -344,6 +368,8 @@ export default function CaissonPreview3D({
   showDimensions = true,
   showFacade = true,
   showDrillings = false,
+  showHingeDrillings = false,
+  typeEmbase = 'EXPANDO_0mm',
   className = '',
 }: CaissonPreview3DProps) {
   // Calculer la distance de camera en fonction de la taille du caisson
@@ -397,6 +423,8 @@ export default function CaissonPreview3D({
           showDimensions={showDimensions}
           showFacade={showFacade}
           showDrillings={showDrillings}
+          showHingeDrillings={showHingeDrillings}
+          typeEmbase={typeEmbase}
         />
       </Canvas>
 
@@ -421,6 +449,22 @@ export default function CaissonPreview3D({
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COULEURS.drilling }} />
             <span>Percages System 32</span>
           </div>
+        )}
+        {showHingeDrillings && config.avecFacade && (
+          <>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#e53e3e' }} />
+              <span>Cup 35mm</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3182ce' }} />
+              <span>INSERTA 8mm</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#38a169' }} />
+              <span>Embase {typeEmbase.replace('_', ' ')}</span>
+            </div>
+          </>
         )}
       </div>
     </div>

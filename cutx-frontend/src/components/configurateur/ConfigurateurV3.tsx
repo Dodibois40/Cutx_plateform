@@ -2,9 +2,9 @@
 
 import '@/app/styles/cutx.css';
 
+import { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { Plus, AlertTriangle, CheckCircle, XCircle, Tag, Lightbulb, Save, RotateCcw, Info } from 'lucide-react';
-import { REGLES } from '@/lib/configurateur/constants';
+import { Plus, AlertTriangle, CheckCircle, XCircle, Tag, Lightbulb, Save, RotateCcw } from 'lucide-react';
 import { validerLigne } from '@/lib/configurateur/validation';
 import {
   ConfigurateurProvider,
@@ -12,14 +12,27 @@ import {
   type DevisSubmitData,
   type InitialData,
 } from '@/contexts/ConfigurateurContext';
+import { GroupesProvider, useGroupes } from '@/contexts/GroupesContext';
 import ConfigurateurHeader from './ConfigurateurHeader';
 import TableauPrestations from './TableauPrestations';
+import PopupMulticouche from './PopupMulticouche';
+import PopupSelectionPanneau from './PopupSelectionPanneau';
+import { GroupesContainer } from './groupes';
 import RecapitulatifTotal from './recap/RecapitulatifTotal';
 import RecapTarifsDecoupe from './recap/RecapTarifsDecoupe';
 import ModalCopie from './dialogs/ModalCopie';
 import ModalEtiquettes from './dialogs/ModalEtiquettes';
 import WelcomeModal from './WelcomeModal';
 import { PopupOptimiseur } from './optimiseur';
+import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { ProduitCatalogue } from '@/lib/catalogues';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 export type { DevisSubmitData, InitialData };
 
@@ -42,13 +55,17 @@ export default function ConfigurateurV3(props: ConfigurateurV3Props) {
       devisId={props.devisId}
       isEditing={props.isEditing}
     >
-      <ConfigurateurContent />
+      <GroupesProvider>
+        <ConfigurateurContent />
+      </GroupesProvider>
     </ConfigurateurProvider>
   );
 }
 
 function ConfigurateurContent() {
   const t = useTranslations();
+
+  // Context configurateur classique
   const {
     referenceChantier,
     setReferenceChantier,
@@ -85,11 +102,61 @@ function ConfigurateurContent() {
     handleApplyToColumn,
     handleClearSave,
     handleImportExcel,
+    handleImportDxf,
     handleAjouterAuPanier,
     isClientMode,
     isEditing,
     onBack,
   } = useConfigurateur();
+
+  // Context groupes
+  const {
+    modeGroupes,
+    setModeGroupes,
+    groupes,
+    lignesNonAssignees,
+    totauxGlobaux,
+    hasLignesNonAssignees,
+    ajouterLigneNonAssignee,
+    supprimerLigne: supprimerLigneGroupe,
+    updateLigne: updateLigneGroupe,
+  } = useGroupes();
+
+  // State pour le sélecteur de panneau (mode groupes)
+  const [selecteurPanneauOpen, setSelecteurPanneauOpen] = useState(false);
+  const [selecteurPanneauCallback, setSelecteurPanneauCallback] = useState<((p: PanneauCatalogue) => void) | null>(null);
+
+  // State pour le popup multicouche (mode groupes)
+  const [multicoucheGroupesOpen, setMulticoucheGroupesOpen] = useState(false);
+
+  // Handler pour ouvrir le sélecteur de panneau (mode groupes)
+  const handleSelectPanneauGroupes = useCallback((callback: (panneau: PanneauCatalogue) => void) => {
+    setSelecteurPanneauCallback(() => callback);
+    setSelecteurPanneauOpen(true);
+  }, []);
+
+  // Handler pour la sélection d'un panneau (mode groupes)
+  const handlePanneauSelected = useCallback((panneau: PanneauCatalogue) => {
+    if (selecteurPanneauCallback) {
+      selecteurPanneauCallback(panneau);
+    }
+    setSelecteurPanneauOpen(false);
+    setSelecteurPanneauCallback(null);
+  }, [selecteurPanneauCallback]);
+
+  // Handler pour copier une ligne (mode groupes) - utilise le même modal
+  const handleCopierLigneGroupes = useCallback((ligneId: string) => {
+    // Trouver la ligne dans les groupes ou non assignées
+    const allLignes = [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees];
+    const ligne = allLignes.find(l => l.id === ligneId);
+    if (ligne) {
+      setModalCopie({
+        open: true,
+        ligneSource: ligne,
+        nouvelleReference: '',
+      });
+    }
+  }, [groupes, lignesNonAssignees, setModalCopie]);
 
   return (
     <div className="configurateur">
@@ -98,6 +165,7 @@ function ConfigurateurContent() {
         referenceChantier={referenceChantier}
         onReferenceChange={setReferenceChantier}
         onImportExcel={handleImportExcel}
+        onImportDxf={handleImportDxf}
         isImporting={isImporting}
         isClientMode={isClientMode}
         onBack={onBack}
@@ -106,6 +174,9 @@ function ConfigurateurContent() {
         onSelectPanneau={setPanneauGlobal}
         panneauMulticouche={panneauMulticouche}
         onSelectMulticouche={setPanneauMulticouche}
+        // Props pour le toggle mode
+        modeGroupes={modeGroupes}
+        onToggleMode={() => setModeGroupes(!modeGroupes)}
       />
 
       {/* Toast Notification */}
@@ -140,37 +211,50 @@ function ConfigurateurContent() {
         </div>
       )}
 
-      {/* Info Banner - Minimum requirements */}
-      <div className="info-banner">
-        <Info size={14} />
-        <span>
-          {t('configurateur.summary.orderMinimum', { surface: REGLES.SURFACE_MINIMUM, amount: REGLES.MINIMUM_COMMANDE_HT })}
-        </span>
-      </div>
+      {/* Warning si lignes non assignées (mode groupes) */}
+      {modeGroupes && hasLignesNonAssignees && (
+        <div className="warning-banner">
+          <AlertTriangle size={14} />
+          <span>
+            Certaines lignes ne sont pas assignées à un panneau. Glissez-les vers un groupe.
+          </span>
+        </div>
+      )}
 
-      {/* Data Table */}
+      {/* Data Table ou Groupes selon le mode */}
       <div className="table-section">
-        <TableauPrestations
-          lignes={lignes}
-          panneauGlobal={panneauGlobal}
-          panneauMulticouche={panneauMulticouche}
-          onUpdateLigne={handleUpdateLigne}
-          onSupprimerLigne={handleSupprimerLigne}
-          onCopierLigne={handleCopierLigne}
-          onCreerLigneFinition={handleCreerLigneFinition}
-          onSupprimerLigneFinition={handleSupprimerLigneFinition}
-          onApplyToColumn={handleApplyToColumn}
-          highlightedColumn={highlightedColumn}
-        />
+        {modeGroupes ? (
+          <GroupesContainer
+            panneauxCatalogue={panneauxCatalogue}
+            onSelectPanneau={handleSelectPanneauGroupes}
+            onOpenMulticouche={() => setMulticoucheGroupesOpen(true)}
+            onCopierLigne={handleCopierLigneGroupes}
+          />
+        ) : (
+          <TableauPrestations
+            lignes={lignes}
+            panneauGlobal={panneauGlobal}
+            panneauMulticouche={panneauMulticouche}
+            onUpdateLigne={handleUpdateLigne}
+            onSupprimerLigne={handleSupprimerLigne}
+            onCopierLigne={handleCopierLigne}
+            onCreerLigneFinition={handleCreerLigneFinition}
+            onSupprimerLigneFinition={handleSupprimerLigneFinition}
+            onApplyToColumn={handleApplyToColumn}
+            highlightedColumn={highlightedColumn}
+          />
+        )}
       </div>
 
       {/* Action Bar */}
       <div className="action-bar">
         <div className="action-bar-left">
-          <button onClick={handleAjouterLigne} className="cx-btn cx-btn--accent-ghost">
-            <Plus size={16} />
-            <span>{t('configurateur.lines.addLine')}</span>
-          </button>
+          {!modeGroupes && (
+            <button onClick={handleAjouterLigne} className="cx-btn cx-btn--accent-ghost">
+              <Plus size={16} />
+              <span>{t('configurateur.lines.addLine')}</span>
+            </button>
+          )}
 
           <button
             onClick={() => setModalEtiquettes(true)}
@@ -213,7 +297,7 @@ function ConfigurateurContent() {
       </div>
 
       {/* Pricing Summary */}
-      {(tarifsDecoupeChants.decoupe || tarifsDecoupeChants.chants) && (
+      {!modeGroupes && (tarifsDecoupeChants.decoupe || tarifsDecoupeChants.chants) && (
         <div className="pricing-section">
           <RecapTarifsDecoupe
             traitsScie={tarifsDecoupeChants.decoupe ? {
@@ -235,7 +319,7 @@ function ConfigurateurContent() {
       )}
 
       {/* Validation Errors */}
-      {validation.erreurs.length > 0 && (
+      {!modeGroupes && validation.erreurs.length > 0 && (
         <div className="validation-section">
           <div className="validation-banner">
             <div className="validation-header">
@@ -253,18 +337,18 @@ function ConfigurateurContent() {
 
       {/* Sticky Footer - Total */}
       <RecapitulatifTotal
-        totalHT={totaux.totalHT}
-        totalTVA={totaux.totalTVA}
-        totalTTC={totaux.totalTTC}
-        totalFournitureHT={totaux.totalFournitureHT}
-        totalPrestationHT={totaux.totalPrestationHT}
-        isValid={validation.isValid}
+        totalHT={modeGroupes ? totauxGlobaux.prixTotalHT : totaux.totalHT}
+        totalTVA={modeGroupes ? totauxGlobaux.prixTotalHT * 0.2 : totaux.totalTVA}
+        totalTTC={modeGroupes ? totauxGlobaux.prixTotalTTC : totaux.totalTTC}
+        totalFournitureHT={modeGroupes ? 0 : totaux.totalFournitureHT}
+        totalPrestationHT={modeGroupes ? totauxGlobaux.prixTotalHT : totaux.totalPrestationHT}
+        isValid={modeGroupes ? true : validation.isValid}
         onAjouterAuPanier={handleAjouterAuPanier}
-        nombrePieces={lignes.filter(l => l.typeLigne === 'panneau').length}
-        surfaceTotale={lignes.reduce((acc, l) => acc + ((l.surfaceM2 || 0) * (l.nombreFaces || 1)), 0)}
-        metresLineairesChants={lignes.reduce((acc, l) => acc + (l.metresLineairesChants || 0), 0)}
-        lignesCompletes={lignes.filter(l => validerLigne(l).isValid).length}
-        totalLignes={lignes.filter(l => l.typeLigne === 'panneau').length}
+        nombrePieces={modeGroupes ? totauxGlobaux.nbLignesTotal : lignes.filter(l => l.typeLigne === 'panneau').length}
+        surfaceTotale={modeGroupes ? totauxGlobaux.surfaceTotaleM2 : lignes.reduce((acc, l) => acc + ((l.surfaceM2 || 0) * (l.nombreFaces || 1)), 0)}
+        metresLineairesChants={modeGroupes ? 0 : lignes.reduce((acc, l) => acc + (l.metresLineairesChants || 0), 0)}
+        lignesCompletes={modeGroupes ? totauxGlobaux.nbLignesTotal : lignes.filter(l => validerLigne(l).isValid).length}
+        totalLignes={modeGroupes ? totauxGlobaux.nbLignesTotal : lignes.filter(l => l.typeLigne === 'panneau').length}
         isEditing={isEditing}
         onOpenOptimiseur={() => setShowOptimiseur(true)}
         panneauGlobal={panneauGlobal}
@@ -283,7 +367,7 @@ function ConfigurateurContent() {
       <ModalEtiquettes
         open={modalEtiquettes}
         referenceChantier={referenceChantier}
-        lignes={lignes}
+        lignes={modeGroupes ? [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees] : lignes}
         onClose={() => setModalEtiquettes(false)}
       />
 
@@ -295,9 +379,56 @@ function ConfigurateurContent() {
       <PopupOptimiseur
         open={showOptimiseur}
         onClose={() => setShowOptimiseur(false)}
-        lignes={lignes}
+        lignes={modeGroupes ? [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees] : lignes}
         panneauxCatalogue={panneauxCatalogue}
         panneauGlobal={panneauGlobal}
+      />
+
+      {/* Popup sélecteur de panneau (mode groupes) - Utilise le vrai catalogue */}
+      <PopupSelectionPanneau
+        open={selecteurPanneauOpen}
+        panneauxCatalogue={panneauxCatalogue}
+        selectedPanneauId={null}
+        epaisseurActuelle={19}
+        onSelect={(panneau) => {
+          handlePanneauSelected(panneau);
+        }}
+        onSelectCatalogue={(produit: ProduitCatalogue) => {
+          // Conversion ProduitCatalogue -> PanneauCatalogue
+          const produitAvecId = produit as ProduitCatalogue & { id: string };
+          const panneau: PanneauCatalogue = {
+            id: produitAvecId.id || produit.reference,
+            nom: `${produit.nom} (${produit.reference})`,
+            categorie: 'agglo_plaque' as const,
+            essence: null,
+            epaisseurs: produit.epaisseur ? [produit.epaisseur] : [19],
+            prixM2: produit.epaisseur
+              ? { [produit.epaisseur.toString()]: produit.prixVenteM2 || produit.prixAchatM2 || 0 }
+              : { '19': produit.prixVenteM2 || produit.prixAchatM2 || 0 },
+            fournisseur: produit.marque || 'BOUNEY',
+            disponible: produit.stock === 'EN STOCK',
+            description: `${produit.marque} - ${produit.type}`,
+            ordre: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            imageUrl: produit.imageUrl,
+          };
+          handlePanneauSelected(panneau);
+        }}
+        onClose={() => setSelecteurPanneauOpen(false)}
+      />
+
+      {/* Popup Multicouche (mode groupes) */}
+      <PopupMulticouche
+        open={multicoucheGroupesOpen}
+        panneauxCatalogue={panneauxCatalogue}
+        panneauMulticouche={null}
+        onSave={(panneau) => {
+          // TODO: Créer un groupe avec ce panneau multicouche
+          console.log('Panneau multicouche créé:', panneau);
+          setMulticoucheGroupesOpen(false);
+        }}
+        onClose={() => setMulticoucheGroupesOpen(false)}
       />
 
       <style jsx>{`
@@ -305,6 +436,22 @@ function ConfigurateurContent() {
           min-height: 100vh;
           padding-bottom: 100px;
           background: var(--cx-surface-0);
+        }
+
+        /* Warning Banner */
+        .warning-banner {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 24px;
+          font-size: var(--cx-text-sm);
+          color: #f59e0b;
+          background: rgba(245, 158, 11, 0.1);
+          border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .warning-banner svg {
+          flex-shrink: 0;
         }
 
         /* Toast */
@@ -383,21 +530,6 @@ function ConfigurateurContent() {
         .toast-close:hover {
           background: rgba(255, 255, 255, 0.1);
           color: var(--cx-text-primary);
-        }
-
-        /* Info Banner */
-        .info-banner {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 24px;
-          font-size: var(--cx-text-sm);
-          color: var(--cx-text-tertiary);
-        }
-
-        .info-banner svg {
-          flex-shrink: 0;
-          color: var(--cx-text-muted);
         }
 
         /* Table Section */

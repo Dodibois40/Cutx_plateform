@@ -3,7 +3,7 @@
 import { useState, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers } from 'lucide-react';
+import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers, GripVertical } from 'lucide-react';
 import { getRALByCode } from '@/lib/configurateur/ral-colors';
 import type { LignePrestationV3, TypeFinition, Brillance, FormePanneau, ChantsConfig, DimensionsLShape, DimensionsTriangle } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -23,7 +23,16 @@ import PopupEnConstruction from './dialogs/PopupEnConstruction';
 import PopupFormePentagon from './dialogs/PopupFormePentagon';
 import PopupFormeTriangle from './dialogs/PopupFormeTriangle';
 
-interface LignePanneauProps {
+// Props pour le drag & drop (optionnelles)
+interface DragProps {
+  dragRef?: (node: HTMLElement | null) => void;
+  dragStyle?: React.CSSProperties;
+  dragAttributes?: Record<string, unknown>;
+  dragListeners?: Record<string, unknown>;
+  isDragging?: boolean;
+}
+
+interface LignePanneauProps extends DragProps {
   ligne: LignePrestationV3;
   ligneFinition: LignePrestationV3 | null;
   panneauGlobal: PanneauCatalogue | null;
@@ -36,6 +45,7 @@ interface LignePanneauProps {
   onCreerFinition: (typeFinition: TypeFinition) => void;
   onSupprimerFinition: () => void;
   canDelete: boolean;
+  hidePanelColumn?: boolean; // Masquer la colonne panneau (mode groupes)
 }
 
 export default function LignePanneau({
@@ -51,6 +61,13 @@ export default function LignePanneau({
   onCreerFinition,
   onSupprimerFinition,
   canDelete,
+  hidePanelColumn = false,
+  // Props de drag optionnelles
+  dragRef,
+  dragStyle,
+  dragAttributes,
+  dragListeners,
+  isDragging = false,
 }: LignePanneauProps) {
   const t = useTranslations();
   const [showEnConstruction, setShowEnConstruction] = useState<'usinages' | 'percage' | null>(null);
@@ -129,71 +146,91 @@ export default function LignePanneau({
   return (
     <Fragment>
       {/* === LIGNE PANNEAU === */}
-      <tr className="ligne-panneau">
-        {/* État */}
+      <tr
+        ref={dragRef}
+        style={dragStyle}
+        className={`ligne-panneau ${isDragging ? 'is-dragging' : ''}`}
+      >
+        {/* État + Grip de drag combinés */}
         <td className="cell-etat cell-group-id">
-          <span
-            ref={etatRef}
-            className="etat-indicateur"
-            style={{ color: indicateur.couleur }}
-            onMouseEnter={handleEtatMouseEnter}
-            onMouseLeave={() => setShowEtatTooltip(false)}
-          >
-            {indicateur.icone}
-          </span>
+          <div className="etat-grip-container">
+            {/* Grip de drag - visible uniquement si drag props sont présentes */}
+            {dragListeners ? (
+              <button
+                className="grip-handle"
+                style={{ color: indicateur.couleur }}
+                {...(dragAttributes as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+                {...(dragListeners as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+              >
+                <GripVertical size={16} />
+              </button>
+            ) : (
+              <span
+                ref={etatRef}
+                className="etat-indicateur"
+                style={{ color: indicateur.couleur }}
+                onMouseEnter={handleEtatMouseEnter}
+                onMouseLeave={() => setShowEtatTooltip(false)}
+              >
+                {indicateur.icone}
+              </span>
+            )}
+          </div>
           {etatTooltip}
         </td>
 
-        {/* Panneau - rappel visuel */}
-        <td className="cell-panneau cell-group-id">
-          {panneauMulticouche ? (
-            // Affichage Panneau Multicouche
-            <div className="panneau-rappel panneau-multicouche">
-              <div className="panneau-thumb-multicouche">
-                <Layers size={16} />
+        {/* Panneau - rappel visuel (masqué en mode groupes) */}
+        {!hidePanelColumn && (
+          <td className="cell-panneau cell-group-id">
+            {panneauMulticouche ? (
+              // Affichage Panneau Multicouche
+              <div className="panneau-rappel panneau-multicouche">
+                <div className="panneau-thumb-multicouche">
+                  <Layers size={16} />
+                </div>
+                <div className="panneau-infos">
+                  <span className="panneau-nom panneau-nom--multicouche">
+                    {t('configurateur.multilayer.layers', { count: panneauMulticouche.couches.length })}
+                  </span>
+                  <span className="panneau-details">
+                    {panneauMulticouche.epaisseurTotale.toFixed(1)}mm • {panneauMulticouche.modeCollage === 'fournisseur' ? t('configurateur.multilayer.supplier') : t('configurateur.multilayer.client')}
+                  </span>
+                  <span className="panneau-couches">
+                    {panneauMulticouche.couches.map((c, i) => (
+                      <span key={c.id} className="panneau-couche-mini" title={c.panneauNom || c.type}>
+                        {c.epaisseur}mm
+                        {i < panneauMulticouche.couches.length - 1 && ' + '}
+                      </span>
+                    ))}
+                  </span>
+                </div>
               </div>
-              <div className="panneau-infos">
-                <span className="panneau-nom panneau-nom--multicouche">
-                  {t('configurateur.multilayer.layers', { count: panneauMulticouche.couches.length })}
-                </span>
-                <span className="panneau-details">
-                  {panneauMulticouche.epaisseurTotale.toFixed(1)}mm • {panneauMulticouche.modeCollage === 'fournisseur' ? t('configurateur.multilayer.supplier') : t('configurateur.multilayer.client')}
-                </span>
-                <span className="panneau-couches">
-                  {panneauMulticouche.couches.map((c, i) => (
-                    <span key={c.id} className="panneau-couche-mini" title={c.panneauNom || c.type}>
-                      {c.epaisseur}mm
-                      {i < panneauMulticouche.couches.length - 1 && ' + '}
-                    </span>
-                  ))}
-                </span>
+            ) : panneauGlobal ? (
+              // Affichage Panneau Classique
+              <div className="panneau-rappel">
+                {panneauGlobal.imageUrl ? (
+                  <img
+                    src={panneauGlobal.imageUrl}
+                    alt={panneauGlobal.nom}
+                    className="panneau-thumb"
+                  />
+                ) : (
+                  <div className="panneau-thumb-placeholder" />
+                )}
+                <div className="panneau-infos">
+                  <span className="panneau-nom" title={panneauGlobal.nom}>
+                    {panneauGlobal.nom}
+                  </span>
+                  <span className="panneau-details">
+                    {panneauGlobal.epaisseurs.join(', ')}mm{panneauGlobal.fournisseur ? ` • ${panneauGlobal.fournisseur}` : ''}
+                  </span>
+                </div>
               </div>
-            </div>
-          ) : panneauGlobal ? (
-            // Affichage Panneau Classique
-            <div className="panneau-rappel">
-              {panneauGlobal.imageUrl ? (
-                <img
-                  src={panneauGlobal.imageUrl}
-                  alt={panneauGlobal.nom}
-                  className="panneau-thumb"
-                />
-              ) : (
-                <div className="panneau-thumb-placeholder" />
-              )}
-              <div className="panneau-infos">
-                <span className="panneau-nom" title={panneauGlobal.nom}>
-                  {panneauGlobal.nom}
-                </span>
-                <span className="panneau-details">
-                  {panneauGlobal.epaisseurs.join(', ')}mm{panneauGlobal.fournisseur ? ` • ${panneauGlobal.fournisseur}` : ''}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <span className="panneau-vide">{t('configurateur.lines.noPanel')}</span>
-          )}
-        </td>
+            ) : (
+              <span className="panneau-vide">{t('configurateur.lines.noPanel')}</span>
+            )}
+          </td>
+        )}
 
         {/* Référence */}
         <td className="cell-reference cell-group-id cell-group-end-sticky" title={t('configurateur.tooltips.reference')}>
@@ -896,6 +933,44 @@ export default function LignePanneau({
 
         .ligne-panneau:hover {
           background: var(--admin-bg-hover);
+        }
+
+        .ligne-panneau.is-dragging {
+          opacity: 0.5;
+          background: var(--cx-accent-subtle);
+        }
+
+        /* Container pour grip + état */
+        .etat-grip-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        /* Grip de drag avec couleur dynamique selon l'état */
+        .grip-handle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          background: transparent;
+          border: none;
+          border-radius: 4px;
+          cursor: grab;
+          transition: all 0.15s;
+          /* La couleur est définie inline via style={{ color: indicateur.couleur }} */
+        }
+
+        .grip-handle:hover {
+          background: rgba(255, 255, 255, 0.1);
+          transform: scale(1.1);
+        }
+
+        .grip-handle:active {
+          cursor: grabbing;
+          transform: scale(0.95);
         }
 
         .ligne-panneau td {

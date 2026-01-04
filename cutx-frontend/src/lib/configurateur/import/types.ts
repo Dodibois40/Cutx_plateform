@@ -1,5 +1,81 @@
-// Types pour l'import Excel
+// Types pour l'import Excel et DXF
 import type { Materiau } from '../types';
+
+// ═══════════════════════════════════════════════════════════════
+// TYPES DXF IMPORT
+// ═══════════════════════════════════════════════════════════════
+
+export interface DxfCircleInfo {
+  x: number;
+  y: number;
+  radius: number;
+  diameter: number;
+  layer: string;
+}
+
+export interface DxfPolylineInfo {
+  vertices: Array<{ x: number; y: number }>;
+  closed: boolean;
+  layer: string;
+}
+
+export interface DxfPanelGeometry {
+  polylines: DxfPolylineInfo[];
+  circles: DxfCircleInfo[];
+  arcsCount: number;
+  splinesCount: number;
+}
+
+export interface DxfTitleBlockData {
+  projet: string;
+  corpsMeuble: string;
+  quantite: number;
+  designation: string;
+  createur: string;
+  numeroPlan: string;
+}
+
+export interface DxfPanelExtracted {
+  reference: string;              // Depuis "Désignation" dans TitleBlock
+  layerPrefix: string;            // Ex: "Nouveau projet_Nouveau meuble_Panneau supérieur"
+  dimensions: {
+    longueur: number;             // mm
+    largeur: number;              // mm
+    epaisseur: number;            // mm (default 19 si non trouvé)
+  };
+  quantite: number;
+  geometry: DxfPanelGeometry;
+  titleBlockData: DxfTitleBlockData | null;
+  dxfData: string;                // Base64 encoded DXF section
+  surfaceM2: number;
+  perimetreM: number;
+  boundingBox: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    width: number;
+    height: number;
+  };
+}
+
+export interface DxfDonneesImportees {
+  sourceFileName: string;
+  panels: DxfPanelExtracted[];
+  projet: string;
+  corpsMeuble: string;
+}
+
+export interface DxfResultatImport {
+  success: boolean;
+  donnees?: DxfDonneesImportees;
+  erreur?: string;
+  avertissements: string[];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TYPES EXCEL IMPORT
+// ═══════════════════════════════════════════════════════════════
 
 export interface DonneesImportees {
   referenceChantier: string;

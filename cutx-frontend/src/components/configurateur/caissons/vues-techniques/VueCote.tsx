@@ -1,5 +1,5 @@
 // vues-techniques/VueCote.tsx
-// Vue de cote du caisson (Hauteur x Profondeur)
+// Vue de cote du caisson (Hauteur x Profondeur) avec percages embases
 
 import { useMemo } from 'react';
 import { CotationH, CotationV } from './CotationLine';
@@ -11,27 +11,50 @@ import {
   DASH_PATTERNS,
 } from './constants';
 import type { ConfigCaisson } from '@/lib/caissons/types';
+import type { TypeEmbaseBlum } from '@/lib/caissons/blum-hardware';
+import {
+  calculerTousPercagesCharnieres,
+  type PercageAbsolu,
+} from '@/lib/caissons/calcul-percages';
+
+// Couleurs specifiques percages embases
+const COULEURS_EMBASE = {
+  pilote: '#38a169',          // Vert pour trous pilotes 10mm
+  piloteFill: 'rgba(56, 161, 105, 0.3)',
+  vis: '#d69e2e',             // Or pour trous vis 5mm
+  visFill: 'rgba(214, 158, 46, 0.3)',
+};
 
 interface VueCoteProps {
   config: ConfigCaisson;
+  typeEmbase?: TypeEmbaseBlum;
   width?: number;
   height?: number;
   showDimensions?: boolean;
   showFond?: boolean;
+  showEmbaseDrillings?: boolean;
 }
 
 export default function VueCote({
   config,
+  typeEmbase = 'EXPANDO_0mm',
   width = 200,
   height = 300,
   showDimensions = true,
   showFond = true,
+  showEmbaseDrillings = true,
 }: VueCoteProps) {
   // Dimensions du caisson
   const H = config.hauteur;
   const P = config.profondeur;
   const ep = config.epaisseurStructure;
   const epFond = config.epaisseurFond;
+
+  // Calculer les percages embases
+  const percages = useMemo(() => {
+    if (!showEmbaseDrillings || !config.avecFacade) return null;
+    return calculerTousPercagesCharnieres(config, typeEmbase);
+  }, [config, typeEmbase, showEmbaseDrillings]);
 
   // Calculer l'echelle pour adapter le dessin
   const echelle = useMemo(() => {
@@ -204,6 +227,56 @@ export default function VueCote({
           />
         )}
 
+        {/* Percages embases */}
+        {showEmbaseDrillings && percages && (
+          <g>
+            {/* Obtenir les percages du cote concerne */}
+            {(config.positionCharniere === 'gauche'
+              ? percages.percages.coteGauche
+              : percages.percages.coteDroit
+            ).map((percage: PercageAbsolu) => {
+              // Convertir position: X = distance depuis bord arriere, Y depuis le bas
+              const svgX = percage.x * echelle;
+              const svgY = hEchelle - percage.y * echelle;
+              const rayon = (percage.diametre / 2) * echelle;
+              const isPilote = percage.type === 'pilote_10mm';
+
+              return (
+                <g key={percage.id}>
+                  {/* Cercle du percage */}
+                  <circle
+                    cx={svgX}
+                    cy={svgY}
+                    r={rayon}
+                    fill={isPilote ? COULEURS_EMBASE.piloteFill : COULEURS_EMBASE.visFill}
+                    stroke={isPilote ? COULEURS_EMBASE.pilote : COULEURS_EMBASE.vis}
+                    strokeWidth={STROKE_WIDTH.percage}
+                  />
+                  {/* Point central */}
+                  <circle
+                    cx={svgX}
+                    cy={svgY}
+                    r={1}
+                    fill={isPilote ? COULEURS_EMBASE.pilote : COULEURS_EMBASE.vis}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Ligne a 37mm du bord avant (ligne System32) */}
+            <line
+              x1={pEchelle - 37 * echelle}
+              y1={0}
+              x2={pEchelle - 37 * echelle}
+              y2={hEchelle}
+              stroke={COULEURS.lignePercage}
+              strokeWidth={0.5}
+              strokeDasharray="2,2"
+              opacity={0.5}
+            />
+          </g>
+        )}
+
         {/* Ligne d'axe centrale */}
         <line
           x1={pEchelle / 2}
@@ -287,7 +360,7 @@ export default function VueCote({
       )}
 
       {/* Legende */}
-      <g transform={`translate(10, ${height - 45})`}>
+      <g transform={`translate(10, ${height - 65})`}>
         {/* Fond */}
         <rect x={0} y={0} width={12} height={8} fill={COULEURS.fondFill} stroke={COULEURS.fondStroke} strokeWidth={0.5} />
         <text x={16} y={7} fontSize={FONT_SIZE.label - 1} fill={COULEURS.cotationText}>
@@ -303,7 +376,30 @@ export default function VueCote({
             </text>
           </>
         )}
+
+        {/* Percages embases */}
+        {showEmbaseDrillings && percages && (
+          <>
+            <circle cx={6} cy={35} r={4} fill={COULEURS_EMBASE.piloteFill} stroke={COULEURS_EMBASE.pilote} strokeWidth={0.5} />
+            <text x={16} y={38} fontSize={FONT_SIZE.label - 1} fill={COULEURS.cotationText}>
+              Embase ({typeEmbase.replace('_', ' ')})
+            </text>
+          </>
+        )}
       </g>
+
+      {/* Info cotation 37mm */}
+      {showEmbaseDrillings && percages && (
+        <text
+          x={width - 10}
+          y={height - 10}
+          textAnchor="end"
+          fontSize={FONT_SIZE.label - 2}
+          fill={COULEURS.annotation}
+        >
+          Ligne System32: 37mm du bord avant
+        </text>
+      )}
     </svg>
   );
 }

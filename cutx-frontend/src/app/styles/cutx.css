@@ -876,3 +876,78 @@ body {
 .blink-icon {
   animation: blink 1.5s ease-in-out infinite;
 }
+
+/* === CONFIGURATEUR DATA TABLE (shared styles) === */
+
+.cx-table-wrapper {
+  background: var(--cx-surface-1);
+  border: 1px solid var(--cx-border-subtle);
+  border-radius: var(--cx-radius-xl);
+  overflow: hidden;
+}
+
+.cx-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cx-data-table {
+  min-width: 1400px;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cx-data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 12px 16px;
+  font-size: var(--cx-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cx-text-tertiary);
+  background: var(--cx-surface-2);
+  border-bottom: 1px solid var(--cx-border-default);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Column widths */
+.cx-col-etat { width: 50px; text-align: center !important; }
+.cx-col-reference { width: 130px; }
+.cx-col-forme { width: 130px; }
+.cx-col-dimensions { width: 380px; }
+.cx-col-chants { width: 180px; }
+.cx-col-usinages { width: 80px; text-align: center !important; }
+.cx-col-percage { width: 70px; text-align: center !important; }
+.cx-col-finition { width: 150px; }
+.cx-col-prix { width: 100px; text-align: right !important; }
+.cx-col-actions { width: 100px; text-align: center !important; }
+
+/* Add line button (reusable) */
+.cx-add-ligne-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 14px;
+  font-size: var(--cx-text-sm);
+  font-weight: 500;
+  color: var(--cx-text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--cx-radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cx-add-ligne-btn:hover {
+  color: var(--cx-accent);
+  background: var(--cx-accent-subtle);
+}
+
+.cx-add-ligne-btn:active {
+  transform: scale(0.98);
+}

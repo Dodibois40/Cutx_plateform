@@ -1,17 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { X, Wrench, Plus, Minus, Trash2 } from 'lucide-react';
-import type { Usinage } from '@/lib/configurateur/types';
-import { USINAGES_OPTIONS } from '@/lib/configurateur/constants';
+import { createPortal } from 'react-dom';
+import { X, Wrench, Loader2, Plus, Trash2 } from 'lucide-react';
+import type { Usinage, UsinageTemplate, UsinageApplique } from '@/lib/configurateur/types';
+import { fetchUsinageTemplates, calculerPrixUsinage } from '@/lib/services/usinages-api';
 import { formaterPrix } from '@/lib/configurateur/calculs';
+import { UsinageGrid, UsinageConfigPanel, UsinageTechnicalSvg, UsinageImportButton } from './usinage';
 
 interface PopupUsinagesProps {
   open: boolean;
   usinages: Usinage[];
   onUpdate: (usinages: Usinage[]) => void;
   onClose: () => void;
+}
+
+interface ImportedFile {
+  data: string;
+  type: 'dxf' | 'dwg' | 'image';
+  filename: string;
 }
 
 export default function PopupUsinages({
@@ -22,69 +30,147 @@ export default function PopupUsinages({
 }: PopupUsinagesProps) {
   const t = useTranslations('dialogs.machining');
   const tCommon = useTranslations('common');
-  const [localUsinages, setLocalUsinages] = useState<Usinage[]>(usinages);
 
-  const handleAjouterUsinage = (option: typeof USINAGES_OPTIONS[number]) => {
-    const existing = localUsinages.find(u => u.type === option.type);
-    if (existing) {
-      // Incrémenter la quantité
-      setLocalUsinages(prev =>
-        prev.map(u =>
-          u.type === option.type ? { ...u, quantite: u.quantite + 1 } : u
-        )
-      );
-    } else {
-      // Ajouter un nouvel usinage
-      setLocalUsinages(prev => [
-        ...prev,
-        {
-          type: option.type,
-          description: option.label,
-          prixUnitaire: option.prix,
-          quantite: 1,
-        },
-      ]);
+  // Templates depuis l'API
+  const [templates, setTemplates] = useState<UsinageTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Selection et configuration
+  const [selectedTemplate, setSelectedTemplate] = useState<UsinageTemplate | null>(null);
+  const [configValues, setConfigValues] = useState<Record<string, number>>({});
+  const [quantite, setQuantite] = useState(1);
+  const [importedFile, setImportedFile] = useState<ImportedFile | null>(null);
+
+  // Usinages selectionnes (liste locale)
+  const [selectedUsinages, setSelectedUsinages] = useState<UsinageApplique[]>([]);
+
+  // Charger les templates au montage
+  useEffect(() => {
+    if (open) {
+      loadTemplates();
+      // Convertir les usinages existants en format UsinageApplique
+      convertExistingUsinages();
+    }
+  }, [open, usinages]);
+
+  const loadTemplates = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchUsinageTemplates();
+      setTemplates(data);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Erreur lors du chargement des usinages');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleModifierQuantite = (type: string, delta: number) => {
-    setLocalUsinages(prev =>
-      prev.map(u => {
-        if (u.type !== type) return u;
-        const newQte = Math.max(0, u.quantite + delta);
-        return { ...u, quantite: newQte };
-      }).filter(u => u.quantite > 0)
-    );
+  const convertExistingUsinages = () => {
+    // Convertir les anciens usinages au nouveau format
+    const converted: UsinageApplique[] = usinages.map((u) => ({
+      templateId: u.type,
+      templateNom: u.description,
+      templateIconSvg: '', // On ne l'a pas dans l'ancien format
+      configValues: {},
+      prixUnitaire: u.prixUnitaire,
+      quantite: u.quantite,
+      prixTotal: u.prixUnitaire * u.quantite,
+    }));
+    setSelectedUsinages(converted);
   };
 
-  const handleSupprimerUsinage = (type: string) => {
-    setLocalUsinages(prev => prev.filter(u => u.type !== type));
+  // Selectionner un template
+  const handleSelectTemplate = (template: UsinageTemplate) => {
+    setSelectedTemplate(template);
+    // Initialiser les valeurs par defaut
+    const defaultValues: Record<string, number> = {};
+    template.configSchema.forEach((param) => {
+      defaultValues[param.key] = param.defaultValue || 0;
+    });
+    setConfigValues(defaultValues);
+    setQuantite(1);
+    setImportedFile(null);
   };
 
+  // Modifier une valeur de configuration
+  const handleConfigChange = (key: string, value: number) => {
+    setConfigValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Prix calcule pour l'usinage en cours
+  const prixUsinage = useMemo(() => {
+    if (!selectedTemplate) return 0;
+    return calculerPrixUsinage(selectedTemplate, configValues, quantite);
+  }, [selectedTemplate, configValues, quantite]);
+
+  // Ajouter l'usinage configure
+  const handleAddUsinage = () => {
+    if (!selectedTemplate) return;
+
+    const newUsinage: UsinageApplique = {
+      templateId: selectedTemplate.id,
+      templateNom: selectedTemplate.nom,
+      templateIconSvg: selectedTemplate.iconSvg,
+      configValues: { ...configValues },
+      importedFile: importedFile || undefined,
+      prixUnitaire: selectedTemplate.priceHT,
+      quantite,
+      prixTotal: prixUsinage,
+    };
+
+    setSelectedUsinages((prev) => [...prev, newUsinage]);
+
+    // Reset
+    setSelectedTemplate(null);
+    setConfigValues({});
+    setQuantite(1);
+    setImportedFile(null);
+  };
+
+  // Supprimer un usinage
+  const handleRemoveUsinage = (index: number) => {
+    setSelectedUsinages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Total des usinages
+  const totalUsinages = useMemo(() => {
+    return selectedUsinages.reduce((sum, u) => sum + u.prixTotal, 0);
+  }, [selectedUsinages]);
+
+  // Valider
   const handleValider = () => {
-    onUpdate(localUsinages);
+    // Convertir au format Usinage pour compatibilite
+    const usinagesFinaux: Usinage[] = selectedUsinages.map((u) => ({
+      type: u.templateId,
+      description: u.templateNom,
+      prixUnitaire: u.prixUnitaire,
+      quantite: u.quantite,
+    }));
+    onUpdate(usinagesFinaux);
     onClose();
   };
 
+  // Annuler
   const handleAnnuler = () => {
-    setLocalUsinages(usinages);
+    setSelectedTemplate(null);
+    setConfigValues({});
+    setQuantite(1);
+    setImportedFile(null);
     onClose();
   };
-
-  const totalUsinages = localUsinages.reduce(
-    (sum, u) => sum + u.prixUnitaire * u.quantite,
-    0
-  );
 
   if (!open) return null;
 
-  return (
+  const modalContent = (
     <div className="popup-overlay" onClick={handleAnnuler}>
       <div className="popup-content" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="popup-header">
           <div className="header-title">
-            <Wrench size={20} style={{ color: 'var(--admin-ardoise)' }} />
+            <Wrench size={20} style={{ color: 'var(--admin-olive)' }} />
             <h3>{t('title')}</h3>
           </div>
           <button className="btn-close" onClick={handleAnnuler}>
@@ -92,76 +178,102 @@ export default function PopupUsinages({
           </button>
         </div>
 
-        {/* Body */}
+        {/* Body - Deux colonnes */}
         <div className="popup-body">
-          {/* Liste des options disponibles */}
-          <div className="options-section">
-            <h4>{t('availableOptions')}</h4>
-            <div className="options-list">
-              {USINAGES_OPTIONS.map(option => {
-                const current = localUsinages.find(u => u.type === option.type);
-                return (
-                  <div key={option.type} className="option-item">
-                    <div className="option-info">
-                      <span className="option-label">{option.label}</span>
-                      <span className="option-prix">
-                        {option.prix} EUR {t('perUnit')}
-                      </span>
-                    </div>
-                    <button
-                      className="btn-ajouter"
-                      onClick={() => handleAjouterUsinage(option)}
-                    >
-                      <Plus size={16} />
-                      {current && <span className="current-qty">{current.quantite}</span>}
-                    </button>
-                  </div>
-                );
-              })}
+          {loading ? (
+            <div className="loading-state">
+              <Loader2 size={32} className="spinner" />
+              <p>{t('loadingTemplates')}</p>
             </div>
-          </div>
+          ) : error ? (
+            <div className="error-state">
+              <p>{error}</p>
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="empty-state">
+              <p>{t('noTemplates')}</p>
+            </div>
+          ) : (
+            <div className="two-columns">
+              {/* Colonne gauche: Selection */}
+              <div className="column-left">
+                <h4>{t('selectUsinage')}</h4>
+                <UsinageGrid
+                  templates={templates}
+                  selectedId={selectedTemplate?.id || null}
+                  onSelect={handleSelectTemplate}
+                />
 
-          {/* Usinages sélectionnés */}
-          {localUsinages.length > 0 && (
+                <UsinageImportButton
+                  importedFile={importedFile}
+                  onImport={setImportedFile}
+                  onClear={() => setImportedFile(null)}
+                />
+              </div>
+
+              {/* Colonne droite: Configuration */}
+              <div className="column-right">
+                {selectedTemplate ? (
+                  <>
+                    <h4>{t('configureUsinage')}</h4>
+
+                    {/* Dessin technique */}
+                    <UsinageTechnicalSvg
+                      template={selectedTemplate}
+                      configValues={configValues}
+                    />
+
+                    {/* Panneau de configuration */}
+                    <UsinageConfigPanel
+                      template={selectedTemplate}
+                      values={configValues}
+                      quantite={quantite}
+                      onChange={handleConfigChange}
+                      onQuantiteChange={setQuantite}
+                    />
+
+                    {/* Prix et bouton ajouter */}
+                    <div className="add-section">
+                      <div className="price-preview">
+                        <span>Prix:</span>
+                        <span className="price-value">{formaterPrix(prixUsinage)}</span>
+                      </div>
+                      <button className="btn-add" onClick={handleAddUsinage}>
+                        <Plus size={18} />
+                        Ajouter
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="placeholder">
+                    <p>Selectionnez un usinage pour le configurer</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Liste des usinages selectionnes */}
+          {selectedUsinages.length > 0 && (
             <div className="selection-section">
               <h4>{t('currentSelection')}</h4>
               <div className="selection-list">
-                {localUsinages.map(usinage => (
-                  <div key={usinage.type} className="selection-item">
+                {selectedUsinages.map((usinage, index) => (
+                  <div key={index} className="selection-item">
                     <div className="selection-info">
-                      <span className="selection-label">{usinage.description}</span>
+                      <span className="selection-label">{usinage.templateNom}</span>
                       <span className="selection-detail">
-                        {usinage.prixUnitaire}€ × {usinage.quantite} = {formaterPrix(usinage.prixUnitaire * usinage.quantite)}
+                        x{usinage.quantite} = {formaterPrix(usinage.prixTotal)}
                       </span>
                     </div>
-                    <div className="selection-controls">
-                      <button
-                        className="btn-qty"
-                        onClick={() => handleModifierQuantite(usinage.type, -1)}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="qty-value">{usinage.quantite}</span>
-                      <button
-                        className="btn-qty"
-                        onClick={() => handleModifierQuantite(usinage.type, 1)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                      <button
-                        className="btn-delete"
-                        onClick={() => handleSupprimerUsinage(usinage.type)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    <button
+                      className="btn-remove"
+                      onClick={() => handleRemoveUsinage(index)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
-              </div>
-
-              <div className="selection-total">
-                <span>{t('totalMachining')}</span>
-                <span className="total-value">{formaterPrix(totalUsinages)}</span>
               </div>
             </div>
           )}
@@ -169,12 +281,18 @@ export default function PopupUsinages({
 
         {/* Footer */}
         <div className="popup-footer">
-          <button className="btn-cancel" onClick={handleAnnuler}>
-            {tCommon('actions.cancel')}
-          </button>
-          <button className="btn-confirm" onClick={handleValider}>
-            {tCommon('actions.validate')}
-          </button>
+          <div className="footer-total">
+            <span>{t('totalMachining')}</span>
+            <span className="total-value">{formaterPrix(totalUsinages)}</span>
+          </div>
+          <div className="footer-actions">
+            <button className="btn-cancel" onClick={handleAnnuler}>
+              {tCommon('actions.cancel')}
+            </button>
+            <button className="btn-confirm" onClick={handleValider}>
+              {tCommon('actions.validate')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -197,12 +315,12 @@ export default function PopupUsinages({
         }
 
         .popup-content {
-          background: var(--admin-bg-card);
-          border: 1px solid var(--admin-border-default);
+          background: var(--admin-bg-card, white);
+          border: 1px solid var(--admin-border-default, #e0e0e0);
           border-radius: 16px;
           width: 100%;
-          max-width: 520px;
-          max-height: 80vh;
+          max-width: 900px;
+          max-height: 90vh;
           margin: 1rem;
           display: flex;
           flex-direction: column;
@@ -226,7 +344,7 @@ export default function PopupUsinages({
           align-items: center;
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--admin-border-subtle);
+          border-bottom: 1px solid var(--admin-border-subtle, #f0f0f0);
           flex-shrink: 0;
         }
 
@@ -239,7 +357,7 @@ export default function PopupUsinages({
         .header-title h3 {
           font-size: 1.125rem;
           font-weight: 700;
-          color: var(--admin-text-primary);
+          color: var(--admin-text-primary, #1a1a1a);
           margin: 0;
         }
 
@@ -252,14 +370,14 @@ export default function PopupUsinages({
           background: transparent;
           border: none;
           border-radius: 8px;
-          color: var(--admin-text-tertiary);
+          color: var(--admin-text-tertiary, #999);
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .btn-close:hover {
-          background: var(--admin-bg-hover);
-          color: var(--admin-text-primary);
+          background: var(--admin-bg-hover, #f0f0f0);
+          color: var(--admin-text-primary, #1a1a1a);
         }
 
         .popup-body {
@@ -268,80 +386,119 @@ export default function PopupUsinages({
           padding: 1.5rem;
         }
 
-        .options-section,
-        .selection-section {
-          margin-bottom: 1.5rem;
-        }
-
-        .options-section h4,
-        .selection-section h4 {
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: var(--admin-text-tertiary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin: 0 0 0.75rem 0;
-        }
-
-        .options-list {
+        .loading-state,
+        .error-state,
+        .empty-state {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem;
+          color: var(--admin-text-secondary, #666);
         }
 
-        .option-item {
+        .spinner {
+          animation: spin 1s linear infinite;
+          margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .two-columns {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1.5rem;
+        }
+
+        .column-left,
+        .column-right {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .column-left h4,
+        .column-right h4 {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--admin-text-tertiary, #999);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin: 0;
+        }
+
+        .placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem;
+          background: var(--admin-bg-tertiary, #f5f5f0);
+          border: 2px dashed var(--admin-border-default, #e0e0e0);
+          border-radius: 12px;
+          color: var(--admin-text-muted, #999);
+          text-align: center;
+          min-height: 200px;
+        }
+
+        .add-section {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0.75rem 1rem;
-          background: var(--admin-bg-tertiary);
-          border: 1px solid var(--admin-border-subtle);
+          padding: 1rem;
+          background: var(--admin-olive-bg, #f0f2e8);
           border-radius: 8px;
-          transition: all 0.2s;
+          margin-top: 0.5rem;
         }
 
-        .option-item:hover {
-          border-color: var(--admin-ardoise-border);
-        }
-
-        .option-info {
+        .price-preview {
           display: flex;
-          flex-direction: column;
-          gap: 0.125rem;
-        }
-
-        .option-label {
+          align-items: baseline;
+          gap: 0.5rem;
           font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--admin-text-primary);
+          color: var(--admin-text-secondary, #666);
         }
 
-        .option-prix {
-          font-size: 0.75rem;
-          color: var(--admin-text-muted);
+        .price-value {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--admin-olive, #6b7c4c);
         }
 
-        .btn-ajouter {
+        .btn-add {
           display: flex;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.5rem;
-          background: var(--admin-ardoise-bg);
-          border: 1px solid var(--admin-ardoise-border);
-          border-radius: 6px;
-          color: var(--admin-ardoise);
+          gap: 0.5rem;
+          padding: 0.625rem 1.25rem;
+          background: var(--admin-olive, #6b7c4c);
+          color: white;
+          border: none;
+          border-radius: 8px;
           cursor: pointer;
+          font-weight: 600;
+          font-size: 0.875rem;
           transition: all 0.2s;
         }
 
-        .btn-ajouter:hover {
-          background: var(--admin-ardoise);
-          color: white;
+        .btn-add:hover {
+          background: var(--admin-olive-dark, #5a6a3f);
         }
 
-        .current-qty {
+        .selection-section {
+          margin-top: 1.5rem;
+          padding-top: 1.5rem;
+          border-top: 1px solid var(--admin-border-subtle, #f0f0f0);
+        }
+
+        .selection-section h4 {
           font-size: 0.75rem;
           font-weight: 700;
+          color: var(--admin-text-tertiary, #999);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin: 0 0 0.75rem 0;
         }
 
         .selection-list {
@@ -355,8 +512,8 @@ export default function PopupUsinages({
           align-items: center;
           justify-content: space-between;
           padding: 0.75rem 1rem;
-          background: var(--admin-olive-bg);
-          border: 1px solid var(--admin-olive-border);
+          background: var(--admin-olive-bg, #f0f2e8);
+          border: 1px solid var(--admin-olive-border, #d4d6c8);
           border-radius: 8px;
         }
 
@@ -369,99 +526,62 @@ export default function PopupUsinages({
         .selection-label {
           font-size: 0.875rem;
           font-weight: 500;
-          color: var(--admin-text-primary);
+          color: var(--admin-text-primary, #1a1a1a);
         }
 
         .selection-detail {
           font-size: 0.75rem;
-          color: var(--admin-olive);
+          color: var(--admin-olive, #6b7c4c);
         }
 
-        .selection-controls {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-        }
-
-        .btn-qty {
+        .btn-remove {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
-          background: var(--admin-bg-card);
-          border: 1px solid var(--admin-border-default);
-          border-radius: 6px;
-          color: var(--admin-text-secondary);
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .btn-qty:hover {
-          background: var(--admin-bg-hover);
-          border-color: var(--admin-olive);
-          color: var(--admin-olive);
-        }
-
-        .qty-value {
-          font-size: 0.875rem;
-          font-weight: 700;
-          color: var(--admin-text-primary);
-          min-width: 24px;
-          text-align: center;
-        }
-
-        .btn-delete {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
+          width: 32px;
+          height: 32px;
           background: transparent;
           border: 1px solid transparent;
           border-radius: 6px;
-          color: var(--admin-text-muted);
+          color: var(--admin-text-muted, #999);
           cursor: pointer;
           transition: all 0.2s;
-          margin-left: 0.5rem;
         }
 
-        .btn-delete:hover {
-          background: var(--admin-status-danger-bg);
-          border-color: var(--admin-status-danger-border);
-          color: var(--admin-status-danger);
-        }
-
-        .selection-total {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.75rem 1rem;
-          margin-top: 0.75rem;
-          background: var(--admin-bg-elevated);
-          border-radius: 8px;
-        }
-
-        .selection-total span {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--admin-text-secondary);
-        }
-
-        .total-value {
-          color: var(--admin-sable) !important;
-          font-size: 1rem !important;
+        .btn-remove:hover {
+          background: rgba(220, 38, 38, 0.1);
+          border-color: rgba(220, 38, 38, 0.3);
+          color: #dc2626;
         }
 
         .popup-footer {
           display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
+          justify-content: space-between;
+          align-items: center;
           padding: 1rem 1.5rem;
-          border-top: 1px solid var(--admin-border-subtle);
-          background: var(--admin-bg-elevated);
+          border-top: 1px solid var(--admin-border-subtle, #f0f0f0);
+          background: var(--admin-bg-elevated, #fafafa);
           border-radius: 0 0 16px 16px;
           flex-shrink: 0;
+        }
+
+        .footer-total {
+          display: flex;
+          align-items: baseline;
+          gap: 0.5rem;
+          font-size: 0.875rem;
+          color: var(--admin-text-secondary, #666);
+        }
+
+        .total-value {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--admin-sable, #c9a86c);
+        }
+
+        .footer-actions {
+          display: flex;
+          gap: 0.75rem;
         }
 
         .btn-cancel,
@@ -476,26 +596,41 @@ export default function PopupUsinages({
 
         .btn-cancel {
           background: transparent;
-          border: 1px solid var(--admin-border-default);
-          color: var(--admin-text-secondary);
+          border: 1px solid var(--admin-border-default, #e0e0e0);
+          color: var(--admin-text-secondary, #666);
         }
 
         .btn-cancel:hover {
-          background: var(--admin-bg-hover);
-          color: var(--admin-text-primary);
+          background: var(--admin-bg-hover, #f0f0f0);
+          color: var(--admin-text-primary, #1a1a1a);
         }
 
         .btn-confirm {
-          background: linear-gradient(135deg, var(--admin-olive) 0%, var(--admin-olive-dark) 100%);
+          background: linear-gradient(135deg, var(--admin-olive, #6b7c4c) 0%, var(--admin-olive-dark, #5a6a3f) 100%);
           border: none;
           color: white;
         }
 
         .btn-confirm:hover {
-          background: linear-gradient(135deg, var(--admin-olive-hover) 0%, var(--admin-olive) 100%);
           transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+          .two-columns {
+            grid-template-columns: 1fr;
+          }
+
+          .popup-content {
+            max-width: 100%;
+            margin: 0.5rem;
+            max-height: 95vh;
+          }
         }
       `}</style>
     </div>
   );
+
+  // Render avec portal
+  if (typeof window === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 }

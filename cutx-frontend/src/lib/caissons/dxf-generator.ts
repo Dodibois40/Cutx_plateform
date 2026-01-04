@@ -14,6 +14,12 @@ import {
   calculerNombreCharnieres,
   calculerDistanceRainure,
 } from '@/components/configurateur/caissons/vues-techniques/constants';
+import type { TypeEmbaseBlum } from './blum-hardware';
+import {
+  calculerTousPercagesCharnieres,
+  type PercageAbsolu,
+  type ResultatPercagesCharnieres,
+} from './calcul-percages';
 
 // ============================================================================
 // TYPES
@@ -24,7 +30,9 @@ interface DxfOptions {
   includeAssemblage: boolean;
   includeRainure: boolean;
   includeCotations: boolean;
+  includeHingeDrillings: boolean;
   typeAssemblage: 'minifix' | 'confirmat' | 'tourillon';
+  typeEmbase: TypeEmbaseBlum;
   units: 'mm' | 'cm';
 }
 
@@ -42,10 +50,11 @@ interface PanelDxf {
 
 const LAYERS = {
   CONTOUR: 'CONTOUR',           // Contour de decoupe
-  DRILLING_5MM: 'DRILLING_5MM', // Percages System 32 (5mm)
-  DRILLING_8MM: 'DRILLING_8MM', // Percages tourillons/confirmat (8mm)
+  DRILLING_5MM: 'DRILLING_5MM', // Percages System 32 (5mm) / Vis Wing
+  DRILLING_8MM: 'DRILLING_8MM', // Percages INSERTA (8mm) / tourillons/confirmat
+  DRILLING_10MM: 'DRILLING_10MM', // Percages embase pilote (10mm)
   DRILLING_15MM: 'DRILLING_15MM', // Percages Minifix (15mm)
-  DRILLING_35MM: 'DRILLING_35MM', // Percages charnieres (35mm)
+  DRILLING_35MM: 'DRILLING_35MM', // Percages charnieres cup (35mm)
   RAINURE: 'RAINURE',           // Rainures
   COTATIONS: 'COTATIONS',       // Cotations
   TEXTE: 'TEXTE',               // Annotations texte
@@ -205,6 +214,46 @@ function createHingeHoles(
 }
 
 /**
+ * Cree les percages charnieres PRECIS depuis calcul-percages
+ * Utilise les coordonnees exactes calculees
+ */
+function createPreciseHingeDrillings(
+  percages: PercageAbsolu[]
+): makerjs.IModel {
+  const model: makerjs.IModel = { models: {} };
+
+  percages.forEach((percage, index) => {
+    const hole = createDrillingHole(0, 0, percage.diametre);
+    makerjs.model.move(hole, [percage.x, percage.y]);
+
+    // Nommer selon le type pour le layer
+    const prefix = percage.type.replace('_', '').replace('mm', '');
+    model.models![`${prefix}_${index}`] = hole;
+  });
+
+  return model;
+}
+
+/**
+ * Cree les percages embases PRECIS sur un cote
+ */
+function createPreciseEmbaseDrillings(
+  percages: PercageAbsolu[]
+): makerjs.IModel {
+  const model: makerjs.IModel = { models: {} };
+
+  percages.forEach((percage, index) => {
+    const hole = createDrillingHole(0, 0, percage.diametre);
+    makerjs.model.move(hole, [percage.x, percage.y]);
+
+    const prefix = percage.type === 'pilote_10mm' ? 'pilote' : 'vis';
+    model.models![`${prefix}_${index}`] = hole;
+  });
+
+  return model;
+}
+
+/**
  * Cree une ligne de cotation
  */
 function createDimensionLine(
@@ -263,7 +312,8 @@ function createDimensionLine(
 function generateCoteDxf(
   panneau: PanneauCalcule,
   config: ConfigCaisson,
-  options: DxfOptions
+  options: DxfOptions,
+  percagesCharnieres?: ResultatPercagesCharnieres
 ): makerjs.IModel {
   const { longueur, largeur } = panneau; // longueur = hauteur, largeur = profondeur
 
@@ -312,6 +362,19 @@ function generateCoteDxf(
     makerjs.model.rotate(rainure, 90, [0, 0]);
     makerjs.model.move(rainure, [distanceRainure, 0]);
     model.models!['rainure'] = rainure;
+  }
+
+  // Percages embases charnieres (PRECIS)
+  if (options.includeHingeDrillings && percagesCharnieres && config.avecFacade) {
+    const cote = panneau.nomCourt === 'CTG' ? 'gauche' : 'droite';
+    const percagesCote = cote === 'gauche'
+      ? percagesCharnieres.percages.coteGauche
+      : percagesCharnieres.percages.coteDroit;
+
+    if (percagesCote.length > 0) {
+      const embaseDrillings = createPreciseEmbaseDrillings(percagesCote);
+      model.models!['embase_drillings'] = embaseDrillings;
+    }
   }
 
   // Cotations
@@ -421,12 +484,13 @@ function generateFondDxf(
 }
 
 /**
- * Genere le DXF pour une facade
+ * Genere le DXF pour une facade avec percages PRECIS
  */
 function generateFacadeDxf(
   panneau: PanneauCalcule,
   config: ConfigCaisson,
-  options: DxfOptions
+  options: DxfOptions,
+  percagesCharnieres?: ResultatPercagesCharnieres
 ): makerjs.IModel {
   const { longueur, largeur } = panneau; // longueur = hauteur, largeur = largeur
 
@@ -438,13 +502,20 @@ function generateFacadeDxf(
   const contour = new makerjs.models.Rectangle(largeur, longueur);
   model.models!['contour'] = contour;
 
-  // Percages charnieres (cups 35mm)
-  const hingeHoles = createHingeHoles(
-    longueur,
-    config.positionCharniere,
-    largeur
-  );
-  model.models!['hinges'] = hingeHoles;
+  // Percages charnieres (PRECIS si disponible, sinon legacy)
+  if (options.includeHingeDrillings && percagesCharnieres) {
+    // Utiliser les percages precis du module calcul-percages
+    const hingeDrillings = createPreciseHingeDrillings(percagesCharnieres.percages.facade);
+    model.models!['hinges_precise'] = hingeDrillings;
+  } else {
+    // Fallback: ancien systeme (cups 35mm seulement)
+    const hingeHoles = createHingeHoles(
+      longueur,
+      config.positionCharniere,
+      largeur
+    );
+    model.models!['hinges'] = hingeHoles;
+  }
 
   // Cotations
   if (options.includeCotations) {
@@ -463,7 +534,7 @@ function generateFacadeDxf(
 // ============================================================================
 
 /**
- * Genere tous les fichiers DXF pour un caisson
+ * Genere tous les fichiers DXF pour un caisson avec percages precis
  */
 export function generateCaissonDxf(
   config: ConfigCaisson,
@@ -475,12 +546,20 @@ export function generateCaissonDxf(
     includeAssemblage: true,
     includeRainure: true,
     includeCotations: true,
+    includeHingeDrillings: true,
     typeAssemblage: 'minifix',
+    typeEmbase: config.typeEmbase || 'EXPANDO_0mm',
     units: 'mm',
   };
 
   const opts = { ...defaultOptions, ...options };
   const dxfFiles: PanelDxf[] = [];
+
+  // Calculer les percages charnieres si necessaire
+  let percagesCharnieres: ResultatPercagesCharnieres | undefined;
+  if (opts.includeHingeDrillings && config.avecFacade) {
+    percagesCharnieres = calculerTousPercagesCharnieres(config, opts.typeEmbase);
+  }
 
   for (const panneau of resultat.panneaux) {
     let model: makerjs.IModel;
@@ -489,7 +568,7 @@ export function generateCaissonDxf(
     switch (panneau.nomCourt) {
       case 'CTG':
       case 'CTD':
-        model = generateCoteDxf(panneau, config, opts);
+        model = generateCoteDxf(panneau, config, opts, percagesCharnieres);
         break;
       case 'PHT':
         model = generateHautBasDxf(panneau, config, opts, 'haut');
@@ -501,7 +580,7 @@ export function generateCaissonDxf(
         model = generateFondDxf(panneau, config, opts);
         break;
       case 'FAC':
-        model = generateFacadeDxf(panneau, config, opts);
+        model = generateFacadeDxf(panneau, config, opts, percagesCharnieres);
         break;
       default:
         // Panneau generique (contour seulement)

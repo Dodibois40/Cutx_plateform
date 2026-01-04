@@ -589,3 +589,64 @@ enum DrillingSource {
   DRAWER_RUNNER      // Percage coulisse
   CUSTOM             // Percage manuel/custom
 }
+
+// ============================================
+// USINAGES (Module Usinage)
+// ============================================
+
+// Template d'usinage configurable par l'admin
+model UsinageTemplate {
+  id              String              @id @default(cuid())
+
+  // Identification
+  nom             String              // Ex: "Rainure traversante"
+  slug            String              @unique // Ex: "rainure-traversante"
+  description     String?             @db.Text // Explication/aide
+
+  // Icone SVG (code complet inline)
+  iconSvg         String              @db.Text
+
+  // Schema de configuration (parametres requis)
+  // JSON: [{ key: "longueur", label: "Longueur", unit: "mm", required: true, min: 0, max: 5000 }, ...]
+  configSchema    String              @db.Text
+
+  // SVG technique pour dessin cote (optionnel)
+  // JSON: { viewBox: "0 0 200 200", elements: [...], dimensions: [...] }
+  technicalSvg    String?             @db.Text
+
+  // Tarification
+  pricingType     UsinagePricingType
+  priceHT         Float               // Prix de base
+
+  // Categorie pour organisation
+  category        UsinageCategory?
+
+  // Ordre d'affichage
+  sortOrder       Int                 @default(0)
+
+  // Active/Inactive
+  isActive        Boolean             @default(true)
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([isActive])
+  @@index([category])
+  @@index([sortOrder])
+}
+
+enum UsinagePricingType {
+  PER_UNIT        // Par unite
+  PER_METER       // Par metre lineaire
+  PER_M2          // Par metre carre
+  FIXED           // Prix fixe
+}
+
+enum UsinageCategory {
+  RAINURE         // Rainures
+  PERCAGE         // Percages
+  USINAGE_CN      // Usinages CNC
+  DEFONCEUSE      // Defonceuse
+  PASSE_MAIN      // Passe-main
+  AUTRE           // Autres
+}

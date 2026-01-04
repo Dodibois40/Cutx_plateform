@@ -14,6 +14,7 @@ import {
   type TypeCharniere,
   type AngleCharniere,
   type TypeCaisson,
+  type TypeEmbaseBlum,
 } from '@/lib/caissons/types';
 import { calculerCaisson, validerConfigCaisson } from '@/lib/caissons/calculs';
 import { CONFIG_DEFAUT, TEMPLATES_CAISSONS, getTemplateById } from '@/lib/caissons';
@@ -66,6 +67,8 @@ function creerConfigInitiale(templateId?: string): ConfigCaisson {
     typeCharniere: CONFIG_DEFAUT.typeCharniere,
     angleCharniere: CONFIG_DEFAUT.angleCharniere,
     nombreCharnieres: 0, // Auto-calcule
+    referenceCharniere: '71B3590', // CLIP top BLUMOTION 110° INSERTA par defaut
+    typeEmbase: 'EXPANDO_0mm', // Embase EXPANDO 0mm par defaut
 
     // Etat formulaire
     etapeActive: 1,
@@ -112,6 +115,8 @@ export interface UseCaissonCalculsReturn {
   setMarqueCharniere: (marque: MarqueCharniere) => void;
   setTypeCharniere: (type: TypeCharniere) => void;
   setAngleCharniere: (angle: AngleCharniere) => void;
+  setReferenceCharniere: (reference: string) => void;
+  setTypeEmbase: (type: TypeEmbaseBlum) => void;
 
   // Actions template
   chargerTemplate: (templateId: string) => void;
@@ -252,6 +257,14 @@ export function useCaissonCalculs(templateIdInitial?: string): UseCaissonCalculs
     setConfig(prev => ({ ...prev, angleCharniere: angle }));
   }, []);
 
+  const setReferenceCharniere = useCallback((reference: string) => {
+    setConfig(prev => ({ ...prev, referenceCharniere: reference }));
+  }, []);
+
+  const setTypeEmbase = useCallback((type: TypeEmbaseBlum) => {
+    setConfig(prev => ({ ...prev, typeEmbase: type }));
+  }, []);
+
   // === ACTIONS TEMPLATE ===
 
   const chargerTemplate = useCallback((templateId: string) => {
@@ -368,6 +381,8 @@ export function useCaissonCalculs(templateIdInitial?: string): UseCaissonCalculs
     setMarqueCharniere,
     setTypeCharniere,
     setAngleCharniere,
+    setReferenceCharniere,
+    setTypeEmbase,
 
     // Actions template
     chargerTemplate,

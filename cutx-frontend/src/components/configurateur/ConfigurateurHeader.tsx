@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, Package, FileSpreadsheet, Layers, Code2, Box } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Package, FileSpreadsheet, FileCode, Layers, Code2, List } from 'lucide-react';
 import { formaterPrix } from '@/lib/configurateur/calculs';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
@@ -18,6 +18,7 @@ interface ConfigurateurHeaderProps {
   referenceChantier: string;
   onReferenceChange: (value: string) => void;
   onImportExcel?: (file: File) => void;
+  onImportDxf?: (file: File) => void;
   isImporting?: boolean;
   isClientMode?: boolean;
   onBack?: () => void;
@@ -29,12 +30,16 @@ interface ConfigurateurHeaderProps {
   onSelectMulticouche?: (panneau: PanneauMulticouche | null) => void;
   // Caisson
   onCaissonValidate?: (resultat: ResultatCalculCaisson) => void;
+  // Mode groupes
+  modeGroupes?: boolean;
+  onToggleMode?: () => void;
 }
 
 export default function ConfigurateurHeader({
   referenceChantier,
   onReferenceChange,
   onImportExcel,
+  onImportDxf,
   isImporting = false,
   isClientMode = false,
   onBack,
@@ -44,10 +49,13 @@ export default function ConfigurateurHeader({
   panneauMulticouche,
   onSelectMulticouche,
   onCaissonValidate,
+  modeGroupes = false,
+  onToggleMode,
 }: ConfigurateurHeaderProps) {
   const t = useTranslations();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dxfInputRef = useRef<HTMLInputElement>(null);
   const [showPanneauPopup, setShowPanneauPopup] = useState(false);
   const [showMulticouchePopup, setShowMulticouchePopup] = useState(false);
   const [showCaissonPopup, setShowCaissonPopup] = useState(false);
@@ -71,6 +79,20 @@ export default function ConfigurateurHeader({
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleDxfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onImportDxf) {
+      onImportDxf(file);
+    }
+    if (dxfInputRef.current) {
+      dxfInputRef.current.value = '';
+    }
+  };
+
+  const handleDxfImportClick = () => {
+    dxfInputRef.current?.click();
   };
 
   const isReferenceEmpty = !referenceChantier.trim();
@@ -105,7 +127,8 @@ export default function ConfigurateurHeader({
         </div>
       </div>
 
-      {/* CENTER SECTION: Panel Selection */}
+      {/* CENTER SECTION: Panel Selection - Hidden in Groups mode */}
+      {!modeGroupes && (
       <div className="cx-header-section panel-section">
         {/* Panneau Classique */}
         <div className="header-field header-field--panel">
@@ -177,7 +200,7 @@ export default function ConfigurateurHeader({
           )}
         </div>
 
-        {/* Caisson Button */}
+        {/* Caisson Button - DISABLED: On y travaillera plus tard
         <div className="header-field header-field--panel">
           <button
             onClick={() => setShowCaissonPopup(true)}
@@ -196,6 +219,7 @@ export default function ConfigurateurHeader({
             </div>
           </button>
         </div>
+        */}
 
         {/* Panel Selection Popup */}
         <PopupSelectionPanneau
@@ -266,6 +290,7 @@ export default function ConfigurateurHeader({
           onClose={() => setShowCaissonPopup(false)}
         />
       </div>
+      )}
 
       {/* RIGHT SECTION: Actions */}
       <div className="cx-header-section">
@@ -278,7 +303,7 @@ export default function ConfigurateurHeader({
           style={{ display: 'none' }}
         />
 
-        {/* Import Button */}
+        {/* Import Excel Button */}
         {onImportExcel && (
           <button
             onClick={handleImportClick}
@@ -288,6 +313,28 @@ export default function ConfigurateurHeader({
           >
             <FileSpreadsheet size={15} />
             <span>{isImporting ? t('configurateur.header.importing') : t('configurateur.header.importExcel')}</span>
+          </button>
+        )}
+
+        {/* Hidden DXF file input */}
+        <input
+          ref={dxfInputRef}
+          type="file"
+          accept=".dxf,.DXF"
+          onChange={handleDxfChange}
+          style={{ display: 'none' }}
+        />
+
+        {/* Import DXF Button */}
+        {onImportDxf && (
+          <button
+            onClick={handleDxfImportClick}
+            disabled={isImporting}
+            className="cx-btn cx-btn--secondary cx-btn--dxf"
+            title="Importer DXF"
+          >
+            <FileCode size={15} />
+            <span>{isImporting ? t('configurateur.header.importing') : 'DXF'}</span>
           </button>
         )}
 
@@ -303,11 +350,24 @@ export default function ConfigurateurHeader({
         {/* Language & Unit Switcher */}
         <LocaleSwitcher />
 
-        {/* Mode Badge */}
-        <div className="mode-badge">
-          <span className="cx-status-dot cx-status-dot--success" />
-          <span>{t('configurateur.header.spreadsheetMode')}</span>
-        </div>
+        {/* Mode Toggle */}
+        {onToggleMode ? (
+          <button onClick={onToggleMode} className="mode-toggle">
+            <div className={`mode-toggle-option ${!modeGroupes ? 'mode-toggle-option--active' : ''}`}>
+              <List size={14} />
+              <span>{t('configurateur.header.spreadsheetMode')}</span>
+            </div>
+            <div className={`mode-toggle-option ${modeGroupes ? 'mode-toggle-option--active' : ''}`}>
+              <Layers size={14} />
+              <span>{t('configurateur.header.groupsMode')}</span>
+            </div>
+          </button>
+        ) : (
+          <div className="mode-badge">
+            <span className="cx-status-dot cx-status-dot--success" />
+            <span>{t('configurateur.header.spreadsheetMode')}</span>
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -545,6 +605,43 @@ export default function ConfigurateurHeader({
           background: var(--cx-surface-2);
           border-radius: var(--cx-radius-md);
           border: 1px solid var(--cx-border-subtle);
+        }
+
+        /* Mode Toggle */
+        .mode-toggle {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          padding: 3px;
+          background: var(--cx-surface-2);
+          border: 1px solid var(--cx-border-default);
+          border-radius: var(--cx-radius-lg);
+          cursor: pointer;
+          transition: all var(--cx-transition-fast);
+        }
+
+        .mode-toggle:hover {
+          border-color: var(--cx-border-strong);
+        }
+
+        .mode-toggle-option {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 10px;
+          font-size: var(--cx-text-xs);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: var(--cx-text-muted);
+          background: transparent;
+          border-radius: var(--cx-radius-md);
+          transition: all var(--cx-transition-fast);
+        }
+
+        .mode-toggle-option--active {
+          color: var(--cx-accent);
+          background: var(--cx-accent-subtle);
         }
 
         /* Dev Link - discrète */

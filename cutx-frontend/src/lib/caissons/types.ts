@@ -2,6 +2,10 @@
 // Types pour le module de configuration de caissons
 
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { TypeEmbaseBlum } from './blum-hardware';
+
+// Re-export pour faciliter les imports
+export type { TypeEmbaseBlum } from './blum-hardware';
 
 // === ENUMS & TYPES DE BASE ===
 
@@ -90,7 +94,9 @@ export interface ConfigCaisson {
   marqueCharniere: MarqueCharniere;
   typeCharniere: TypeCharniere;
   angleCharniere: AngleCharniere;
-  nombreCharnieres: number;       // Auto-calcule ou manuel
+  nombreCharnieres: number;       // Auto-calcule
+  referenceCharniere: string;     // Reference Blum (ex: 71B3590)
+  typeEmbase: TypeEmbaseBlum;     // Type d'embase (EXPANDO, Wing, INSERTA) ou manuel
 
   // Etat du formulaire
   etapeActive: 1 | 2 | 3 | 4;

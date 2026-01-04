@@ -3,7 +3,6 @@
 
 export { default as PopupCaissonConfig } from './PopupCaissonConfig';
 export { default as CaissonPreview3D } from './CaissonPreview3D';
-export { default as SelecteurCaisson } from './SelecteurCaisson';
 
 // Etapes
 export * from './etapes';

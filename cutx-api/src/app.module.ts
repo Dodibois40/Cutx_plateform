@@ -11,6 +11,7 @@ import { CutxImportModule } from './cutx-import/cutx-import.module';
 import { DevisModule } from './devis/devis.module';
 import { MulticoucheTemplatesModule } from './multicouche-templates/multicouche-templates.module';
 import { CaissonsModule } from './caissons/caissons.module';
+import { UsinagesModule } from './usinages/usinages.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CaissonsModule } from './caissons/caissons.module';
     DevisModule,
     MulticoucheTemplatesModule,
     CaissonsModule,
+    UsinagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

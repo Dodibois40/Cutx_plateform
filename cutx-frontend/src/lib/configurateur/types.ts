@@ -110,6 +110,72 @@ export interface Usinage {
   quantite: number;
 }
 
+// === NOUVEAUX TYPES USINAGE (Module Usinage V2) ===
+
+// Parametre de configuration d'un usinage
+export interface UsinageConfigParam {
+  key: string;        // "longueur", "A", "B"
+  label: string;      // "Longueur", "Cote A"
+  unit: string;       // "mm"
+  required: boolean;
+  min?: number;
+  max?: number;
+  defaultValue?: number;
+}
+
+// Element du dessin technique SVG
+export interface TechnicalSvgElement {
+  type: 'rect' | 'line' | 'circle' | 'path' | 'polyline';
+  [key: string]: unknown;
+}
+
+// Ligne de cote du dessin technique
+export interface TechnicalSvgDimension {
+  key: string;        // Cle du parametre (ex: "longueur")
+  start: [number, number];
+  end: [number, number];
+  unit?: string;
+}
+
+// Donnees du dessin technique SVG
+export interface TechnicalSvgData {
+  viewBox: string;
+  elements: TechnicalSvgElement[];
+  dimensions: TechnicalSvgDimension[];
+}
+
+// Template d'usinage (depuis API)
+export interface UsinageTemplate {
+  id: string;
+  nom: string;
+  slug: string;
+  description: string | null;
+  iconSvg: string;              // Code SVG inline
+  configSchema: UsinageConfigParam[];
+  technicalSvg: string | null;  // JSON pour dessin technique
+  pricingType: 'PER_UNIT' | 'PER_METER' | 'PER_M2' | 'FIXED';
+  priceHT: number;
+  category: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+// Usinage applique sur une ligne (nouveau format)
+export interface UsinageApplique {
+  templateId: string;
+  templateNom: string;
+  templateIconSvg: string;
+  configValues: Record<string, number>;
+  importedFile?: {
+    data: string;       // base64
+    type: 'dxf' | 'dwg' | 'image';
+    filename: string;
+  };
+  prixUnitaire: number;
+  quantite: number;
+  prixTotal: number;
+}
+
 export type EtatLigne = 'vide' | 'en_cours' | 'complete' | 'erreur';
 
 // Sens du fil du bois

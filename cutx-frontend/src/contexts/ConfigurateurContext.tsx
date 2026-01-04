@@ -30,7 +30,7 @@ import {
 } from '@/lib/configurateur/calculs';
 import { validerConfigurateur, validerLigne } from '@/lib/configurateur/validation';
 import { estimerTraitsScieAvecFormes, estimerPrixChants } from '@/lib/configurateur';
-import { parseExcelAuto } from '@/lib/configurateur/import';
+import { parseExcelAuto, parseDxfFile } from '@/lib/configurateur/import';
 import type { ColonneDuplicable } from '@/components/configurateur/TableauPrestations';
 
 // === TYPES ===
@@ -133,6 +133,7 @@ interface ConfigurateurContextType {
   handleApplyToColumn: (colonne: ColonneDuplicable, valeur: string | boolean | null) => void;
   handleClearSave: () => void;
   handleImportExcel: (file: File) => Promise<void>;
+  handleImportDxf: (file: File) => Promise<void>;
   handleAjouterAuPanier: () => void;
 
   // Config
@@ -536,6 +537,105 @@ export function ConfigurateurProvider({
     }
   }, [referenceChantier, showToast]);
 
+  // === HANDLER IMPORT DXF ===
+  const handleImportDxf = useCallback(async (file: File) => {
+    setIsImporting(true);
+    setToast(null);
+
+    try {
+      const result = await parseDxfFile(file);
+
+      if (!result.success || !result.donnees) {
+        showToast({
+          type: 'error',
+          message: result.erreur || 'Erreur lors de l\'import DXF',
+          details: result.avertissements,
+        });
+        setIsImporting(false);
+        return;
+      }
+
+      const { donnees } = result;
+
+      // Mettre à jour la référence chantier si vide
+      if (donnees.projet && !referenceChantier) {
+        setReferenceChantier(donnees.projet);
+      }
+
+      const nouvellesLignes: LignePrestationV3[] = [];
+
+      for (const panel of donnees.panels) {
+        // Créer une ligne par quantité
+        for (let i = 1; i <= panel.quantite; i++) {
+          const suffixe = panel.quantite > 1 ? ` (${i}/${panel.quantite})` : '';
+          const nouvelleLigne = creerNouvelleLigne();
+
+          nouvelleLigne.reference = `${panel.reference}${suffixe}`;
+          nouvelleLigne.dimensions = {
+            longueur: panel.dimensions.longueur,
+            largeur: panel.dimensions.largeur,
+            epaisseur: panel.dimensions.epaisseur,
+          };
+
+          // Les panneaux DXF de Blum DYNAPLAN sont rectangulaires
+          nouvelleLigne.forme = 'rectangle';
+
+          // Configuration des chants rectangulaires (A, B, C, D)
+          nouvelleLigne.chantsConfig = {
+            type: 'rectangle',
+            edges: { A: false, B: false, C: false, D: false },
+          };
+
+          // Stocker les données DXF comme métadonnées (pour future visualisation)
+          nouvelleLigne.formeCustom = {
+            dxfData: panel.dxfData,
+            surfaceM2: panel.surfaceM2,
+            perimetreM: panel.perimetreM,
+            boundingBox: {
+              width: panel.boundingBox.width,
+              height: panel.boundingBox.height,
+            },
+          };
+
+          // Si des perçages sont détectés, activer l'option
+          if (panel.geometry.circles.length > 0) {
+            nouvelleLigne.percage = true;
+          }
+
+          nouvellesLignes.push(mettreAJourCalculsLigne(nouvelleLigne));
+        }
+      }
+
+      setLignes(prev => {
+        const lignesExistantes = prev.filter(l =>
+          l.reference.trim() !== '' ||
+          l.materiau !== null ||
+          l.finition !== null ||
+          l.dimensions.longueur > 0 ||
+          l.dimensions.largeur > 0
+        );
+        return [...lignesExistantes, ...nouvellesLignes];
+      });
+
+      const nbLignesCrees = nouvellesLignes.length;
+      const nbPanneaux = donnees.panels.length;
+      showToast({
+        type: result.avertissements.length > 0 ? 'warning' : 'success',
+        message: `${nbPanneaux} panneau${nbPanneaux > 1 ? 'x' : ''} importé${nbPanneaux > 1 ? 's' : ''} (${nbLignesCrees} ligne${nbLignesCrees > 1 ? 's' : ''}) depuis "${file.name}"`,
+        details: result.avertissements.length > 0 ? result.avertissements : undefined,
+      });
+
+    } catch (error) {
+      showToast({
+        type: 'error',
+        message: 'Erreur inattendue lors de l\'import DXF',
+        details: [error instanceof Error ? error.message : 'Erreur inconnue'],
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  }, [referenceChantier, showToast]);
+
   // === HANDLER AJOUTER AU PANIER ===
   const handleAjouterAuPanier = useCallback(() => {
     if (!validation.isValid) {
@@ -639,6 +739,7 @@ export function ConfigurateurProvider({
     handleApplyToColumn,
     handleClearSave,
     handleImportExcel,
+    handleImportDxf,
     handleAjouterAuPanier,
 
     // Config
@@ -678,6 +779,7 @@ export function ConfigurateurProvider({
     handleApplyToColumn,
     handleClearSave,
     handleImportExcel,
+    handleImportDxf,
     handleAjouterAuPanier,
     isClientMode,
     isEditing,
