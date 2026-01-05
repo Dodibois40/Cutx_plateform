@@ -411,14 +411,28 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
   }, [groupes, lignesNonAssignees]);
 
   const adapterEpaisseurLigne = useCallback((ligneId: string, nouvelleEpaisseur: number) => {
+    // Trouver la ligne pour préserver ses dimensions existantes
+    let ligne: LignePrestationV3 | null = null;
+    for (const groupe of groupes) {
+      const found = groupe.lignes.find(l => l.id === ligneId);
+      if (found) {
+        ligne = found;
+        break;
+      }
+    }
+    if (!ligne) {
+      ligne = lignesNonAssignees.find(l => l.id === ligneId) || null;
+    }
+
+    if (!ligne) return;
+
     updateLigne(ligneId, {
       dimensions: {
-        longueur: 0,
-        largeur: 0,
+        ...ligne.dimensions, // Préserver longueur et largeur
         epaisseur: nouvelleEpaisseur,
       },
     });
-  }, [updateLigne]);
+  }, [groupes, lignesNonAssignees, updateLigne]);
 
   // === ACTIONS FINITION ===
 
