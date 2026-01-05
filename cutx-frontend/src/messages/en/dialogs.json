@@ -169,7 +169,8 @@
       "PLAN_DE_TRAVAIL": "Worktop",
       "PANNEAU_DECORATIF": "Decorative panel",
       "PANNEAU_3_PLIS": "3-ply panel",
-      "SOLID_SURFACE": "Solid Surface"
+      "SOLID_SURFACE": "Solid Surface",
+      "PANNEAU_SPECIAL": "Special panel"
     }
   },
   "multilayer": {

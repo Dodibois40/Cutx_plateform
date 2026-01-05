@@ -192,9 +192,17 @@ export function GroupePanneau({
                           )
                         )}
                         {info.prixM2 != null && info.prixM2 > 0 && (
-                          <span className="panneau-prix">
-                            {info.prixM2.toFixed(2)}€/m²
-                          </span>
+                          <>
+                            <span className="panneau-prix">
+                              {info.prixM2.toFixed(2)}€/m²
+                            </span>
+                            {/* Prix du panneau si dimensions connues */}
+                            {info.longueur && info.largeur && (
+                              <span className="panneau-prix-brut">
+                                Prix du panneau: {((info.longueur * info.largeur / 1_000_000) * info.prixM2).toFixed(2)}€
+                              </span>
+                            )}
+                          </>
                         )}
                       </span>
                     </div>
@@ -512,6 +520,14 @@ export function GroupePanneau({
         .panneau-prix {
           color: var(--cx-accent);
           font-weight: 600;
+        }
+
+        .panneau-prix-brut {
+          color: var(--cx-warning);
+          font-weight: 600;
+          padding: 2px 6px;
+          background: var(--cx-warning-muted);
+          border-radius: 4px;
         }
 
         .panneau-dimensions {

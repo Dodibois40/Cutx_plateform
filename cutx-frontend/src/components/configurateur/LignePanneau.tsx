@@ -24,6 +24,7 @@ import PopupLaque from './dialogs/PopupLaque';
 import PopupEnConstruction from './dialogs/PopupEnConstruction';
 import PopupFormePentagon from './dialogs/PopupFormePentagon';
 import PopupFormeTriangle from './dialogs/PopupFormeTriangle';
+import PopupUsinages from './dialogs/PopupUsinages';
 
 // Props pour le drag & drop (optionnelles)
 interface DragProps {
@@ -83,7 +84,8 @@ export default function LignePanneau({
   selectedCount = 0,
 }: LignePanneauProps) {
   const t = useTranslations();
-  const [showEnConstruction, setShowEnConstruction] = useState<'usinages' | 'percage' | null>(null);
+  const [showEnConstruction, setShowEnConstruction] = useState<'percage' | null>(null);
+  const [showUsinages, setShowUsinages] = useState(false);
   const [showLaque, setShowLaque] = useState(false);
   const [showPentagon, setShowPentagon] = useState(false);
 
@@ -809,13 +811,16 @@ export default function LignePanneau({
           )}
         </td>
 
-        {/* Usinages - En construction */}
+        {/* Usinages */}
         <td className="cx-col-usinages cell-group-panneau cell-center" title={t('configurateur.tooltips.machining')}>
           <button
-            className="btn-usinages btn-construction"
-            onClick={() => setShowEnConstruction('usinages')}
+            className={`btn-usinages ${ligne.usinages.length > 0 ? 'has-usinages' : ''}`}
+            onClick={() => setShowUsinages(true)}
           >
             <Wrench size={14} />
+            {ligne.usinages.length > 0 && (
+              <span className="badge">{ligne.usinages.length}</span>
+            )}
           </button>
         </td>
 
@@ -830,11 +835,19 @@ export default function LignePanneau({
           </button>
         </td>
 
-        {/* Popup En construction */}
+        {/* Popup En construction (Percage) */}
         <PopupEnConstruction
           open={showEnConstruction !== null}
           onClose={() => setShowEnConstruction(null)}
-          titre={showEnConstruction === 'usinages' ? t('configurateur.columns.machining') : t('configurateur.columns.drilling')}
+          titre={t('configurateur.columns.drilling')}
+        />
+
+        {/* Popup Usinages */}
+        <PopupUsinages
+          open={showUsinages}
+          usinages={ligne.usinages}
+          onUpdate={(newUsinages) => onUpdate({ usinages: newUsinages })}
+          onClose={() => setShowUsinages(false)}
         />
 
         {/* Popup Pentagon (Rectangle 5 côtés) */}

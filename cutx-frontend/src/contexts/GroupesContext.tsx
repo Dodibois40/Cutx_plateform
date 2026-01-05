@@ -380,30 +380,59 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
       }
     }
 
-    // Retirer de la source
-    if (sourceGroupeId === null) {
-      setLignesNonAssignees(prev => prev.filter(l => l.id !== ligneId));
-    } else {
-      setGroupes(prev => prev.map(g => {
-        if (g.id !== sourceGroupeId) return g;
-        return { ...g, lignes: g.lignes.filter(l => l.id !== ligneId) };
-      }));
-    }
-
-    // Ajouter à la destination
+    // Retirer de la source ET ajouter à la destination en UNE SEULE opération
+    // pour éviter les race conditions (doublons de clés)
     const ligneCopy = { ...ligne };
-    if (destinationGroupeId === null) {
+
+    if (sourceGroupeId === null && destinationGroupeId === null) {
+      // Déplacement interne dans lignesNonAssignees
       setLignesNonAssignees(prev => {
-        const newLignes = [...prev];
-        newLignes.splice(destinationIndex, 0, ligneCopy);
-        return newLignes;
+        const filtered = prev.filter(l => l.id !== ligneId);
+        const result = [...filtered];
+        result.splice(destinationIndex, 0, ligneCopy);
+        return result;
       });
-    } else {
+    } else if (sourceGroupeId === null && destinationGroupeId !== null) {
+      // De non-assignées vers un groupe
+      setLignesNonAssignees(prev => prev.filter(l => l.id !== ligneId));
       setGroupes(prev => prev.map(g => {
         if (g.id !== destinationGroupeId) return g;
         const newLignes = [...g.lignes];
         newLignes.splice(destinationIndex, 0, ligneCopy);
         return { ...g, lignes: newLignes };
+      }));
+    } else if (sourceGroupeId !== null && destinationGroupeId === null) {
+      // D'un groupe vers non-assignées
+      setGroupes(prev => prev.map(g => {
+        if (g.id !== sourceGroupeId) return g;
+        return { ...g, lignes: g.lignes.filter(l => l.id !== ligneId) };
+      }));
+      setLignesNonAssignees(prev => {
+        const newLignes = [...prev];
+        newLignes.splice(destinationIndex, 0, ligneCopy);
+        return newLignes;
+      });
+    } else if (sourceGroupeId === destinationGroupeId) {
+      // Déplacement interne dans le même groupe
+      setGroupes(prev => prev.map(g => {
+        if (g.id !== sourceGroupeId) return g;
+        const filtered = g.lignes.filter(l => l.id !== ligneId);
+        const newLignes = [...filtered];
+        newLignes.splice(destinationIndex, 0, ligneCopy);
+        return { ...g, lignes: newLignes };
+      }));
+    } else {
+      // D'un groupe vers un autre groupe
+      setGroupes(prev => prev.map(g => {
+        if (g.id === sourceGroupeId) {
+          return { ...g, lignes: g.lignes.filter(l => l.id !== ligneId) };
+        }
+        if (g.id === destinationGroupeId) {
+          const newLignes = [...g.lignes];
+          newLignes.splice(destinationIndex, 0, ligneCopy);
+          return { ...g, lignes: newLignes };
+        }
+        return g;
       }));
     }
 
@@ -710,30 +739,42 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
       }
     }
 
-    // Retirer les lignes de leurs sources
-    setGroupes(prev => prev.map(g => ({
-      ...g,
-      lignes: g.lignes.filter(l => !ligneIdsSet.has(l.id)),
-    })));
-
-    setLignesNonAssignees(prev => {
-      const filtered = prev.filter(l => !ligneIdsSet.has(l.id));
-      return filtered.length > 0 ? filtered : [creerNouvelleLigne()];
-    });
-
-    // Ajouter à la destination
+    // Retirer des sources ET ajouter à destination en UNE SEULE opération
+    // pour éviter les race conditions (doublons de clés)
     if (destinationGroupeId === null) {
+      // Destination = lignes non assignées
+      // Retirer des groupes
+      setGroupes(prev => prev.map(g => ({
+        ...g,
+        lignes: g.lignes.filter(l => !ligneIdsSet.has(l.id)),
+      })));
+
+      // Retirer + ajouter dans lignesNonAssignees en une seule opération
       setLignesNonAssignees(prev => {
-        const newLignes = [...prev];
-        newLignes.splice(destinationIndex, 0, ...lignesToMove);
-        return newLignes;
+        const filtered = prev.filter(l => !ligneIdsSet.has(l.id));
+        const result = [...filtered];
+        result.splice(destinationIndex, 0, ...lignesToMove);
+        return result.length > 0 ? result : [creerNouvelleLigne()];
       });
     } else {
+      // Destination = un groupe
+      // Retirer des lignesNonAssignees
+      setLignesNonAssignees(prev => {
+        const filtered = prev.filter(l => !ligneIdsSet.has(l.id));
+        return filtered.length > 0 ? filtered : [creerNouvelleLigne()];
+      });
+
+      // Retirer des autres groupes + ajouter au groupe destination en une seule opération
       setGroupes(prev => prev.map(g => {
-        if (g.id !== destinationGroupeId) return g;
-        const newLignes = [...g.lignes];
-        newLignes.splice(destinationIndex, 0, ...lignesToMove);
-        return { ...g, lignes: newLignes };
+        if (g.id === destinationGroupeId) {
+          // Groupe destination: retirer + ajouter
+          const filteredLignes = g.lignes.filter(l => !ligneIdsSet.has(l.id));
+          const newLignes = [...filteredLignes];
+          newLignes.splice(destinationIndex, 0, ...lignesToMove);
+          return { ...g, lignes: newLignes };
+        }
+        // Autres groupes: juste retirer
+        return { ...g, lignes: g.lignes.filter(l => !ligneIdsSet.has(l.id)) };
       }));
     }
 
