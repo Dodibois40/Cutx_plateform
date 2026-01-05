@@ -23,6 +23,7 @@ interface FullTextSearchResult {
   "imageUrl": string | null;
   "isActive": boolean;
   "stockStatus": string | null;
+  "manufacturerRef": string | null;
   "createdAt": Date;
   "updatedAt": Date;
   "catalogueId": string;
@@ -370,6 +371,7 @@ export class CataloguesService {
         p."imageUrl",
         p."isActive",
         p."stockStatus",
+        p."manufacturerRef",
         p."createdAt",
         p."updatedAt",
         p."catalogueId",
@@ -482,7 +484,8 @@ export class CataloguesService {
     const searchCondition = `(
       similarity(COALESCE(p."searchText", ''), $1) > 0.2 OR
       lower(unaccent(p.name)) LIKE '%' || $1 || '%' OR
-      lower(unaccent(p.reference)) LIKE '%' || $1 || '%'
+      lower(unaccent(p.reference)) LIKE '%' || $1 || '%' OR
+      lower(unaccent(COALESCE(p."manufacturerRef", ''))) LIKE '%' || $1 || '%'
     )`;
 
     let orderBy = `similarity(COALESCE(p."searchText", ''), $1) DESC, p.name ASC`;
@@ -521,6 +524,7 @@ export class CataloguesService {
         p."imageUrl",
         p."isActive",
         p."stockStatus",
+        p."manufacturerRef",
         p."createdAt",
         p."updatedAt",
         p."catalogueId",
@@ -672,6 +676,7 @@ export class CataloguesService {
       where.OR = [
         { name: { contains: options.search, mode: 'insensitive' } },
         { reference: { contains: options.search, mode: 'insensitive' } },
+        { manufacturerRef: { contains: options.search, mode: 'insensitive' } },
       ];
     }
 
@@ -745,6 +750,7 @@ export class CataloguesService {
           imageUrl: true,
           isActive: true,
           stockStatus: true,
+          manufacturerRef: true,
           createdAt: true,
           updatedAt: true,
           catalogue: {

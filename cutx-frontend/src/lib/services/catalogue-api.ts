@@ -11,6 +11,7 @@ export interface CatalogueProduit {
   nom: string;
   reference: string;
   codeArticle: string;
+  refFabricant?: string; // Référence fabricant (ex: U963 pour Egger)
   marque: string;
   categorie: string;
   sousCategorie: string;
@@ -54,6 +55,7 @@ interface ApiPanel {
   imageUrl: string | null;
   isActive: boolean;
   stockStatus: string | null;
+  manufacturerRef: string | null; // Référence fabricant (ex: U963 pour Egger)
   category?: {
     name: string;
     slug: string;
@@ -89,6 +91,7 @@ function transformPanel(panel: ApiPanel): CatalogueProduit {
     nom: panel.name,
     reference: panel.reference,
     codeArticle: panel.reference,
+    refFabricant: panel.manufacturerRef || undefined,
     marque: panel.finish || 'Bouney',
     categorie,
     sousCategorie,

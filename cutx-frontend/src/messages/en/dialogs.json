@@ -143,6 +143,7 @@
     "noProducts": "No products",
     "imageColumn": "Image",
     "refColumn": "Ref",
+    "refFabColumn": "Manuf. Ref",
     "nameColumn": "Name",
     "typeColumn": "Type",
     "thicknessColumn": "Th.",

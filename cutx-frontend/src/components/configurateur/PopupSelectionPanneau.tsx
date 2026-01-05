@@ -109,6 +109,7 @@ function SkeletonRow() {
     <tr className="skeleton-row">
       <td><div className="skeleton skeleton-image" /></td>
       <td><div className="skeleton skeleton-text-sm" /></td>
+      <td><div className="skeleton skeleton-text-sm" /></td>
       <td><div className="skeleton skeleton-text-lg" /></td>
       <td><div className="skeleton skeleton-text-sm" /></td>
       <td><div className="skeleton skeleton-text-xs" /></td>
@@ -367,7 +368,7 @@ export default function PopupSelectionPanneau({
           border: '1px solid var(--admin-border-default, #333)',
           borderRadius: '12px',
           width: '100%',
-          maxWidth: '1200px',
+          maxWidth: '1400px',
           height: '85vh',
           display: 'flex',
           flexDirection: 'column',
@@ -548,6 +549,7 @@ export default function PopupSelectionPanneau({
                 <tr>
                   <th className="col-image">{t('imageColumn')}</th>
                   <th className="col-ref">{t('refColumn')}</th>
+                  <th className="col-ref-fab">{t('refFabColumn')}</th>
                   <th className="col-nom">{t('nameColumn')}</th>
                   <th className="col-type">{t('typeColumn')}</th>
                   <th className="col-dim">{t('thicknessColumn')}</th>
@@ -579,6 +581,7 @@ export default function PopupSelectionPanneau({
                       sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
                     ) : <ArrowUpDown size={12} className="sort-inactive" />}
                   </th>
+                  <th className="col-ref-fab">{t('refFabColumn')}</th>
                   <th className="col-nom sortable" onClick={() => handleSort('nom')}>
                     <span>{t('nameColumn')}</span>
                     {sortColumn === 'nom' ? (
@@ -651,6 +654,9 @@ export default function PopupSelectionPanneau({
                         >
                           <Info size={14} />
                         </button>
+                      </td>
+                      <td className="col-ref-fab">
+                        {produit.refFabricant || '-'}
                       </td>
                       <td className="col-nom">
                         <div className="col-nom-content" title={produit.nom}>{produit.nom}</div>
@@ -1364,6 +1370,13 @@ export default function PopupSelectionPanneau({
 
           .ref-text {
             font-weight: 500;
+          }
+
+          .col-ref-fab {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--admin-text-secondary);
+            white-space: nowrap;
           }
 
           .btn-info {
