@@ -952,3 +952,135 @@ body {
 .cx-add-ligne-btn:active {
   transform: scale(0.98);
 }
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS - Desktop Only
+   Ces styles s'ajoutent progressivement sur
+   les écrans plus petits sans casser le layout
+   existant sur les grands écrans.
+   ============================================ */
+
+/* BREAKPOINT 1: Écrans moyens (1400px - 1600px) */
+/* Réduction légère des colonnes les plus larges */
+@media (max-width: 1600px) {
+  .cx-data-table {
+    min-width: 1250px;
+  }
+
+  .cx-col-reference {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+  }
+
+  .cx-col-dimensions {
+    width: 300px;
+    min-width: 300px;
+    max-width: 300px;
+  }
+
+  .cx-col-chants {
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+  }
+
+  .cx-col-finition {
+    width: 130px;
+    min-width: 130px;
+    max-width: 130px;
+  }
+}
+
+/* BREAKPOINT 2: Écrans plus petits (1200px - 1400px) */
+/* Réduction supplémentaire + masquage colonne Forme */
+@media (max-width: 1400px) {
+  .cx-data-table {
+    min-width: 1100px;
+  }
+
+  .cx-col-reference {
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
+  }
+
+  .cx-col-dimensions {
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+  }
+
+  .cx-col-chants {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+  }
+
+  .cx-col-finition {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+
+  /* Masquer la colonne Forme sur petits écrans */
+  .cx-col-forme {
+    display: none;
+  }
+}
+
+/* BREAKPOINT 3: Laptops compacts (< 1200px) */
+/* Réduction maximale pour laptops */
+@media (max-width: 1200px) {
+  .cx-data-table {
+    min-width: 950px;
+  }
+
+  .cx-col-reference {
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+  }
+
+  .cx-col-dimensions {
+    width: 250px;
+    min-width: 250px;
+    max-width: 250px;
+  }
+
+  .cx-col-chants {
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+  }
+
+  .cx-col-finition {
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
+  }
+
+  .cx-col-usinages {
+    width: 70px;
+    min-width: 70px;
+    max-width: 70px;
+  }
+
+  .cx-col-percage {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+  }
+
+  .cx-col-prix {
+    width: 65px;
+    min-width: 65px;
+    max-width: 65px;
+  }
+
+  .cx-col-actions {
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+  }
+}
