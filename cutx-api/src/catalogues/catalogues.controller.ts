@@ -34,6 +34,19 @@ export class CataloguesController {
     return { panels };
   }
 
+  @Get('autocomplete')
+  async autocomplete(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    const result = await this.cataloguesService.autocomplete(
+      query,
+      limit ? parseInt(limit, 10) : 10,
+    );
+
+    return result;
+  }
+
   @Get('categories')
   async findAllCategories() {
     const categories = await this.cataloguesService.findAllParentCategories();

@@ -26,6 +26,8 @@ import {
 import { useCatalogueSearch } from '@/lib/hooks/useCatalogueSearch';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import PopupFicheProduit, { type PanelDetails } from '@/components/produit/PopupFicheProduit';
+import SearchAutocomplete from '@/components/ui/SearchAutocomplete';
+import { usePanneauxRecents } from '@/lib/hooks/usePanneauxRecents';
 
 type SortColumn = 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
 type SortDirection = 'asc' | 'desc';
@@ -145,6 +147,9 @@ export default function PopupSelectionPanneau({
   const t = useTranslations('dialogs.panelSelection');
   const [mounted, setMounted] = useState(false);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Hook pour les panneaux récents
+  const { recents, addRecent } = usePanneauxRecents(10);
 
   // Panel detail popup state
   const [selectedPanelDetail, setSelectedPanelDetail] = useState<PanelDetails | null>(null);
@@ -310,6 +315,8 @@ export default function PopupSelectionPanneau({
   }, [filtreProductType]);
 
   const handleSelectProduit = (produit: CatalogueProduit) => {
+    // Ajouter aux panneaux récents
+    addRecent(produit);
     if (onSelectCatalogue) {
       onSelectCatalogue(produit as ProduitCatalogue);
     }
@@ -339,6 +346,70 @@ export default function PopupSelectionPanneau({
   const handleCloseDetailPopup = () => {
     setShowDetailPopup(false);
     setSelectedPanelDetail(null);
+  };
+
+  // Handle autocomplete suggestion selection
+  const handleAutocompleteSuggestion = async (suggestion: {
+    id: string;
+    reference: string;
+    refFabricant: string | null;
+    name: string;
+    imageUrl: string | null;
+    catalogueName: string;
+    productType: string | null;
+    epaisseur: number | null;
+    prix: number | null;
+    prixType: 'M2' | 'ML' | null;
+  }) => {
+    // First check if we already have this product in the loaded list
+    const existingProduct = produits.find(p => p.reference === suggestion.reference);
+    if (existingProduct && onSelectCatalogue) {
+      addRecent(existingProduct);
+      onSelectCatalogue(existingProduct as ProduitCatalogue);
+      onClose();
+      return;
+    }
+
+    // Otherwise fetch the full product details
+    try {
+      const res = await fetch(`${API_URL}/api/catalogues/panels/by-reference/${encodeURIComponent(suggestion.reference)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.panel && onSelectCatalogue) {
+          // Map panel to CatalogueProduit format (same as API response)
+          const panel = data.panel;
+          const produit: CatalogueProduit = {
+            id: panel.id,
+            reference: panel.reference,
+            nom: panel.name,
+            codeArticle: panel.reference,
+            marque: panel.catalogue?.name || suggestion.catalogueName,
+            categorie: panel.category?.parent?.name || panel.category?.name || '',
+            sousCategorie: panel.category?.name || '',
+            type: panel.productType || '',
+            epaisseur: panel.defaultThickness || (panel.thickness?.[0] ?? 0),
+            longueur: panel.isVariableLength ? 'Variable' : panel.defaultLength,
+            largeur: panel.defaultWidth,
+            prixAchatM2: panel.pricePerM2,
+            prixVenteM2: panel.pricePerM2,
+            prixMl: panel.pricePerMl,
+            stock: panel.stockStatus === 'EN STOCK' ? 'EN STOCK' : 'Sur commande',
+            imageUrl: panel.imageUrl,
+            productType: panel.productType,
+            refFabricant: panel.manufacturerRef,
+            isVariableLength: panel.isVariableLength,
+            disponible: panel.isActive,
+            createdAt: panel.createdAt,
+            updatedAt: panel.updatedAt,
+          };
+          addRecent(produit);
+          onSelectCatalogue(produit as ProduitCatalogue);
+          onClose();
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching panel from autocomplete:', error);
+    }
   };
 
   if (!open || !mounted) return null;
@@ -390,20 +461,13 @@ export default function PopupSelectionPanneau({
         {/* Barre de filtres - Ligne 1: Recherche principale */}
         <div className="filters-row-main">
           <div className="search-box-large">
-            <Search size={18} className="search-icon" />
-            <input
-              type="text"
-              placeholder={t('searchPlaceholder')}
+            <SearchAutocomplete
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="search-input"
+              onChange={setSearch}
+              onSelect={handleAutocompleteSuggestion}
+              placeholder={t('searchPlaceholder')}
               autoFocus
             />
-            {search && (
-              <button className="btn-clear" onClick={() => setSearch('')}>
-                <X size={14} />
-              </button>
-            )}
           </div>
 
           {/* Compteur et Reset */}
@@ -538,6 +602,56 @@ export default function PopupSelectionPanneau({
                 <button onClick={() => setFiltreEnStock(false)}><X size={12} /></button>
               </span>
             )}
+          </div>
+        )}
+
+        {/* Section Panneaux Récents - visible uniquement sans filtres actifs */}
+        {!hasFilters && recents.length > 0 && (
+          <div className="recents-section">
+            <div className="recents-header">
+              <Clock size={14} />
+              <span>Récents</span>
+              <span className="recents-count">{recents.length}</span>
+            </div>
+            <div className="recents-grid">
+              {recents.map((produit) => {
+                const prixM2 = produit.prixVenteM2 || produit.prixAchatM2 || 0;
+                const prixMl = produit.prixMl || 0;
+                const prix = prixMl > 0 ? prixMl : prixM2;
+                const prixUnit = prixMl > 0 ? '€/ml' : '€/m²';
+
+                return (
+                  <button
+                    key={produit.reference}
+                    className="recent-card"
+                    onClick={() => handleSelectProduit(produit as CatalogueProduit)}
+                  >
+                    {produit.imageUrl ? (
+                      <img
+                        src={produit.imageUrl}
+                        alt={produit.nom}
+                        className="recent-image"
+                      />
+                    ) : (
+                      <div className="recent-image recent-image--placeholder">
+                        <ImageIcon size={16} />
+                      </div>
+                    )}
+                    <div className="recent-info">
+                      <span className="recent-name" title={produit.nom}>
+                        {produit.nom}
+                      </span>
+                      <span className="recent-meta">
+                        <span className="recent-epaisseur">{produit.epaisseur}mm</span>
+                        {prix > 0 && (
+                          <span className="recent-prix">{prix.toFixed(2)}{prixUnit}</span>
+                        )}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -775,64 +889,7 @@ export default function PopupSelectionPanneau({
             position: relative;
             flex: 1;
             max-width: 500px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-          }
-
-          .search-box-large .search-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--admin-text-muted);
-            pointer-events: none;
-            z-index: 1;
-          }
-
-          .search-box-large .search-input {
-            width: 100%;
-            height: 40px;
-            padding: 0 40px 0 44px;
-            background: var(--admin-bg-tertiary);
-            border: 1px solid var(--admin-border-default);
-            border-radius: 8px;
-            font-size: 0.875rem;
-            color: var(--admin-text-primary);
-            outline: none;
-            transition: all 0.15s;
-            box-sizing: border-box;
-          }
-
-          .search-box-large .search-input:focus {
-            border-color: var(--admin-olive);
-            box-shadow: 0 0 0 3px var(--admin-olive-bg);
-          }
-
-          .search-box-large .search-input::placeholder {
-            color: var(--admin-text-muted);
-          }
-
-          .search-box-large .btn-clear {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            background: var(--admin-bg-hover);
-            border: none;
-            border-radius: 4px;
-            color: var(--admin-text-muted);
-            cursor: pointer;
-          }
-
-          .search-box-large .btn-clear:hover {
-            background: var(--admin-status-danger-bg);
-            color: var(--admin-status-danger);
+            z-index: 100;
           }
 
           .search-meta {
@@ -1084,6 +1141,127 @@ export default function PopupSelectionPanneau({
           .filter-tag button:hover {
             background: var(--admin-olive);
             color: white;
+          }
+
+          /* Section Récents */
+          .recents-section {
+            padding: 0.75rem 1rem;
+            background: var(--admin-bg-tertiary);
+            border-bottom: 1px solid var(--admin-border-subtle);
+            flex-shrink: 0;
+          }
+
+          .recents-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--admin-text-muted);
+          }
+
+          .recents-count {
+            font-size: 0.6875rem;
+            background: var(--admin-bg-hover);
+            padding: 0.125rem 0.375rem;
+            border-radius: 4px;
+            font-weight: 500;
+          }
+
+          .recents-grid {
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+            scrollbar-width: thin;
+            scrollbar-color: var(--admin-border-default) transparent;
+          }
+
+          .recents-grid::-webkit-scrollbar {
+            height: 4px;
+          }
+
+          .recents-grid::-webkit-scrollbar-track {
+            background: transparent;
+          }
+
+          .recents-grid::-webkit-scrollbar-thumb {
+            background: var(--admin-border-default);
+            border-radius: 2px;
+          }
+
+          .recent-card {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--admin-bg-card);
+            border: 1px solid var(--admin-border-subtle);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+            min-width: 200px;
+            max-width: 280px;
+            text-align: left;
+          }
+
+          .recent-card:hover {
+            border-color: var(--admin-olive);
+            background: var(--admin-olive-bg);
+          }
+
+          .recent-image {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            border-radius: 6px;
+            object-fit: cover;
+            border: 1px solid var(--admin-border-subtle);
+            background: var(--admin-bg-tertiary);
+          }
+
+          .recent-image--placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--admin-text-muted);
+          }
+
+          .recent-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.125rem;
+            min-width: 0;
+            flex: 1;
+          }
+
+          .recent-name {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--admin-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .recent-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+          }
+
+          .recent-epaisseur {
+            color: var(--admin-text-muted);
+            font-family: 'Space Mono', monospace;
+          }
+
+          .recent-prix {
+            color: var(--admin-sable);
+            font-weight: 600;
+            font-family: 'Space Mono', monospace;
           }
 
           /* Tableau */
