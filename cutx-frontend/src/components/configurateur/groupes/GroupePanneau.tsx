@@ -9,12 +9,54 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, Trash2, Package, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Package, Plus, ArrowDownToLine, Layers } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { GroupePanneau as GroupePanneauType } from '@/lib/configurateur/groupes/types';
-import type { LignePrestationV3, TypeFinition } from '@/lib/configurateur/types';
+import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateur/types';
+import type { ColonneDuplicableGroupe, FinitionApplyValue } from '@/contexts/GroupesContext';
+import { getPanneauDisplayInfo, isPanneauCatalogue } from '@/lib/configurateur/groupes/helpers';
 import { LignePanneauSortable } from './LignePanneauSortable';
 import { cn } from '@/lib/utils';
+
+// Helper pour obtenir la première valeur d'une colonne
+function getFirstValueForColumn(
+  lignes: LignePrestationV3[],
+  colonne: ColonneDuplicableGroupe,
+  lignesFinition?: Map<string, LignePrestationV3>
+): boolean | Chants | FinitionApplyValue | null {
+  for (const ligne of lignes) {
+    if (ligne.typeLigne !== 'panneau') continue;
+    switch (colonne) {
+      case 'chants':
+        // Vérifier si au moins un chant est coché
+        if (ligne.chants && (ligne.chants.A || ligne.chants.B || ligne.chants.C || ligne.chants.D)) {
+          return ligne.chants;
+        }
+        break;
+      case 'percage':
+        if (ligne.percage !== undefined) return ligne.percage;
+        break;
+      case 'finition':
+        // Vérifier si la ligne a une finition et récupérer les détails
+        if (ligne.avecFinition && ligne.typeFinition && lignesFinition) {
+          const ligneFinition = lignesFinition.get(ligne.id);
+          if (ligneFinition) {
+            return {
+              avecFinition: true,
+              typeFinition: ligne.typeFinition,
+              finition: ligneFinition.finition,
+              teinte: ligneFinition.teinte,
+              codeCouleurLaque: ligneFinition.codeCouleurLaque,
+              brillance: ligneFinition.brillance,
+              nombreFaces: ligneFinition.nombreFaces,
+            };
+          }
+        }
+        break;
+    }
+  }
+  return null;
+}
 
 interface GroupePanneauProps {
   groupe: GroupePanneauType;
@@ -34,6 +76,10 @@ interface GroupePanneauProps {
   onCreerLigneFinition: (lignePanneauId: string, typeFinition: TypeFinition) => void;
   onSupprimerLigneFinition: (lignePanneauId: string) => void;
   onUpdateLigneFinition: (lignePanneauId: string, updates: Partial<LignePrestationV3>) => void;
+  onApplyToColumn?: (colonne: ColonneDuplicableGroupe, valeur: boolean | Chants | FinitionApplyValue) => void;
+  // Props de sélection
+  selectedLigneIds?: Set<string>;
+  onToggleLigneSelection?: (ligneId: string) => void;
 }
 
 export function GroupePanneau({
@@ -50,6 +96,9 @@ export function GroupePanneau({
   onCreerLigneFinition,
   onSupprimerLigneFinition,
   onUpdateLigneFinition,
+  onApplyToColumn,
+  selectedLigneIds,
+  onToggleLigneSelection,
 }: GroupePanneauProps) {
   const t = useTranslations();
   const { setNodeRef, isOver } = useDroppable({
@@ -95,28 +144,63 @@ export function GroupePanneau({
               }}
               className="panneau-details panneau-details--clickable"
             >
-              {groupe.panneau.imageUrl && (
-                <img
-                  src={groupe.panneau.imageUrl}
-                  alt={groupe.panneau.nom}
-                  className="panneau-thumb"
-                />
-              )}
-              <div className="panneau-text">
-                <span className="panneau-nom">
-                  {groupe.panneau.nom}
-                </span>
-                <span className="panneau-meta">
-                  {groupe.panneau.epaisseurs.length > 0 && (
-                    <span>ép. {groupe.panneau.epaisseurs.join(', ')}mm</span>
-                  )}
-                  {Object.keys(groupe.panneau.prixM2).length > 0 && (
-                    <span className="panneau-prix">
-                      {Object.values(groupe.panneau.prixM2)[0]?.toFixed(2)}€/m²
-                    </span>
-                  )}
-                </span>
-              </div>
+              {(() => {
+                const info = getPanneauDisplayInfo(groupe.panneau);
+                if (!info) return null;
+                return (
+                  <>
+                    {info.imageUrl ? (
+                      <img
+                        src={info.imageUrl}
+                        alt={info.nomSansDimensions}
+                        className="panneau-thumb"
+                      />
+                    ) : info.isMulticouche ? (
+                      <div className="panneau-thumb panneau-thumb--multicouche">
+                        <Layers size={16} />
+                      </div>
+                    ) : null}
+                    <div className="panneau-text">
+                      <span className="panneau-nom">
+                        {info.nomSansDimensions}
+                        {info.isMulticouche && info.nbCouches && (
+                          <span className="badge-multicouche">
+                            {info.nbCouches} couches
+                          </span>
+                        )}
+                      </span>
+                      <span className="panneau-meta">
+                        {/* Dimensions brut du panneau */}
+                        {info.longueur && info.largeur && (
+                          <span className="panneau-dimensions">
+                            {info.longueur} × {info.largeur} mm
+                          </span>
+                        )}
+                        {info.isMulticouche ? (
+                          <>
+                            <span>ép. {info.epaisseur?.toFixed(1)}mm</span>
+                            <span className={cn(
+                              'mode-badge',
+                              info.modeCollage === 'client' && 'mode-badge--client'
+                            )}>
+                              {info.modeCollage === 'fournisseur' ? 'Collage fournisseur' : 'Collage client'}
+                            </span>
+                          </>
+                        ) : (
+                          info.epaisseurs.length > 0 && (
+                            <span>ép. {info.epaisseurs.join(', ')}mm</span>
+                          )
+                        )}
+                        {info.prixM2 != null && info.prixM2 > 0 && (
+                          <span className="panneau-prix">
+                            {info.prixM2.toFixed(2)}€/m²
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
             </button>
           ) : (
             <button
@@ -184,10 +268,64 @@ export function GroupePanneau({
                         <th className="cx-col-reference">{t('configurateur.columns.reference')}</th>
                         <th className="cx-col-forme">{t('configurateur.columns.shape')}</th>
                         <th className="cx-col-dimensions">{t('configurateur.columns.dimensions')}</th>
-                        <th className="cx-col-chants">{t('configurateur.columns.edges')}</th>
+                        <th className="cx-col-chants">
+                          <span className="th-with-apply">
+                            {t('configurateur.columns.edges')}
+                            {onApplyToColumn && lignesPanneau.length > 1 && (() => {
+                              const firstValue = getFirstValueForColumn(lignesPanneau, 'chants');
+                              if (firstValue === null) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  className="apply-col-btn"
+                                  onClick={() => onApplyToColumn('chants', firstValue)}
+                                  title={t('configurateur.actions.applyToAll')}
+                                >
+                                  <ArrowDownToLine size={10} strokeWidth={2.5} />
+                                </button>
+                              );
+                            })()}
+                          </span>
+                        </th>
                         <th className="cx-col-usinages">{t('configurateur.columns.machining')}</th>
-                        <th className="cx-col-percage">{t('configurateur.columns.drilling')}</th>
-                        <th className="cx-col-finition">{t('configurateur.columns.finish')}</th>
+                        <th className="cx-col-percage">
+                          <span className="th-with-apply">
+                            {t('configurateur.columns.drilling')}
+                            {onApplyToColumn && lignesPanneau.length > 1 && (() => {
+                              const firstValue = getFirstValueForColumn(lignesPanneau, 'percage');
+                              if (firstValue === null) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  className="apply-col-btn"
+                                  onClick={() => onApplyToColumn('percage', firstValue)}
+                                  title={t('configurateur.actions.applyToAll')}
+                                >
+                                  <ArrowDownToLine size={10} strokeWidth={2.5} />
+                                </button>
+                              );
+                            })()}
+                          </span>
+                        </th>
+                        <th className="cx-col-finition">
+                          <span className="th-with-apply">
+                            {t('configurateur.columns.finish')}
+                            {onApplyToColumn && lignesPanneau.length > 1 && (() => {
+                              const firstValue = getFirstValueForColumn(lignesPanneau, 'finition', lignesFinition);
+                              if (firstValue === null) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  className="apply-col-btn"
+                                  onClick={() => onApplyToColumn('finition', firstValue)}
+                                  title={t('configurateur.actions.applyToAll')}
+                                >
+                                  <ArrowDownToLine size={10} strokeWidth={2.5} />
+                                </button>
+                              );
+                            })()}
+                          </span>
+                        </th>
                         <th className="cx-col-prix">{t('configurateur.columns.priceHT')}</th>
                         <th className="cx-col-actions">{t('configurateur.columns.actions')}</th>
                       </tr>
@@ -195,6 +333,7 @@ export function GroupePanneau({
                     <tbody>
                       {lignesPanneau.map((ligne, index) => {
                         const ligneFinition = lignesFinition.get(ligne.id) || null;
+                        const isSelected = selectedLigneIds?.has(ligne.id) ?? false;
                         return (
                           <LignePanneauSortable
                             key={ligne.id}
@@ -210,6 +349,10 @@ export function GroupePanneau({
                             onCreerFinition={(typeFinition) => onCreerLigneFinition(ligne.id, typeFinition)}
                             onSupprimerFinition={() => onSupprimerLigneFinition(ligne.id)}
                             canDelete={lignesPanneau.length > 1}
+                            // Props de sélection
+                            isSelected={isSelected}
+                            onToggleSelection={onToggleLigneSelection ? () => onToggleLigneSelection(ligne.id) : undefined}
+                            selectedCount={selectedLigneIds?.size ?? 0}
                           />
                         );
                       })}
@@ -232,7 +375,7 @@ export function GroupePanneau({
 
           {/* Bouton ajouter ligne */}
           <button
-            onClick={onAjouterLigne}
+            onClick={() => onAjouterLigne()}
             className="cx-add-ligne-btn"
           >
             <Plus className="w-4 h-4" />
@@ -301,7 +444,7 @@ export function GroupePanneau({
           flex: 1;
           min-width: 0;
           display: flex;
-          justify-content: center;
+          justify-content: flex-start;
         }
 
         .panneau-details {
@@ -334,6 +477,14 @@ export function GroupePanneau({
           flex-shrink: 0;
         }
 
+        .panneau-thumb--multicouche {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, var(--cx-surface-3), var(--cx-surface-2));
+          color: var(--cx-warning);
+        }
+
         .panneau-text {
           display: flex;
           flex-direction: column;
@@ -361,6 +512,37 @@ export function GroupePanneau({
         .panneau-prix {
           color: var(--cx-accent);
           font-weight: 600;
+        }
+
+        .panneau-dimensions {
+          font-family: var(--cx-font-mono);
+          color: var(--cx-text-secondary);
+          padding: 2px 6px;
+          background: var(--cx-surface-3);
+          border-radius: 4px;
+        }
+
+        .badge-multicouche {
+          margin-left: 6px;
+          padding: 2px 6px;
+          font-size: var(--cx-text-xs);
+          font-weight: 500;
+          background: var(--cx-warning-muted);
+          color: var(--cx-warning);
+          border-radius: 4px;
+        }
+
+        .mode-badge {
+          padding: 2px 6px;
+          font-size: var(--cx-text-xs);
+          background: var(--cx-accent-muted);
+          color: var(--cx-accent);
+          border-radius: 4px;
+        }
+
+        .mode-badge--client {
+          background: var(--cx-warning-muted);
+          color: var(--cx-warning);
         }
 
         .select-panneau-btn {
@@ -444,6 +626,34 @@ export function GroupePanneau({
         }
 
         /* TABLE styles now in cutx.css (cx-table-*, cx-col-*, cx-add-ligne-btn) */
+
+        .th-with-apply {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .apply-col-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          padding: 0;
+          border: none;
+          border-radius: 3px;
+          background: var(--cx-accent-muted);
+          color: var(--cx-accent);
+          cursor: pointer;
+          opacity: 0.7;
+          transition: all 0.15s;
+        }
+
+        .apply-col-btn:hover {
+          opacity: 1;
+          background: var(--cx-accent);
+          color: var(--cx-surface-0);
+        }
 
         .groupe-subtotal {
           display: flex;

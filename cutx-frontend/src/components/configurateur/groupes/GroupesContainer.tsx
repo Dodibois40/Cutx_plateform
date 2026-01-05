@@ -3,7 +3,7 @@
 // components/configurateur/groupes/GroupesContainer.tsx
 // Container principal pour les groupes de panneaux avec drag & drop
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -18,7 +18,7 @@ import {
 import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Package, Layers, ChevronDown } from 'lucide-react';
+import { Plus, Package, Layers, ChevronDown, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -65,18 +65,45 @@ export function GroupesContainer({
     creerLigneFinitionGroupe,
     supprimerLigneFinitionGroupe,
     updateLigneFinition,
+    applyToColumnGroupe,
+    // Multi-sélection
+    selectedLigneIds,
+    toggleLigneSelection,
+    clearSelection,
+    isLigneSelected,
+    deplacerLignesMultiples,
+    executerDeplacementMultiple,
   } = useGroupes();
+
+  // Mémoriser les lignes de finition pour les non assignées (stabilité des refs)
+  const lignesFinitionNonAssignees = useMemo(() => {
+    const ligneIdsNonAssignees = new Set(lignesNonAssignees.map(l => l.id));
+    const result = new Map<string, LignePrestationV3>();
+    lignesFinition.forEach((finition, panneauId) => {
+      if (ligneIdsNonAssignees.has(panneauId)) {
+        result.set(panneauId, finition);
+      }
+    });
+    return result;
+  }, [lignesNonAssignees, lignesFinition]);
+
+  // State pour éviter les erreurs d'hydratation avec dnd-kit
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // State pour le drag
   const [activeDragItem, setActiveDragItem] = useState<LignePrestationV3 | null>(null);
   const [activeGroupeId, setActiveGroupeId] = useState<string | null>(null);
 
-  // State pour le warning épaisseur
+  // State pour le warning épaisseur (single et multi-select)
   const [warningDialog, setWarningDialog] = useState<{
     open: boolean;
     warning: GroupeWarning | null;
     pendingResult: DragEndResult | null;
-  }>({ open: false, warning: null, pendingResult: null });
+    isMultiSelect: boolean;
+  }>({ open: false, warning: null, pendingResult: null, isMultiSelect: false });
 
   // Sensors pour le drag
   const sensors = useSensors(
@@ -138,14 +165,31 @@ export function GroupesContainer({
     }
 
     const sourceGroupeId = activeData.groupeId;
+    const draggedLigneId = active.id as string;
 
     // Ne rien faire si même position
     if (sourceGroupeId === destinationGroupeId && active.id === over.id) {
       return;
     }
 
+    // Vérifier si c'est un déplacement multi-sélection
+    if (selectedLigneIds.size > 1 && selectedLigneIds.has(draggedLigneId)) {
+      // Vérifier les épaisseurs et afficher un warning si nécessaire
+      const multiWarning = deplacerLignesMultiples(destinationGroupeId, destinationIndex);
+      if (multiWarning?.type === 'epaisseur_mismatch_multi') {
+        setWarningDialog({
+          open: true,
+          warning: multiWarning,
+          pendingResult: null,
+          isMultiSelect: true,
+        });
+      }
+      return;
+    }
+
+    // Déplacement simple (une seule ligne)
     const result: DragEndResult = {
-      ligneId: active.id as string,
+      ligneId: draggedLigneId,
       sourceGroupeId,
       destinationGroupeId,
       sourceIndex: 0, // Calculé par deplacerLigne
@@ -160,26 +204,33 @@ export function GroupesContainer({
         open: true,
         warning,
         pendingResult: result,
+        isMultiSelect: false,
       });
     }
-  }, [groupes, lignesNonAssignees, deplacerLigne]);
+
+    // Vider la sélection après un déplacement simple
+    clearSelection();
+  }, [groupes, lignesNonAssignees, deplacerLigne, selectedLigneIds, deplacerLignesMultiples, clearSelection]);
 
   // === HANDLERS GROUPES ===
 
   const handleAjouterGroupe = useCallback(() => {
     onSelectPanneau((panneau) => {
-      creerGroupe({ panneau });
+      // Wrapper le panneau catalogue dans le nouveau format PanneauGroupe
+      creerGroupe({ panneau: { type: 'catalogue', panneau } });
     });
   }, [onSelectPanneau, creerGroupe]);
 
   const handleSelectPanneauGroupe = useCallback((groupeId: string) => {
     onSelectPanneau((panneau) => {
-      updatePanneauGroupe(groupeId, panneau);
+      // Wrapper le panneau catalogue dans le nouveau format PanneauGroupe
+      updatePanneauGroupe(groupeId, { type: 'catalogue', panneau });
     });
   }, [onSelectPanneau, updatePanneauGroupe]);
 
   // === HANDLER WARNING EPAISSEUR ===
 
+  // Handler pour le déplacement simple (une seule ligne)
   const handleAdapterEpaisseur = useCallback(() => {
     if (!warningDialog.pendingResult || !warningDialog.warning?.details) return;
 
@@ -190,11 +241,18 @@ export function GroupesContainer({
       adapterEpaisseurLigne(ligneId, panneauEpaisseur);
     }
 
-    setWarningDialog({ open: false, warning: null, pendingResult: null });
+    setWarningDialog({ open: false, warning: null, pendingResult: null, isMultiSelect: false });
   }, [warningDialog, adapterEpaisseurLigne]);
 
   const handleAnnulerDeplacement = useCallback(() => {
-    // Le déplacement a déjà été fait, on le défait
+    // Pour multi-select, rien à annuler (le déplacement n'a pas encore été fait)
+    if (warningDialog.isMultiSelect) {
+      clearSelection();
+      setWarningDialog({ open: false, warning: null, pendingResult: null, isMultiSelect: false });
+      return;
+    }
+
+    // Pour déplacement simple, le déplacement a déjà été fait, on le défait
     if (warningDialog.pendingResult) {
       const { ligneId, sourceGroupeId, destinationGroupeId, sourceIndex } = warningDialog.pendingResult;
       // Remettre la ligne à sa place originale
@@ -206,8 +264,59 @@ export function GroupesContainer({
         destinationIndex: sourceIndex,
       });
     }
-    setWarningDialog({ open: false, warning: null, pendingResult: null });
-  }, [warningDialog, deplacerLigne]);
+    setWarningDialog({ open: false, warning: null, pendingResult: null, isMultiSelect: false });
+  }, [warningDialog, deplacerLigne, clearSelection]);
+
+  // Handler pour déplacer seulement les lignes compatibles (multi-select)
+  const handleDeplacerCompatiblesUniquement = useCallback(() => {
+    if (!warningDialog.warning?.details) return;
+
+    const { lignesCompatibles, destinationGroupeId, destinationIndex } = warningDialog.warning.details;
+
+    if (lignesCompatibles && lignesCompatibles.length > 0) {
+      executerDeplacementMultiple(
+        lignesCompatibles,
+        destinationGroupeId ?? null,
+        destinationIndex ?? 0,
+        false
+      );
+    }
+
+    setWarningDialog({ open: false, warning: null, pendingResult: null, isMultiSelect: false });
+  }, [warningDialog, executerDeplacementMultiple]);
+
+  // Handler pour adapter toutes les épaisseurs et déplacer (multi-select)
+  const handleAdapterToutesEpaisseurs = useCallback(() => {
+    if (!warningDialog.warning?.details) return;
+
+    const { lignesCompatibles, lignesIncompatibles, destinationGroupeId, destinationIndex } = warningDialog.warning.details;
+
+    // Combiner toutes les lignes
+    const toutesLignes = [
+      ...(lignesCompatibles || []),
+      ...(lignesIncompatibles || []),
+    ];
+
+    if (toutesLignes.length > 0) {
+      executerDeplacementMultiple(
+        toutesLignes,
+        destinationGroupeId ?? null,
+        destinationIndex ?? 0,
+        true // Adapter les épaisseurs
+      );
+    }
+
+    setWarningDialog({ open: false, warning: null, pendingResult: null, isMultiSelect: false });
+  }, [warningDialog, executerDeplacementMultiple]);
+
+  // Éviter l'erreur d'hydratation avec dnd-kit (IDs différents serveur/client)
+  if (!isMounted) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center text-sm text-zinc-500 py-8">Chargement...</div>
+      </div>
+    );
+  }
 
   return (
     <DndContext
@@ -254,6 +363,10 @@ export function GroupesContainer({
                 supprimerLigneFinitionGroupe(lignePanneauId);
               }}
               onUpdateLigneFinition={updateLigneFinition}
+              onApplyToColumn={(colonne, valeur) => applyToColumnGroupe(colonne, valeur, groupe.id)}
+              // Props de sélection
+              selectedLigneIds={selectedLigneIds}
+              onToggleLigneSelection={toggleLigneSelection}
             />
           );
         })}
@@ -284,17 +397,7 @@ export function GroupesContainer({
         {/* Zone non assignée */}
         <ZoneNonAssignee
           lignes={lignesNonAssignees}
-          lignesFinition={(() => {
-            // Filtrer les lignes de finition qui appartiennent aux lignes non assignées
-            const ligneIdsNonAssignees = new Set(lignesNonAssignees.map(l => l.id));
-            const lignesFinitionNonAssignees = new Map<string, LignePrestationV3>();
-            lignesFinition.forEach((finition, panneauId) => {
-              if (ligneIdsNonAssignees.has(panneauId)) {
-                lignesFinitionNonAssignees.set(panneauId, finition);
-              }
-            });
-            return lignesFinitionNonAssignees;
-          })()}
+          lignesFinition={lignesFinitionNonAssignees}
           onAjouterLigne={ajouterLigneNonAssignee}
           onUpdateLigne={(ligneId, updates) => updateLigne(ligneId, updates as Partial<LignePrestationV3>)}
           onSupprimerLigne={supprimerLigne}
@@ -306,6 +409,10 @@ export function GroupesContainer({
             supprimerLigneFinitionGroupe(lignePanneauId);
           }}
           onUpdateLigneFinition={updateLigneFinition}
+          onApplyToColumn={(colonne, valeur) => applyToColumnGroupe(colonne, valeur, null)}
+          // Props de sélection
+          selectedLigneIds={selectedLigneIds}
+          onToggleLigneSelection={toggleLigneSelection}
         />
 
         <style jsx>{`
@@ -395,11 +502,21 @@ export function GroupesContainer({
         {activeDragItem && (
           <div className="drag-overlay-item">
             <div className="drag-preview">
+              {/* Badge avec nombre d'éléments si multi-sélection */}
+              {selectedLigneIds.size > 1 && selectedLigneIds.has(activeDragItem.id) && (
+                <span className="drag-count-badge">{selectedLigneIds.size}</span>
+              )}
               <span className="drag-ref">{activeDragItem.reference || 'Nouvelle ligne'}</span>
               <span className="drag-dims">
                 {activeDragItem.dimensions.longueur} × {activeDragItem.dimensions.largeur} mm
               </span>
             </div>
+            {/* Indicateur multi-sélection */}
+            {selectedLigneIds.size > 1 && selectedLigneIds.has(activeDragItem.id) && (
+              <div className="drag-multi-hint">
+                + {selectedLigneIds.size - 1} autre{selectedLigneIds.size > 2 ? 's' : ''} ligne{selectedLigneIds.size > 2 ? 's' : ''}
+              </div>
+            )}
             <style jsx>{`
               .drag-overlay-item {
                 opacity: 0.9;
@@ -412,7 +529,20 @@ export function GroupesContainer({
               .drag-preview {
                 display: flex;
                 align-items: center;
-                gap: 16px;
+                gap: 12px;
+              }
+              .drag-count-badge {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 24px;
+                background: var(--cx-accent);
+                color: white;
+                border-radius: 50%;
+                font-size: 0.75rem;
+                font-weight: 700;
+                flex-shrink: 0;
               }
               .drag-ref {
                 font-weight: 600;
@@ -422,6 +552,12 @@ export function GroupesContainer({
                 font-size: 0.875rem;
                 color: var(--cx-text-tertiary);
                 font-family: var(--cx-font-mono);
+              }
+              .drag-multi-hint {
+                margin-top: 8px;
+                font-size: 0.75rem;
+                color: var(--cx-text-muted);
+                font-style: italic;
               }
             `}</style>
           </div>
@@ -435,32 +571,110 @@ export function GroupesContainer({
           if (!open) handleAnnulerDeplacement();
         }}
       >
-        <DialogContent className="bg-zinc-900 border-zinc-700">
-          <DialogHeader>
-            <DialogTitle className="text-orange-400">
-              Épaisseur différente
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-zinc-300">
-              {warningDialog.warning?.message}
-            </p>
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={handleAnnulerDeplacement}
-              className="border-zinc-600"
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={handleAdapterEpaisseur}
-              className="bg-yellow-500 text-black hover:bg-yellow-400"
-            >
-              Adapter l&apos;épaisseur
-            </Button>
-          </div>
+        <DialogContent className="!p-0 !gap-0 bg-zinc-900 border-zinc-700 max-w-sm">
+          <DialogTitle className="sr-only">
+            {warningDialog.isMultiSelect ? 'Épaisseurs incompatibles' : 'Épaisseur différente'}
+          </DialogTitle>
+          {warningDialog.isMultiSelect ? (
+            /* === DIALOG MULTI-SELECT === */
+            <>
+              <div className="p-5 pb-4">
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold text-yellow-500 mb-1" aria-hidden="true">
+                  <AlertTriangle size={14} className="flex-shrink-0" />
+                  Épaisseurs incompatibles
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  <span className="text-zinc-300">{warningDialog.warning?.details?.lignesIncompatibles?.length}</span> ligne{(warningDialog.warning?.details?.lignesIncompatibles?.length || 0) > 1 ? 's' : ''} sur <span className="text-zinc-300">{((warningDialog.warning?.details?.lignesCompatibles?.length || 0) + (warningDialog.warning?.details?.lignesIncompatibles?.length || 0))}</span> avec une épaisseur différente du panneau (<span className="text-zinc-300">{warningDialog.warning?.details?.panneauEpaisseur}mm</span>).
+                </p>
+              </div>
+
+              <div className="px-5 pb-4 space-y-2">
+                {(warningDialog.warning?.details?.lignesCompatibles?.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleDeplacerCompatiblesUniquement}
+                    className="w-full p-3 rounded border-l-2 border-l-yellow-500 border border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50 transition-colors text-left"
+                  >
+                    <div className="text-sm text-zinc-200">Déplacer les compatibles uniquement</div>
+                    <div className="text-xs text-zinc-500 mt-0.5">
+                      <span className="text-yellow-500/80">{warningDialog.warning?.details?.lignesCompatibles?.length}</span> déplacée{(warningDialog.warning?.details?.lignesCompatibles?.length || 0) > 1 ? 's' : ''}, créez un nouveau groupe avec un panneau adapté pour les autres
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleAdapterToutesEpaisseurs}
+                  className="w-full p-3 rounded border border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50 transition-colors text-left"
+                >
+                  <div className="text-sm text-zinc-200">Adapter toutes les épaisseurs</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">
+                    Toutes passent à <span className="text-zinc-400">{warningDialog.warning?.details?.panneauEpaisseur}mm</span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="px-5 pb-4">
+                <div className="flex items-start gap-2 text-xs text-zinc-500">
+                  <Info size={14} className="text-yellow-500/70 flex-shrink-0 mt-0.5" />
+                  <p>Pour conserver les épaisseurs d&apos;origine, créez un nouveau groupe avec un panneau adapté à chaque épaisseur.</p>
+                </div>
+              </div>
+
+              <div className="border-t border-zinc-800 p-3">
+                <button
+                  type="button"
+                  onClick={handleAnnulerDeplacement}
+                  className="w-full py-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            </>
+          ) : (
+            /* === DIALOG SIMPLE === */
+            <>
+              <div className="p-5 pb-4">
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold text-yellow-500 mb-1" aria-hidden="true">
+                  <AlertTriangle size={14} className="flex-shrink-0" />
+                  Épaisseur différente
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  L&apos;épaisseur de la ligne (<span className="text-zinc-300">{warningDialog.warning?.details?.ligneEpaisseur}mm</span>) n&apos;est pas disponible pour ce panneau (<span className="text-zinc-300">{warningDialog.warning?.details?.panneauEpaisseur}mm</span>).
+                </p>
+              </div>
+
+              <div className="px-5 pb-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={handleAdapterEpaisseur}
+                  className="w-full p-3 rounded border-l-2 border-l-yellow-500 border border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50 transition-colors text-left"
+                >
+                  <div className="text-sm text-zinc-200">Adapter l&apos;épaisseur</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">
+                    Passer à <span className="text-yellow-500/80">{warningDialog.warning?.details?.panneauEpaisseur}mm</span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="px-5 pb-4">
+                <div className="flex items-start gap-2 text-xs text-zinc-500">
+                  <Info size={14} className="text-yellow-500/70 flex-shrink-0 mt-0.5" />
+                  <p>Pour conserver l&apos;épaisseur d&apos;origine, créez un nouveau groupe avec un panneau adapté.</p>
+                </div>
+              </div>
+
+              <div className="border-t border-zinc-800 p-3">
+                <button
+                  type="button"
+                  onClick={handleAnnulerDeplacement}
+                  className="w-full py-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </DndContext>

@@ -8,12 +8,13 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import LignePanneau from '../LignePanneau';
 import type { LignePrestationV3, TypeFinition } from '@/lib/configurateur/types';
-import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { PanneauGroupe } from '@/lib/configurateur/groupes/types';
+import { isPanneauCatalogue, isPanneauMulticouche } from '@/lib/configurateur/groupes/helpers';
 
 interface LignePanneauSortableProps {
   ligne: LignePrestationV3;
   ligneFinition: LignePrestationV3 | null;
-  panneauGroupe: PanneauCatalogue | null;
+  panneauGroupe: PanneauGroupe | null;
   groupeId: string | null;
   index: number;
   onUpdate: (updates: Partial<LignePrestationV3>) => void;
@@ -23,6 +24,10 @@ interface LignePanneauSortableProps {
   onCreerFinition: (typeFinition: TypeFinition) => void;
   onSupprimerFinition: () => void;
   canDelete: boolean;
+  // Props de sélection
+  isSelected?: boolean;
+  onToggleSelection?: () => void;
+  selectedCount?: number;
 }
 
 export function LignePanneauSortable({
@@ -38,6 +43,9 @@ export function LignePanneauSortable({
   onCreerFinition,
   onSupprimerFinition,
   canDelete,
+  isSelected = false,
+  onToggleSelection,
+  selectedCount = 0,
 }: LignePanneauSortableProps) {
   const {
     attributes,
@@ -60,12 +68,20 @@ export function LignePanneauSortable({
     transition,
   };
 
+  // Extraire le panneau catalogue ou multicouche selon le type
+  const panneauCatalogue = panneauGroupe && isPanneauCatalogue(panneauGroupe)
+    ? panneauGroupe.panneau
+    : null;
+  const panneauMulticouche = panneauGroupe && isPanneauMulticouche(panneauGroupe)
+    ? panneauGroupe.panneau
+    : null;
+
   return (
     <LignePanneau
       ligne={ligne}
       ligneFinition={ligneFinition}
-      panneauGlobal={panneauGroupe}
-      panneauMulticouche={null}
+      panneauGlobal={panneauCatalogue}
+      panneauMulticouche={panneauMulticouche}
       index={index}
       onUpdate={onUpdate}
       onUpdateFinition={onUpdateFinition}
@@ -81,6 +97,10 @@ export function LignePanneauSortable({
       dragAttributes={attributes}
       dragListeners={listeners}
       isDragging={isDragging}
+      // Props de sélection
+      isSelected={isSelected}
+      onToggleSelection={onToggleSelection}
+      selectedCount={selectedCount}
     />
   );
 }

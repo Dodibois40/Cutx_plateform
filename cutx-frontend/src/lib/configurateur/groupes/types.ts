@@ -3,14 +3,23 @@
 
 import type { LignePrestationV3 } from '../types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
+
+/**
+ * Type union discriminé pour les panneaux de groupe
+ * Permet de supporter à la fois les panneaux catalogue et multicouches
+ */
+export type PanneauGroupe =
+  | { type: 'catalogue'; panneau: PanneauCatalogue }
+  | { type: 'multicouche'; panneau: PanneauMulticouche };
 
 /**
  * Groupe de panneau contenant des lignes de configuration
- * Chaque groupe est associé à un panneau du catalogue
+ * Chaque groupe est associé à un panneau du catalogue ou multicouche
  */
 export interface GroupePanneau {
   id: string;
-  panneau: PanneauCatalogue | null;
+  panneau: PanneauGroupe | null;
   lignes: LignePrestationV3[];
   isExpanded: boolean;
   createdAt: Date;
@@ -63,7 +72,7 @@ export interface DeplacementLigne {
  * Options pour la création d'un nouveau groupe
  */
 export interface CreateGroupeOptions {
-  panneau?: PanneauCatalogue | null;
+  panneau?: PanneauGroupe | null;
   lignes?: LignePrestationV3[];
   isExpanded?: boolean;
 }
@@ -83,12 +92,17 @@ export interface DragEndResult {
  * Warning pour l'utilisateur lors d'opérations
  */
 export interface GroupeWarning {
-  type: 'epaisseur_mismatch' | 'lignes_non_assignees' | 'groupe_vide';
+  type: 'epaisseur_mismatch' | 'epaisseur_mismatch_multi' | 'lignes_non_assignees' | 'groupe_vide';
   message: string;
   details?: {
     ligneEpaisseur?: number;
     panneauEpaisseur?: number;
     nbLignes?: number;
+    // Pour multi-select
+    lignesCompatibles?: string[]; // IDs des lignes avec épaisseur compatible
+    lignesIncompatibles?: string[]; // IDs des lignes avec épaisseur incompatible
+    destinationGroupeId?: string | null;
+    destinationIndex?: number;
   };
 }
 

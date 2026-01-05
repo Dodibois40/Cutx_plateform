@@ -147,6 +147,9 @@
     "error": "Error",
     "missing": "Missing: {fields}"
   },
+  "actions": {
+    "applyToAll": "Apply to all lines"
+  },
   "lines": {
     "addLine": "Add line",
     "labels": "Labels",

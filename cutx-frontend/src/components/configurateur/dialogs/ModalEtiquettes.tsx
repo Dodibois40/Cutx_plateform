@@ -51,7 +51,7 @@ export default function ModalEtiquettes({
 
   // Filtrer les lignes complètes (avec référence et finition)
   const lignesCompletes = lignes.filter(
-    l => l.reference.trim() !== '' && l.finition !== null
+    l => (l.reference?.trim() ?? '') !== '' && l.finition !== null
   );
 
   const handlePrint = useCallback(() => {

@@ -10,11 +10,52 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, AlertTriangle, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, Plus, ArrowDownToLine } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import type { LignePrestationV3, TypeFinition } from '@/lib/configurateur/types';
+import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateur/types';
+import type { ColonneDuplicableGroupe, FinitionApplyValue } from '@/contexts/GroupesContext';
 import { LignePanneauSortable } from './LignePanneauSortable';
 import { cn } from '@/lib/utils';
+
+// Helper pour obtenir la première valeur d'une colonne
+function getFirstValueForColumn(
+  lignes: LignePrestationV3[],
+  colonne: ColonneDuplicableGroupe,
+  lignesFinition?: Map<string, LignePrestationV3>
+): boolean | Chants | FinitionApplyValue | null {
+  for (const ligne of lignes) {
+    if (ligne.typeLigne !== 'panneau') continue;
+    switch (colonne) {
+      case 'chants':
+        // Vérifier si au moins un chant est coché
+        if (ligne.chants && (ligne.chants.A || ligne.chants.B || ligne.chants.C || ligne.chants.D)) {
+          return ligne.chants;
+        }
+        break;
+      case 'percage':
+        if (ligne.percage !== undefined) return ligne.percage;
+        break;
+      case 'finition':
+        // Vérifier si la ligne a une finition et récupérer les détails
+        if (ligne.avecFinition && ligne.typeFinition && lignesFinition) {
+          const ligneFinition = lignesFinition.get(ligne.id);
+          if (ligneFinition) {
+            return {
+              avecFinition: true,
+              typeFinition: ligne.typeFinition,
+              finition: ligneFinition.finition,
+              teinte: ligneFinition.teinte,
+              codeCouleurLaque: ligneFinition.codeCouleurLaque,
+              brillance: ligneFinition.brillance,
+              nombreFaces: ligneFinition.nombreFaces,
+            };
+          }
+        }
+        break;
+    }
+  }
+  return null;
+}
 
 interface ZoneNonAssigneeProps {
   lignes: LignePrestationV3[];
@@ -26,6 +67,10 @@ interface ZoneNonAssigneeProps {
   onCreerLigneFinition: (lignePanneauId: string, typeFinition: TypeFinition) => void;
   onSupprimerLigneFinition: (lignePanneauId: string) => void;
   onUpdateLigneFinition: (lignePanneauId: string, updates: Partial<LignePrestationV3>) => void;
+  onApplyToColumn?: (colonne: ColonneDuplicableGroupe, valeur: boolean | Chants | FinitionApplyValue) => void;
+  // Props de sélection
+  selectedLigneIds?: Set<string>;
+  onToggleLigneSelection?: (ligneId: string) => void;
 }
 
 export function ZoneNonAssignee({
@@ -38,6 +83,9 @@ export function ZoneNonAssignee({
   onCreerLigneFinition,
   onSupprimerLigneFinition,
   onUpdateLigneFinition,
+  onApplyToColumn,
+  selectedLigneIds,
+  onToggleLigneSelection,
 }: ZoneNonAssigneeProps) {
   const t = useTranslations();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -55,9 +103,9 @@ export function ZoneNonAssignee({
 
   // Compter les lignes non vides
   const lignesNonVides = lignesPanneau.filter(l =>
-    l.reference.trim() !== '' ||
-    l.dimensions.longueur > 0 ||
-    l.dimensions.largeur > 0
+    (l.reference?.trim() ?? '') !== '' ||
+    (l.dimensions?.longueur ?? 0) > 0 ||
+    (l.dimensions?.largeur ?? 0) > 0
   );
   const nbLignesNonVides = lignesNonVides.length;
 
@@ -124,10 +172,64 @@ export function ZoneNonAssignee({
                         <th className="cx-col-reference">{t('configurateur.columns.reference')}</th>
                         <th className="cx-col-forme">{t('configurateur.columns.shape')}</th>
                         <th className="cx-col-dimensions">{t('configurateur.columns.dimensions')}</th>
-                        <th className="cx-col-chants">{t('configurateur.columns.edges')}</th>
+                        <th className="cx-col-chants">
+                          <span className="th-with-apply">
+                            {t('configurateur.columns.edges')}
+                            {onApplyToColumn && lignesPanneau.length > 1 && (() => {
+                              const firstValue = getFirstValueForColumn(lignesPanneau, 'chants');
+                              if (firstValue === null) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  className="apply-col-btn"
+                                  onClick={() => onApplyToColumn('chants', firstValue)}
+                                  title={t('configurateur.actions.applyToAll')}
+                                >
+                                  <ArrowDownToLine size={10} strokeWidth={2.5} />
+                                </button>
+                              );
+                            })()}
+                          </span>
+                        </th>
                         <th className="cx-col-usinages">{t('configurateur.columns.machining')}</th>
-                        <th className="cx-col-percage">{t('configurateur.columns.drilling')}</th>
-                        <th className="cx-col-finition">{t('configurateur.columns.finish')}</th>
+                        <th className="cx-col-percage">
+                          <span className="th-with-apply">
+                            {t('configurateur.columns.drilling')}
+                            {onApplyToColumn && lignesPanneau.length > 1 && (() => {
+                              const firstValue = getFirstValueForColumn(lignesPanneau, 'percage');
+                              if (firstValue === null) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  className="apply-col-btn"
+                                  onClick={() => onApplyToColumn('percage', firstValue)}
+                                  title={t('configurateur.actions.applyToAll')}
+                                >
+                                  <ArrowDownToLine size={10} strokeWidth={2.5} />
+                                </button>
+                              );
+                            })()}
+                          </span>
+                        </th>
+                        <th className="cx-col-finition">
+                          <span className="th-with-apply">
+                            {t('configurateur.columns.finish')}
+                            {onApplyToColumn && lignesPanneau.length > 1 && (() => {
+                              const firstValue = getFirstValueForColumn(lignesPanneau, 'finition', lignesFinition);
+                              if (firstValue === null) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  className="apply-col-btn"
+                                  onClick={() => onApplyToColumn('finition', firstValue)}
+                                  title={t('configurateur.actions.applyToAll')}
+                                >
+                                  <ArrowDownToLine size={10} strokeWidth={2.5} />
+                                </button>
+                              );
+                            })()}
+                          </span>
+                        </th>
                         <th className="cx-col-prix">{t('configurateur.columns.priceHT')}</th>
                         <th className="cx-col-actions">{t('configurateur.columns.actions')}</th>
                       </tr>
@@ -135,6 +237,7 @@ export function ZoneNonAssignee({
                     <tbody>
                       {lignesPanneau.map((ligne, index) => {
                         const ligneFinition = lignesFinition.get(ligne.id) || null;
+                        const isSelected = selectedLigneIds?.has(ligne.id) ?? false;
                         return (
                           <LignePanneauSortable
                             key={ligne.id}
@@ -150,6 +253,10 @@ export function ZoneNonAssignee({
                             onCreerFinition={(typeFinition) => onCreerLigneFinition(ligne.id, typeFinition)}
                             onSupprimerFinition={() => onSupprimerLigneFinition(ligne.id)}
                             canDelete={lignesPanneau.length > 1}
+                            // Props de sélection
+                            isSelected={isSelected}
+                            onToggleSelection={onToggleLigneSelection ? () => onToggleLigneSelection(ligne.id) : undefined}
+                            selectedCount={selectedLigneIds?.size ?? 0}
                           />
                         );
                       })}
@@ -173,7 +280,7 @@ export function ZoneNonAssignee({
 
           {/* Bouton ajouter ligne */}
           <button
-            onClick={onAjouterLigne}
+            onClick={() => onAjouterLigne()}
             className="cx-add-ligne-btn"
           >
             <Plus className="w-4 h-4" />
@@ -290,6 +397,34 @@ export function ZoneNonAssignee({
         }
 
         /* TABLE styles now in cutx.css (cx-table-*, cx-col-*) */
+
+        .th-with-apply {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .apply-col-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          padding: 0;
+          border: none;
+          border-radius: 3px;
+          background: var(--cx-accent-muted);
+          color: var(--cx-accent);
+          cursor: pointer;
+          opacity: 0.7;
+          transition: all 0.15s;
+        }
+
+        .apply-col-btn:hover {
+          opacity: 1;
+          background: var(--cx-accent);
+          color: var(--cx-surface-0);
+        }
 
         .warning-message {
           display: flex;

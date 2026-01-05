@@ -230,6 +230,8 @@ export default function PopupCaissonConfig({
       disponible: produit.stock === 'EN STOCK',
       description: null,
       ordre: 0,
+      longueur: produit.longueur,
+      largeur: produit.largeur,
       imageUrl: produit.imageUrl,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

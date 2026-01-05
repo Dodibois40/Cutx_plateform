@@ -244,6 +244,8 @@ export default function ConfigurateurHeader({
                 disponible: produit.stock === 'EN STOCK',
                 description: `${produit.marque} - ${produit.type}`,
                 ordre: 0,
+                longueur: produit.longueur,
+                largeur: produit.largeur,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 imageUrl: produit.imageUrl,

@@ -896,6 +896,7 @@ body {
   min-width: 1400px;
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .cx-data-table thead th {
@@ -914,17 +915,17 @@ body {
   white-space: nowrap;
 }
 
-/* Column widths */
-.cx-col-etat { width: 50px; text-align: center !important; }
-.cx-col-reference { width: 130px; }
-.cx-col-forme { width: 130px; }
-.cx-col-dimensions { width: 380px; }
-.cx-col-chants { width: 180px; }
-.cx-col-usinages { width: 80px; text-align: center !important; }
-.cx-col-percage { width: 70px; text-align: center !important; }
-.cx-col-finition { width: 150px; }
-.cx-col-prix { width: 100px; text-align: right !important; }
-.cx-col-actions { width: 100px; text-align: center !important; }
+/* Column widths - FIXED (min/max pour empêcher le redimensionnement) */
+.cx-col-etat { width: 50px; min-width: 50px; max-width: 50px; text-align: center !important; overflow: hidden; }
+.cx-col-reference { width: 250px; min-width: 250px; max-width: 250px; overflow: hidden; }
+.cx-col-forme { width: 80px; min-width: 80px; max-width: 80px; overflow: hidden; }
+.cx-col-dimensions { width: 340px; min-width: 340px; max-width: 340px; overflow: hidden; }
+.cx-col-chants { width: 180px; min-width: 180px; max-width: 180px; overflow: hidden; }
+.cx-col-usinages { width: 80px; min-width: 80px; max-width: 80px; text-align: center !important; overflow: hidden; }
+.cx-col-percage { width: 70px; min-width: 70px; max-width: 70px; text-align: center !important; overflow: hidden; }
+.cx-col-finition { width: 150px; min-width: 150px; max-width: 150px; overflow: hidden; }
+.cx-col-prix { width: 70px; min-width: 70px; max-width: 70px; text-align: right !important; overflow: hidden; }
+.cx-col-actions { width: 100px; min-width: 100px; max-width: 100px; text-align: center !important; overflow: hidden; }
 
 /* Add line button (reusable) */
 .cx-add-ligne-btn {

@@ -6,6 +6,9 @@ import { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { Plus, AlertTriangle, CheckCircle, XCircle, Tag, Lightbulb, Save, RotateCcw } from 'lucide-react';
 import { validerLigne } from '@/lib/configurateur/validation';
+import { parseExcelAuto, parseDxfFile } from '@/lib/configurateur/import';
+import { creerNouvelleLigne, migrerLigneToV4 } from '@/lib/configurateur/constants';
+import { mettreAJourCalculsLigne } from '@/lib/configurateur/calculs';
 import {
   ConfigurateurProvider,
   useConfigurateur,
@@ -25,6 +28,7 @@ import ModalEtiquettes from './dialogs/ModalEtiquettes';
 import WelcomeModal from './WelcomeModal';
 import { PopupOptimiseur } from './optimiseur';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import type { ProduitCatalogue } from '@/lib/catalogues';
 import {
   Dialog,
@@ -120,6 +124,8 @@ function ConfigurateurContent() {
     ajouterLigneNonAssignee,
     supprimerLigne: supprimerLigneGroupe,
     updateLigne: updateLigneGroupe,
+    importerLignes,
+    creerGroupe,
   } = useGroupes();
 
   // State pour le sélecteur de panneau (mode groupes)
@@ -158,14 +164,199 @@ function ConfigurateurContent() {
     }
   }, [groupes, lignesNonAssignees, setModalCopie]);
 
+  // Handler mode-aware pour confirmer la copie
+  const handleConfirmerCopieWrapper = useCallback(() => {
+    if (!modalCopie.ligneSource) return;
+    if (!modalCopie.nouvelleReference.trim()) {
+      alert('La référence est obligatoire');
+      return;
+    }
+
+    if (modeGroupes) {
+      // Mode groupes: ajouter aux lignes non assignées
+      const nouvelleLigne: LignePrestationV3 = {
+        ...modalCopie.ligneSource,
+        id: crypto.randomUUID(),
+        reference: modalCopie.nouvelleReference.trim(),
+      };
+      ajouterLigneNonAssignee(mettreAJourCalculsLigne(nouvelleLigne));
+      setModalCopie({ open: false, ligneSource: null, nouvelleReference: '' });
+    } else {
+      // Mode classique: utiliser le handler du contexte
+      handleConfirmerCopie();
+    }
+  }, [modeGroupes, modalCopie, ajouterLigneNonAssignee, setModalCopie, handleConfirmerCopie]);
+
+  // === WRAPPERS IMPORT (mode-aware) ===
+
+  // Handler import Excel qui redirige vers le bon contexte
+  const handleImportExcelWrapper = useCallback(async (file: File) => {
+    if (!modeGroupes) {
+      // Mode ancien: utiliser le handler du ConfigurateurContext
+      return handleImportExcel(file);
+    }
+
+    // Mode groupes: parser et importer dans lignesNonAssignees
+    try {
+      const result = await parseExcelAuto(file);
+
+      if (!result.success || !result.donnees) {
+        showToast({
+          type: 'error',
+          message: result.erreur || 'Erreur lors de l\'import',
+          details: result.avertissements,
+        });
+        return;
+      }
+
+      const { donnees } = result;
+
+      if (donnees.referenceChantier && !referenceChantier) {
+        setReferenceChantier(donnees.referenceChantier);
+      }
+
+      const nouvellesLignes = [];
+
+      for (const ligneImport of donnees.lignes) {
+        for (let i = 1; i <= ligneImport.quantite; i++) {
+          const suffixe = ligneImport.quantite > 1 ? ` (${i}/${ligneImport.quantite})` : '';
+          const nouvelleLigne = creerNouvelleLigne();
+
+          nouvelleLigne.reference = `${ligneImport.reference}${suffixe}`;
+          nouvelleLigne.dimensions = {
+            longueur: ligneImport.longueur,
+            largeur: ligneImport.largeur,
+            epaisseur: donnees.epaisseur,
+          };
+          nouvelleLigne.chants = { ...ligneImport.chants };
+
+          if (ligneImport.materiau) {
+            nouvelleLigne.materiau = ligneImport.materiau;
+          } else if (donnees.materiau) {
+            nouvelleLigne.materiau = donnees.materiau;
+          }
+
+          nouvellesLignes.push(mettreAJourCalculsLigne(nouvelleLigne));
+        }
+      }
+
+      // Importer dans le contexte groupes (lignesNonAssignees)
+      importerLignes(nouvellesLignes);
+
+      const nbLignesCrees = nouvellesLignes.length;
+      showToast({
+        type: result.avertissements.length > 0 ? 'warning' : 'success',
+        message: `${nbLignesCrees} ligne${nbLignesCrees > 1 ? 's' : ''} importée${nbLignesCrees > 1 ? 's' : ''} depuis "${file.name}"`,
+        details: result.avertissements.length > 0 ? result.avertissements : undefined,
+      });
+
+    } catch (error) {
+      showToast({
+        type: 'error',
+        message: 'Erreur inattendue lors de l\'import',
+        details: [error instanceof Error ? error.message : 'Erreur inconnue'],
+      });
+    }
+  }, [modeGroupes, handleImportExcel, referenceChantier, setReferenceChantier, importerLignes, showToast]);
+
+  // Handler import DXF qui redirige vers le bon contexte
+  const handleImportDxfWrapper = useCallback(async (file: File) => {
+    if (!modeGroupes) {
+      // Mode ancien: utiliser le handler du ConfigurateurContext
+      return handleImportDxf(file);
+    }
+
+    // Mode groupes: parser et importer dans lignesNonAssignees
+    try {
+      const result = await parseDxfFile(file);
+
+      if (!result.success || !result.donnees) {
+        showToast({
+          type: 'error',
+          message: result.erreur || 'Erreur lors de l\'import DXF',
+          details: result.avertissements,
+        });
+        return;
+      }
+
+      const { donnees } = result;
+
+      // Mettre à jour la référence chantier si vide
+      if (donnees.projet && !referenceChantier) {
+        setReferenceChantier(donnees.projet);
+      }
+
+      const nouvellesLignes = [];
+
+      for (const panel of donnees.panels) {
+        // Créer une ligne par quantité
+        for (let i = 1; i <= panel.quantite; i++) {
+          const suffixe = panel.quantite > 1 ? ` (${i}/${panel.quantite})` : '';
+          const nouvelleLigne = creerNouvelleLigne();
+
+          nouvelleLigne.reference = `${panel.reference}${suffixe}`;
+          nouvelleLigne.dimensions = {
+            longueur: panel.dimensions.longueur,
+            largeur: panel.dimensions.largeur,
+            epaisseur: panel.dimensions.epaisseur,
+          };
+
+          // Les panneaux DXF de Blum DYNAPLAN sont rectangulaires
+          nouvelleLigne.forme = 'rectangle';
+
+          // Configuration des chants rectangulaires (A, B, C, D)
+          nouvelleLigne.chantsConfig = {
+            type: 'rectangle',
+            edges: { A: false, B: false, C: false, D: false },
+          };
+
+          // Stocker les données DXF comme métadonnées
+          nouvelleLigne.formeCustom = {
+            dxfData: panel.dxfData,
+            surfaceM2: panel.surfaceM2,
+            perimetreM: panel.perimetreM,
+            boundingBox: {
+              width: panel.boundingBox.width,
+              height: panel.boundingBox.height,
+            },
+          };
+
+          // Si des perçages sont détectés, activer l'option
+          if (panel.geometry.circles.length > 0) {
+            nouvelleLigne.percage = true;
+          }
+
+          nouvellesLignes.push(mettreAJourCalculsLigne(nouvelleLigne));
+        }
+      }
+
+      // Importer dans le contexte groupes (lignesNonAssignees)
+      importerLignes(nouvellesLignes);
+
+      const nbLignesCrees = nouvellesLignes.length;
+      showToast({
+        type: result.avertissements.length > 0 ? 'warning' : 'success',
+        message: `${nbLignesCrees} ligne${nbLignesCrees > 1 ? 's' : ''} importée${nbLignesCrees > 1 ? 's' : ''} depuis "${file.name}"`,
+        details: result.avertissements.length > 0 ? result.avertissements : undefined,
+      });
+
+    } catch (error) {
+      showToast({
+        type: 'error',
+        message: 'Erreur inattendue lors de l\'import DXF',
+        details: [error instanceof Error ? error.message : 'Erreur inconnue'],
+      });
+    }
+  }, [modeGroupes, handleImportDxf, referenceChantier, setReferenceChantier, importerLignes, showToast]);
+
   return (
     <div className="configurateur">
       {/* Header */}
       <ConfigurateurHeader
         referenceChantier={referenceChantier}
         onReferenceChange={setReferenceChantier}
-        onImportExcel={handleImportExcel}
-        onImportDxf={handleImportDxf}
+        onImportExcel={handleImportExcelWrapper}
+        onImportDxf={handleImportDxfWrapper}
         isImporting={isImporting}
         isClientMode={isClientMode}
         onBack={onBack}
@@ -360,7 +551,7 @@ function ConfigurateurContent() {
         ligneSource={modalCopie.ligneSource}
         nouvelleReference={modalCopie.nouvelleReference}
         onReferenceChange={(ref) => setModalCopie(prev => ({ ...prev, nouvelleReference: ref }))}
-        onConfirmer={handleConfirmerCopie}
+        onConfirmer={handleConfirmerCopieWrapper}
         onAnnuler={handleAnnulerCopie}
       />
 
@@ -409,6 +600,8 @@ function ConfigurateurContent() {
             disponible: produit.stock === 'EN STOCK',
             description: `${produit.marque} - ${produit.type}`,
             ordre: 0,
+            longueur: produit.longueur,
+            largeur: produit.largeur,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             imageUrl: produit.imageUrl,
@@ -424,8 +617,8 @@ function ConfigurateurContent() {
         panneauxCatalogue={panneauxCatalogue}
         panneauMulticouche={null}
         onSave={(panneau) => {
-          // TODO: Créer un groupe avec ce panneau multicouche
-          console.log('Panneau multicouche créé:', panneau);
+          // Créer un groupe avec le panneau multicouche
+          creerGroupe({ panneau: { type: 'multicouche', panneau } });
           setMulticoucheGroupesOpen(false);
         }}
         onClose={() => setMulticoucheGroupesOpen(false)}

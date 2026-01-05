@@ -15,6 +15,9 @@ export interface PanneauCatalogue {
   ordre: number;
   createdAt: string;
   updatedAt: string;
+  // Dimensions du panneau brut (en mm)
+  longueur: number;
+  largeur: number;
   // Champ optionnel pour l'image (vient du catalogue produits)
   imageUrl?: string;
 }
@@ -97,6 +100,8 @@ function transformApiPanel(panel: ApiPanel): PanneauCatalogue {
     ordre: 0,
     createdAt: panel.createdAt,
     updatedAt: panel.updatedAt,
+    longueur: panel.defaultLength,
+    largeur: panel.defaultWidth,
     imageUrl: panel.imageUrl || undefined,
   };
 }

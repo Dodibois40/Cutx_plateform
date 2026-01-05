@@ -3,7 +3,6 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import type { LignePrestationV3 } from '../types';
-import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type {
   GroupePanneau,
   GroupesState,
@@ -12,7 +11,13 @@ import type {
   CreateGroupeOptions,
   DragEndResult,
   GroupeWarning,
+  PanneauGroupe,
 } from './types';
+import {
+  isEpaisseurCompatible,
+  getFirstEpaisseur,
+  getPanneauDisplayInfo,
+} from './helpers';
 import { mettreAJourCalculsLigne } from '../calculs';
 
 const TVA_RATE = 0.20;
@@ -67,10 +72,10 @@ export function useGroupesPanneaux(initialLignes: LignePrestationV3[] = []) {
   /**
    * Mettre à jour le panneau d'un groupe
    */
-  const updatePanneauGroupe = useCallback((groupeId: string, panneau: PanneauCatalogue | null) => {
+  const updatePanneauGroupe = useCallback((groupeId: string, panneauGroupe: PanneauGroupe | null) => {
     setGroupes(prev => prev.map(g => {
       if (g.id !== groupeId) return g;
-      return { ...g, panneau };
+      return { ...g, panneau: panneauGroupe };
     }));
   }, []);
 
@@ -157,13 +162,13 @@ export function useGroupesPanneaux(initialLignes: LignePrestationV3[] = []) {
     if (destinationGroupeId !== null) {
       const destGroupe = groupes.find(g => g.id === destinationGroupeId);
       if (destGroupe?.panneau) {
-        const panneauEpaisseurs = destGroupe.panneau.epaisseurs;
         const ligneEpaisseur = ligne.dimensions.epaisseur;
-        if (ligneEpaisseur > 0 && panneauEpaisseurs.length > 0 && !panneauEpaisseurs.includes(ligneEpaisseur)) {
+        const displayInfo = getPanneauDisplayInfo(destGroupe.panneau);
+        if (ligneEpaisseur > 0 && displayInfo && !isEpaisseurCompatible(destGroupe.panneau, ligneEpaisseur)) {
           warning = {
             type: 'epaisseur_mismatch',
-            message: `Attention : épaisseur ligne (${ligneEpaisseur}mm) non disponible pour ce panneau (${panneauEpaisseurs.join(', ')}mm). Adapter ?`,
-            details: { ligneEpaisseur, panneauEpaisseur: panneauEpaisseurs[0] },
+            message: `Attention : épaisseur ligne (${ligneEpaisseur}mm) non disponible pour ce panneau (${displayInfo.epaisseurs.join(', ')}mm). Adapter ?`,
+            details: { ligneEpaisseur, panneauEpaisseur: getFirstEpaisseur(destGroupe.panneau) },
           };
         }
       }
@@ -203,9 +208,11 @@ export function useGroupesPanneaux(initialLignes: LignePrestationV3[] = []) {
    */
   const adapterEpaisseurLigne = useCallback((ligneId: string, groupeId: string) => {
     const groupe = groupes.find(g => g.id === groupeId);
-    if (!groupe?.panneau || groupe.panneau.epaisseurs.length === 0) return;
+    if (!groupe?.panneau) return;
 
-    const nouvelleEpaisseur = groupe.panneau.epaisseurs[0]; // Utiliser la première épaisseur disponible
+    const nouvelleEpaisseur = getFirstEpaisseur(groupe.panneau);
+    if (nouvelleEpaisseur <= 0) return;
+
     updateLigne(ligneId, {
       dimensions: {
         longueur: 0, // sera récupéré par le spread

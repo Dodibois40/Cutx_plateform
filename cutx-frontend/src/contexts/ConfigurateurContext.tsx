@@ -510,11 +510,11 @@ export function ConfigurateurProvider({
 
       setLignes(prev => {
         const lignesExistantes = prev.filter(l =>
-          l.reference.trim() !== '' ||
+          (l.reference?.trim() ?? '') !== '' ||
           l.materiau !== null ||
           l.finition !== null ||
-          l.dimensions.longueur > 0 ||
-          l.dimensions.largeur > 0
+          (l.dimensions?.longueur ?? 0) > 0 ||
+          (l.dimensions?.largeur ?? 0) > 0
         );
         return [...lignesExistantes, ...nouvellesLignes];
       });
@@ -608,11 +608,11 @@ export function ConfigurateurProvider({
 
       setLignes(prev => {
         const lignesExistantes = prev.filter(l =>
-          l.reference.trim() !== '' ||
+          (l.reference?.trim() ?? '') !== '' ||
           l.materiau !== null ||
           l.finition !== null ||
-          l.dimensions.longueur > 0 ||
-          l.dimensions.largeur > 0
+          (l.dimensions?.longueur ?? 0) > 0 ||
+          (l.dimensions?.largeur ?? 0) > 0
         );
         return [...lignesExistantes, ...nouvellesLignes];
       });

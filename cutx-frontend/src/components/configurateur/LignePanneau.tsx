@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers, GripVertical } from 'lucide-react';
+import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
 import type { DraggableAttributes } from '@dnd-kit/core';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { getRALByCode } from '@/lib/configurateur/ral-colors';
@@ -12,13 +12,13 @@ import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import {
   ETAT_INDICATEURS,
-  TYPES_FINITION_VALUES,
   TYPES_FINITION_TRANSLATION_KEYS,
   BRILLANCES_PRICING,
   BRILLANCES_TRANSLATION_KEYS,
   DEFAULT_CHANTS_BY_SHAPE,
 } from '@/lib/configurateur/constants';
 import SelecteurForme from './SelecteurForme';
+import SelecteurFinition from './SelecteurFinition';
 import { getEtatLigne, getChampsManquants, formaterPrix, calculerMetresLineairesParForme } from '@/lib/configurateur/calculs';
 import PopupLaque from './dialogs/PopupLaque';
 import PopupEnConstruction from './dialogs/PopupEnConstruction';
@@ -34,7 +34,14 @@ interface DragProps {
   isDragging?: boolean;
 }
 
-interface LignePanneauProps extends DragProps {
+// Props pour la multi-sélection
+interface SelectionProps {
+  isSelected?: boolean;
+  onToggleSelection?: () => void;
+  selectedCount?: number; // Nombre total de lignes sélectionnées
+}
+
+interface LignePanneauProps extends DragProps, SelectionProps {
   ligne: LignePrestationV3;
   ligneFinition: LignePrestationV3 | null;
   panneauGlobal: PanneauCatalogue | null;
@@ -70,15 +77,120 @@ export default function LignePanneau({
   dragAttributes,
   dragListeners,
   isDragging = false,
+  // Props de sélection optionnelles
+  isSelected = false,
+  onToggleSelection,
+  selectedCount = 0,
 }: LignePanneauProps) {
   const t = useTranslations();
   const [showEnConstruction, setShowEnConstruction] = useState<'usinages' | 'percage' | null>(null);
   const [showLaque, setShowLaque] = useState(false);
   const [showPentagon, setShowPentagon] = useState(false);
+
+  // Détection click vs drag sur le grip handle
+  // On utilise un ref pour stocker le timestamp du pointerDown
+  const pointerDownTimeRef = useRef<number>(0);
+  const pointerDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const CLICK_THRESHOLD_MS = 200; // Temps max pour considérer comme un clic
+  const MOVE_THRESHOLD_PX = 5; // Distance max pour considérer comme un clic
+
+  const handleGripPointerDown = (e: React.PointerEvent) => {
+    pointerDownTimeRef.current = Date.now();
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleGripPointerUp = (e: React.PointerEvent) => {
+    const elapsed = Date.now() - pointerDownTimeRef.current;
+    const dx = Math.abs(e.clientX - pointerDownPosRef.current.x);
+    const dy = Math.abs(e.clientY - pointerDownPosRef.current.y);
+    const moved = dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX;
+
+    // Si c'était un clic rapide sans mouvement, toggle la sélection
+    if (elapsed < CLICK_THRESHOLD_MS && !moved && onToggleSelection) {
+      onToggleSelection();
+    }
+  };
   const [showTriangle, setShowTriangle] = useState(false);
   const [showEtatTooltip, setShowEtatTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [isFinitionExpanded, setIsFinitionExpanded] = useState(false); // Collapsed by default, expanded when user manually creates
   const etatRef = useRef<HTMLSpanElement>(null);
+  const finitionRowRef = useRef<HTMLTableRowElement>(null);
+
+  // Helper: Check if finition has required details filled
+  const isFinitionComplete = (lf: LignePrestationV3 | null): boolean => {
+    if (!lf) return false;
+    // Laque needs RAL code + brillance
+    if (lf.finition === 'laque') {
+      return !!(lf.codeCouleurLaque && lf.brillance);
+    }
+    // Teinte+vernis needs teinte + brillance
+    if (lf.typeFinition === 'teinte_vernis') {
+      return !!(lf.teinte && lf.brillance);
+    }
+    // Vernis only needs brillance
+    return !!lf.brillance;
+  };
+
+  // Helper: Generate finition summary text
+  const getFinitionSummary = (lf: LignePrestationV3 | null): string | null => {
+    if (!lf || !lf.typeFinition) return null;
+
+    const parts: string[] = [];
+
+    // Type (use existing translation keys)
+    if (lf.typeFinition) {
+      parts.push(t(TYPES_FINITION_TRANSLATION_KEYS[lf.typeFinition]));
+    }
+
+    // Color/Tint
+    if (lf.finition === 'laque' && lf.codeCouleurLaque) {
+      // Extract just the RAL code (without hex)
+      const ralCode = lf.codeCouleurLaque.replace(/\s*\(#[0-9a-fA-F]+\)/, '');
+      parts.push(ralCode);
+    } else if (lf.teinte) {
+      parts.push(lf.teinte);
+    }
+
+    // Brillance (use existing translation keys)
+    if (lf.brillance) {
+      parts.push(t(BRILLANCES_TRANSLATION_KEYS[lf.brillance]));
+    }
+
+    // Faces
+    if (lf.nombreFaces) {
+      parts.push(`${lf.nombreFaces}F`);
+    }
+
+    return parts.length > 0 ? parts.join(' • ') : null;
+  };
+
+  // Click outside to collapse finition row (only if finition is complete)
+  useEffect(() => {
+    if (!ligneFinition || !isFinitionExpanded) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      // Don't collapse if clicking inside the finition row
+      if (finitionRowRef.current?.contains(target)) return;
+
+      // Don't collapse if clicking on a popup (PopupLaque, etc.)
+      const popupElements = document.querySelectorAll('[role="dialog"], .popup-overlay, [data-radix-portal]');
+      for (const popup of popupElements) {
+        if (popup.contains(target)) return;
+      }
+
+      // Only collapse if finition details are filled
+      if (isFinitionComplete(ligneFinition)) {
+        setIsFinitionExpanded(false);
+      }
+    };
+
+    // Use mousedown to capture before other handlers
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [ligneFinition, isFinitionExpanded]);
 
   // État de la ligne
   const etat = getEtatLigne(ligne);
@@ -151,20 +263,32 @@ export default function LignePanneau({
       <tr
         ref={dragRef}
         style={dragStyle}
-        className={`ligne-panneau ${isDragging ? 'is-dragging' : ''}`}
+        className={`ligne-panneau ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''}`}
       >
         {/* État + Grip de drag combinés */}
-        <td className="cell-etat cell-group-id">
+        <td className="cx-col-etat cell-etat cell-group-id">
           <div className="etat-grip-container">
             {/* Grip de drag - visible uniquement si drag props sont présentes */}
             {dragListeners ? (
               <button
-                className="grip-handle"
-                style={{ color: indicateur.couleur }}
+                className={`grip-handle ${isSelected ? 'selected' : ''}`}
+                style={{ color: isSelected ? 'var(--cx-accent)' : indicateur.couleur }}
                 {...(dragAttributes as React.ButtonHTMLAttributes<HTMLButtonElement>)}
                 {...(dragListeners as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+                onPointerDown={(e) => {
+                  handleGripPointerDown(e);
+                  // Laisser dnd-kit gérer le pointerdown aussi
+                  if (dragListeners?.onPointerDown) {
+                    (dragListeners.onPointerDown as (e: React.PointerEvent) => void)(e);
+                  }
+                }}
+                onPointerUp={handleGripPointerUp}
               >
-                <GripVertical size={16} />
+                {isSelected && selectedCount > 1 ? (
+                  <span className="selection-badge">{selectedCount}</span>
+                ) : (
+                  <GripVertical size={16} />
+                )}
               </button>
             ) : (
               <span
@@ -235,7 +359,7 @@ export default function LignePanneau({
         )}
 
         {/* Référence */}
-        <td className="cell-reference cell-group-id cell-group-end-sticky" title={t('configurateur.tooltips.reference')}>
+        <td className="cx-col-reference cell-reference cell-group-id cell-group-end-sticky" title={t('configurateur.tooltips.reference')}>
           <input
             type="text"
             value={ligne.reference}
@@ -247,7 +371,7 @@ export default function LignePanneau({
         </td>
 
         {/* Forme */}
-        <td className="cell-forme cell-group-panneau">
+        <td className="cx-col-forme cell-forme cell-group-panneau">
           <SelecteurForme
             forme={ligne.forme || 'rectangle'}
             onChange={(forme: FormePanneau, chantsConfig: ChantsConfig) => {
@@ -268,7 +392,7 @@ export default function LignePanneau({
         </td>
 
         {/* Dimensions - Adaptatives selon forme */}
-        <td className="cell-dimensions cell-group-panneau" title={t('configurateur.tooltips.dimensions')}>
+        <td className="cx-col-dimensions cell-dimensions cell-group-panneau" title={t('configurateur.tooltips.dimensions')}>
           {(ligne.forme || 'rectangle') === 'pentagon' ? (
             /* L-SHAPE: 5 champs sur une ligne (L1 × W1 | L2 × W2 × Ép) */
             <div className="dimensions-compact">
@@ -485,7 +609,7 @@ export default function LignePanneau({
         </td>
 
         {/* Chants - Dynamiques selon forme */}
-        <td className="cell-chants cell-group-panneau" title={t('configurateur.tooltips.edges')}>
+        <td className="cx-col-chants cell-chants cell-group-panneau" title={t('configurateur.tooltips.edges')}>
           {/* RECTANGLE: 4 boutons A/B/C/D */}
           {(ligne.forme || 'rectangle') === 'rectangle' && (
             <div className="chants-row">
@@ -686,7 +810,7 @@ export default function LignePanneau({
         </td>
 
         {/* Usinages - En construction */}
-        <td className="cell-group-panneau cell-center" title={t('configurateur.tooltips.machining')}>
+        <td className="cx-col-usinages cell-group-panneau cell-center" title={t('configurateur.tooltips.machining')}>
           <button
             className="btn-usinages btn-construction"
             onClick={() => setShowEnConstruction('usinages')}
@@ -696,7 +820,7 @@ export default function LignePanneau({
         </td>
 
         {/* Perçage - En construction */}
-        <td className="cell-group-panneau cell-group-end cell-center">
+        <td className="cx-col-percage cell-group-panneau cell-group-end cell-center">
           <button
             className="btn-percage-construction"
             onClick={() => setShowEnConstruction('percage')}
@@ -759,36 +883,44 @@ export default function LignePanneau({
         />
 
         {/* Finition optionnelle */}
-        <td className="cell-group-finition cell-group-end">
+        <td className="cx-col-finition cell-group-finition cell-group-end">
           <div className="finition-opt-wrapper">
             {!ligneFinition ? (
-              // Pas de finition - afficher le sélecteur
-              <div className="finition-selector">
-                <select
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      onCreerFinition(e.target.value as TypeFinition);
-                    }
-                  }}
-                  className="select-compact select-finition"
-                >
-                  <option value="">{t('configurateur.finish.addFinish')}</option>
-                  {TYPES_FINITION_VALUES.map(value => (
-                    <option key={value} value={value}>{t(TYPES_FINITION_TRANSLATION_KEYS[value])}</option>
-                  ))}
-                </select>
-              </div>
+              // Pas de finition - afficher le sélecteur custom
+              <SelecteurFinition
+                onSelect={(typeFinition) => {
+                  onCreerFinition(typeFinition);
+                  setIsFinitionExpanded(true);
+                }}
+              />
             ) : (
-              // Finition existe - afficher résumé
-              <div className="finition-resume">
-                <span className="finition-type">
-                  <Paintbrush size={12} />
-                  {ligneFinition.typeFinition ? t(TYPES_FINITION_TRANSLATION_KEYS[ligneFinition.typeFinition]) : t('configurateur.columns.finish')}
+              // Finition existe - afficher résumé avec accordion
+              <div
+                className={`finition-resume ${isFinitionExpanded ? 'expanded' : 'collapsed'} ${isFinitionComplete(ligneFinition) ? 'complete' : ''}`}
+                onClick={() => setIsFinitionExpanded(!isFinitionExpanded)}
+              >
+                <span className="finition-expand-indicator">
+                  {isFinitionExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </span>
+                {isFinitionExpanded || !isFinitionComplete(ligneFinition) ? (
+                  // Mode expanded ou incomplet: juste le type
+                  <span className="finition-type">
+                    <Paintbrush size={12} />
+                    {ligneFinition.typeFinition ? t(TYPES_FINITION_TRANSLATION_KEYS[ligneFinition.typeFinition]) : t('configurateur.columns.finish')}
+                  </span>
+                ) : (
+                  // Mode collapsed avec finition complète: résumé complet
+                  <span className="finition-summary">
+                    <Paintbrush size={12} />
+                    <span className="summary-text">{getFinitionSummary(ligneFinition)}</span>
+                  </span>
+                )}
                 <button
                   className="btn-remove-finition"
-                  onClick={onSupprimerFinition}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSupprimerFinition();
+                  }}
                   title={t('configurateur.finish.removeFinish')}
                 >
                   <X size={12} />
@@ -799,12 +931,12 @@ export default function LignePanneau({
         </td>
 
         {/* Prix */}
-        <td className="cell-group-prix cell-prix">
+        <td className="cx-col-prix cell-group-prix cell-prix">
           <span className="prix-value">{formaterPrix(prixTotal)}</span>
         </td>
 
         {/* Actions */}
-        <td className="cell-group-prix cell-actions">
+        <td className="cx-col-actions cell-group-prix cell-actions">
           <div className="actions-group">
             <button className="btn-action" onClick={onCopier} title={t('common.actions.duplicate')}>
               <Copy size={14} />
@@ -821,110 +953,223 @@ export default function LignePanneau({
         </td>
       </tr>
 
-      {/* === SOUS-LIGNE FINITION === */}
-      {ligneFinition && onUpdateFinition && (
-        <tr className="ligne-finition">
-          {/* Cellules vides pour alignement */}
-          <td className="cell-empty cell-group-id"></td>
-          <td className="cell-empty cell-group-id"></td>
-          <td className="cell-empty cell-group-id cell-group-end-sticky">
-            <span className="finition-indent">{'\u21B3'} {t('configurateur.columns.finish')}</span>
-          </td>
-          <td className="cell-empty cell-group-panneau"></td>
+      {/* === SOUS-LIGNE FINITION === (Accordion: only show when expanded) */}
+      {ligneFinition && onUpdateFinition && isFinitionExpanded && (
+        <tr ref={finitionRowRef} className="ligne-finition">
+          {hidePanelColumn ? (
+            <>
+              {/* Mode Groupes: 10 colonnes (ETAT, REFERENCE, FORME, DIMENSIONS, CHANTS, USINAGES, PERCAGE, FINITION, PRIX, ACTIONS) */}
+              {/* Colonnes 1-2 vides (ETAT + REFERENCE) */}
+              <td className="cell-empty"></td>
+              <td className="cell-empty">
+                <span className="finition-indent">{'\u21B3'} {t('configurateur.columns.finish')}</span>
+              </td>
 
-          {/* Teinte/RAL - couvre Dimensions + Chants */}
-          <td className="cell-finition-detail" colSpan={2}>
-            <div className="finition-field">
-              <label>
-                {ligneFinition.finition === 'laque' ? t('configurateur.finish.ralCode') : t('configurateur.finish.tint')}
-              </label>
-              {ligneFinition.finition === 'laque' ? (
-                <div className="color-picker-wrapper">
-                  <input
-                    type="text"
-                    value={ligneFinition.codeCouleurLaque?.replace(/\s*\(#[0-9a-fA-F]+\)/, '') || ''}
-                    readOnly
-                    onClick={() => setShowLaque(true)}
-                    placeholder={t('configurateur.placeholders.chooseRAL')}
-                    className={`input-compact input-with-picker ${!ligneFinition.codeCouleurLaque ? 'field-missing' : ''}`}
-                    style={{ cursor: 'pointer' }}
+              {/* Teinte/RAL - couvre FORME + DIMENSIONS (colonnes 3-4) */}
+              <td className="cell-finition-detail" colSpan={2}>
+                <div className="finition-field">
+                  <label>
+                    {ligneFinition.finition === 'laque' ? t('configurateur.finish.ralCode') : t('configurateur.finish.tint')}
+                  </label>
+                  {ligneFinition.finition === 'laque' ? (
+                    <div className="color-picker-wrapper">
+                      <input
+                        type="text"
+                        value={ligneFinition.codeCouleurLaque?.replace(/\s*\(#[0-9a-fA-F]+\)/, '') || ''}
+                        readOnly
+                        onClick={() => setShowLaque(true)}
+                        placeholder={t('configurateur.placeholders.chooseRAL')}
+                        className={`input-compact input-with-picker ${!ligneFinition.codeCouleurLaque ? 'field-missing' : ''}`}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <button
+                        className="btn-color-picker"
+                        onClick={() => setShowLaque(true)}
+                        style={ligneFinition.codeCouleurLaque ? {
+                          backgroundColor: ligneFinition.codeCouleurLaque.match(/#[0-9a-fA-F]{6}/)?.[0] || getRALByCode(ligneFinition.codeCouleurLaque)?.hex || '#888',
+                        } : undefined}
+                      >
+                        {!ligneFinition.codeCouleurLaque && <Pipette size={14} />}
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={ligneFinition.teinte || ''}
+                      onChange={(e) => onUpdateFinition({ teinte: e.target.value || null })}
+                      placeholder={ligneFinition.typeFinition === 'teinte_vernis' ? t('configurateur.placeholders.tint') : t('common.misc.optional')}
+                      className={`input-compact ${ligneFinition.typeFinition === 'teinte_vernis' && !ligneFinition.teinte ? 'field-missing' : ''}`}
+                    />
+                  )}
+                  <PopupLaque
+                    open={showLaque}
+                    codeCouleurActuel={ligneFinition.codeCouleurLaque}
+                    onUpdate={(codeCouleur) => onUpdateFinition?.({ codeCouleurLaque: codeCouleur })}
+                    onClose={() => setShowLaque(false)}
                   />
-                  <button
-                    className="btn-color-picker"
-                    onClick={() => setShowLaque(true)}
-                    style={ligneFinition.codeCouleurLaque ? {
-                      backgroundColor: ligneFinition.codeCouleurLaque.match(/#[0-9a-fA-F]{6}/)?.[0] || getRALByCode(ligneFinition.codeCouleurLaque)?.hex || '#888',
-                    } : undefined}
-                  >
-                    {!ligneFinition.codeCouleurLaque && <Pipette size={14} />}
-                  </button>
                 </div>
-              ) : (
-                <input
-                  type="text"
-                  value={ligneFinition.teinte || ''}
-                  onChange={(e) => onUpdateFinition({ teinte: e.target.value || null })}
-                  placeholder={ligneFinition.typeFinition === 'teinte_vernis' ? t('configurateur.placeholders.tint') : t('common.misc.optional')}
-                  className={`input-compact ${ligneFinition.typeFinition === 'teinte_vernis' && !ligneFinition.teinte ? 'field-missing' : ''}`}
-                />
-              )}
-              <PopupLaque
-                open={showLaque}
-                codeCouleurActuel={ligneFinition.codeCouleurLaque}
-                onUpdate={(codeCouleur) => onUpdateFinition?.({ codeCouleurLaque: codeCouleur })}
-                onClose={() => setShowLaque(false)}
-              />
-            </div>
-          </td>
+              </td>
 
-          {/* Brillance - couvre Usinages + Perçage */}
-          <td className="cell-finition-detail cell-group-end" colSpan={2}>
-            <div className="finition-field">
-              <label>{t('configurateur.finish.gloss')}</label>
-              <select
-                value={ligneFinition.brillance || ''}
-                onChange={(e) => onUpdateFinition({ brillance: e.target.value as Brillance || null })}
-                className={`select-compact ${!ligneFinition.brillance ? 'field-missing' : ''}`}
-              >
-                <option value="">{t('configurateur.placeholders.choose')}</option>
-                {brillancesDisponibles.map(b => {
-                  const prix = ligneFinition.finition === 'laque' ? b.prixLaque : b.prixVernis;
-                  return (
-                    <option key={b.value} value={b.value}>
-                      {t(BRILLANCES_TRANSLATION_KEYS[b.value])} ({prix}{t('configurateur.units.euroPerM2')})
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          </td>
+              {/* Brillance - couvre CHANTS + USINAGES (colonnes 5-6) */}
+              <td className="cell-finition-detail" colSpan={2}>
+                <div className="finition-field">
+                  <label>{t('configurateur.finish.gloss')}</label>
+                  <select
+                    value={ligneFinition.brillance || ''}
+                    onChange={(e) => onUpdateFinition({ brillance: e.target.value as Brillance || null })}
+                    className={`select-compact ${!ligneFinition.brillance ? 'field-missing' : ''}`}
+                  >
+                    <option value="">{t('configurateur.placeholders.choose')}</option>
+                    {brillancesDisponibles.map(b => {
+                      const prix = ligneFinition.finition === 'laque' ? b.prixLaque : b.prixVernis;
+                      return (
+                        <option key={b.value} value={b.value}>
+                          {t(BRILLANCES_TRANSLATION_KEYS[b.value])} ({prix}{t('configurateur.units.euroPerM2')})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </td>
 
-          {/* Faces - colonne Finition seule */}
-          <td className="cell-finition-detail cell-group-end">
-            <div className="finition-field">
-              <label>{t('configurateur.finish.faces')}</label>
-              <div className="faces-toggle">
-                <button
-                  className={`btn-face ${ligneFinition.nombreFaces === 1 ? 'active' : ''}`}
-                  onClick={() => onUpdateFinition({ nombreFaces: 1 })}
-                >
-                  1
-                </button>
-                <button
-                  className={`btn-face ${ligneFinition.nombreFaces === 2 ? 'active' : ''}`}
-                  onClick={() => onUpdateFinition({ nombreFaces: 2 })}
-                >
-                  2
-                </button>
-              </div>
-            </div>
-          </td>
+              {/* Faces - colonne PERCAGE (colonne 7) */}
+              <td className="cell-finition-detail">
+                <div className="finition-field">
+                  <label>{t('configurateur.finish.faces')}</label>
+                  <div className="faces-toggle">
+                    <button
+                      className={`btn-face ${ligneFinition.nombreFaces === 1 ? 'active' : ''}`}
+                      onClick={() => onUpdateFinition({ nombreFaces: 1 })}
+                    >
+                      1
+                    </button>
+                    <button
+                      className={`btn-face ${ligneFinition.nombreFaces === 2 ? 'active' : ''}`}
+                      onClick={() => onUpdateFinition({ nombreFaces: 2 })}
+                    >
+                      2
+                    </button>
+                  </div>
+                </div>
+              </td>
 
-          {/* Prix finition */}
-          <td className="cell-group-prix cell-prix">
-            <span className="prix-finition">{formaterPrix(ligneFinition.prixHT)}</span>
-          </td>
-          <td className="cell-group-prix cell-actions"></td>
+              {/* Vide - colonne FINITION (colonne 8) */}
+              <td className="cell-empty"></td>
+
+              {/* Prix finition (colonne 9) */}
+              <td className="cell-prix">
+                <span className="prix-finition">{formaterPrix(ligneFinition.prixHT)}</span>
+              </td>
+
+              {/* Actions vide (colonne 10) */}
+              <td className="cell-actions"></td>
+            </>
+          ) : (
+            <>
+              {/* Mode Classique: 14 colonnes avec panneau/materiau */}
+              {/* Cellules vides pour alignement */}
+              <td className="cell-empty cell-group-id"></td>
+              <td className="cell-empty cell-group-id"></td>
+              <td className="cell-empty cell-group-id cell-group-end-sticky">
+                <span className="finition-indent">{'\u21B3'} {t('configurateur.columns.finish')}</span>
+              </td>
+              <td className="cell-empty cell-group-panneau"></td>
+
+              {/* Teinte/RAL - couvre Dimensions + Chants */}
+              <td className="cell-finition-detail" colSpan={2}>
+                <div className="finition-field">
+                  <label>
+                    {ligneFinition.finition === 'laque' ? t('configurateur.finish.ralCode') : t('configurateur.finish.tint')}
+                  </label>
+                  {ligneFinition.finition === 'laque' ? (
+                    <div className="color-picker-wrapper">
+                      <input
+                        type="text"
+                        value={ligneFinition.codeCouleurLaque?.replace(/\s*\(#[0-9a-fA-F]+\)/, '') || ''}
+                        readOnly
+                        onClick={() => setShowLaque(true)}
+                        placeholder={t('configurateur.placeholders.chooseRAL')}
+                        className={`input-compact input-with-picker ${!ligneFinition.codeCouleurLaque ? 'field-missing' : ''}`}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <button
+                        className="btn-color-picker"
+                        onClick={() => setShowLaque(true)}
+                        style={ligneFinition.codeCouleurLaque ? {
+                          backgroundColor: ligneFinition.codeCouleurLaque.match(/#[0-9a-fA-F]{6}/)?.[0] || getRALByCode(ligneFinition.codeCouleurLaque)?.hex || '#888',
+                        } : undefined}
+                      >
+                        {!ligneFinition.codeCouleurLaque && <Pipette size={14} />}
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={ligneFinition.teinte || ''}
+                      onChange={(e) => onUpdateFinition({ teinte: e.target.value || null })}
+                      placeholder={ligneFinition.typeFinition === 'teinte_vernis' ? t('configurateur.placeholders.tint') : t('common.misc.optional')}
+                      className={`input-compact ${ligneFinition.typeFinition === 'teinte_vernis' && !ligneFinition.teinte ? 'field-missing' : ''}`}
+                    />
+                  )}
+                  <PopupLaque
+                    open={showLaque}
+                    codeCouleurActuel={ligneFinition.codeCouleurLaque}
+                    onUpdate={(codeCouleur) => onUpdateFinition?.({ codeCouleurLaque: codeCouleur })}
+                    onClose={() => setShowLaque(false)}
+                  />
+                </div>
+              </td>
+
+              {/* Brillance - couvre Usinages + Perçage */}
+              <td className="cell-finition-detail cell-group-end" colSpan={2}>
+                <div className="finition-field">
+                  <label>{t('configurateur.finish.gloss')}</label>
+                  <select
+                    value={ligneFinition.brillance || ''}
+                    onChange={(e) => onUpdateFinition({ brillance: e.target.value as Brillance || null })}
+                    className={`select-compact ${!ligneFinition.brillance ? 'field-missing' : ''}`}
+                  >
+                    <option value="">{t('configurateur.placeholders.choose')}</option>
+                    {brillancesDisponibles.map(b => {
+                      const prix = ligneFinition.finition === 'laque' ? b.prixLaque : b.prixVernis;
+                      return (
+                        <option key={b.value} value={b.value}>
+                          {t(BRILLANCES_TRANSLATION_KEYS[b.value])} ({prix}{t('configurateur.units.euroPerM2')})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </td>
+
+              {/* Faces - colonne Finition seule */}
+              <td className="cell-finition-detail cell-group-end">
+                <div className="finition-field">
+                  <label>{t('configurateur.finish.faces')}</label>
+                  <div className="faces-toggle">
+                    <button
+                      className={`btn-face ${ligneFinition.nombreFaces === 1 ? 'active' : ''}`}
+                      onClick={() => onUpdateFinition({ nombreFaces: 1 })}
+                    >
+                      1
+                    </button>
+                    <button
+                      className={`btn-face ${ligneFinition.nombreFaces === 2 ? 'active' : ''}`}
+                      onClick={() => onUpdateFinition({ nombreFaces: 2 })}
+                    >
+                      2
+                    </button>
+                  </div>
+                </div>
+              </td>
+
+              {/* Prix finition */}
+              <td className="cell-group-prix cell-prix">
+                <span className="prix-finition">{formaterPrix(ligneFinition.prixHT)}</span>
+              </td>
+              <td className="cell-group-prix cell-actions"></td>
+            </>
+          )}
         </tr>
       )}
 
@@ -940,6 +1185,15 @@ export default function LignePanneau({
         .ligne-panneau.is-dragging {
           opacity: 0.5;
           background: var(--cx-accent-subtle);
+        }
+
+        .ligne-panneau.is-selected {
+          background: var(--cx-accent-subtle);
+          border-left: 3px solid var(--cx-accent);
+        }
+
+        .ligne-panneau.is-selected:hover {
+          background: var(--cx-accent-muted);
         }
 
         /* Container pour grip + état */
@@ -975,6 +1229,24 @@ export default function LignePanneau({
           transform: scale(0.95);
         }
 
+        .grip-handle.selected {
+          background: var(--cx-accent-muted);
+          border: 1px solid var(--cx-accent);
+        }
+
+        .selection-badge {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          background: var(--cx-accent);
+          color: white;
+          border-radius: 50%;
+          font-size: 0.65rem;
+          font-weight: 700;
+        }
+
         .ligne-panneau td {
           padding: 0.625rem 0.5rem;
           border-bottom: 1px solid var(--admin-border-subtle);
@@ -987,7 +1259,7 @@ export default function LignePanneau({
         }
 
         .ligne-finition {
-          background: linear-gradient(90deg, var(--admin-bg-tertiary) 0%, var(--admin-ardoise-bg) 100%);
+          background: rgba(255, 255, 255, 0.015);
         }
 
         .ligne-finition td {
@@ -997,12 +1269,16 @@ export default function LignePanneau({
           vertical-align: middle;
         }
 
+        .ligne-finition td:first-child {
+          border-left: 2px solid rgba(255, 255, 255, 0.08);
+        }
+
         .ligne-finition td:last-child {
           border-right: none;
         }
 
         .cell-empty {
-          background: var(--admin-bg-tertiary) !important;
+          background: rgba(255, 255, 255, 0.01) !important;
         }
 
         .finition-indent {
@@ -1749,11 +2025,6 @@ export default function LignePanneau({
           font-weight: 500;
         }
 
-        /* Cellule forme */
-        .cell-forme {
-          min-width: 130px;
-        }
-
         /* Retirer spinners des inputs number */
         .input-dim::-webkit-outer-spin-button,
         .input-dim::-webkit-inner-spin-button {
@@ -1872,23 +2143,49 @@ export default function LignePanneau({
 
         /* Finition optionnelle */
         .finition-opt-wrapper {
-          min-width: 140px;
-        }
-
-        .select-finition {
-          border-color: var(--admin-ardoise-border);
-          color: var(--admin-ardoise);
+          width: 100%;
         }
 
         .finition-resume {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-          padding: 0.375rem 0.5rem;
+          gap: 0.25rem;
+          width: 100%;
+          padding: 0.25rem 0.375rem;
           background: var(--admin-ardoise-bg);
           border: 1px solid var(--admin-ardoise-border);
           border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+          box-sizing: border-box;
+          overflow: hidden;
+        }
+
+        .finition-resume:hover {
+          border-color: var(--admin-ardoise);
+        }
+
+        .finition-resume.collapsed.complete {
+          padding: 0.25rem 0.375rem;
+          background: transparent;
+          border: 1px solid var(--admin-olive);
+        }
+
+        .finition-resume.collapsed.complete:hover {
+          border-color: var(--admin-olive);
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .finition-expand-indicator {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--admin-text-muted);
+          flex-shrink: 0;
+        }
+
+        .finition-resume.collapsed.complete .finition-expand-indicator {
+          color: var(--admin-text-secondary);
         }
 
         .finition-type {
@@ -1898,6 +2195,25 @@ export default function LignePanneau({
           font-size: 0.75rem;
           font-weight: 500;
           color: var(--admin-ardoise);
+          flex: 1;
+          min-width: 0;
+        }
+
+        .finition-summary {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.6875rem;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.85);
+          flex: 1;
+          min-width: 0;
+        }
+
+        .finition-summary .summary-text {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .btn-remove-finition {
@@ -1922,7 +2238,7 @@ export default function LignePanneau({
 
         /* Finition detail fields */
         .cell-finition-detail {
-          background: var(--admin-bg-tertiary) !important;
+          background: rgba(255, 255, 255, 0.02) !important;
         }
 
         .finition-field {
