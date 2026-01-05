@@ -615,10 +615,16 @@ export default function PopupSelectionPanneau({
             </div>
             <div className="recents-grid">
               {recents.map((produit) => {
-                const prixM2 = produit.prixVenteM2 || produit.prixAchatM2 || 0;
-                const prixMl = produit.prixMl || 0;
-                const prix = prixMl > 0 ? prixMl : prixM2;
-                const prixUnit = prixMl > 0 ? '€/ml' : '€/m²';
+                // Nom: 2 premiers mots
+                const nomCourt = produit.nom.split(' ').slice(0, 2).join(' ');
+
+                // Dimensions (L × l en mm)
+                const isVariable = produit.longueur === 'Variable' || produit.isVariableLength;
+                const dims = isVariable
+                  ? `Var. × ${produit.largeur}`
+                  : produit.longueur && produit.largeur
+                    ? `${produit.longueur} × ${produit.largeur}`
+                    : '';
 
                 return (
                   <button
@@ -639,13 +645,11 @@ export default function PopupSelectionPanneau({
                     )}
                     <div className="recent-info">
                       <span className="recent-name" title={produit.nom}>
-                        {produit.nom}
+                        {nomCourt}
                       </span>
                       <span className="recent-meta">
                         <span className="recent-epaisseur">{produit.epaisseur}mm</span>
-                        {prix > 0 && (
-                          <span className="recent-prix">{prix.toFixed(2)}{prixUnit}</span>
-                        )}
+                        {dims && <span className="recent-dims">{dims}</span>}
                       </span>
                     </div>
                   </button>
@@ -1258,10 +1262,10 @@ export default function PopupSelectionPanneau({
             font-family: 'Space Mono', monospace;
           }
 
-          .recent-prix {
-            color: var(--admin-sable);
-            font-weight: 600;
+          .recent-dims {
+            color: var(--admin-text-muted);
             font-family: 'Space Mono', monospace;
+            font-size: 0.6875rem;
           }
 
           /* Tableau */

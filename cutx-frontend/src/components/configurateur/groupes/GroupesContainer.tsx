@@ -18,7 +18,7 @@ import {
 import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Package, Layers, ChevronDown, Info, AlertTriangle } from 'lucide-react';
+import { Plus, Package, Layers, ChevronDown, Info, AlertTriangle, Trash2, FolderOutput } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -37,6 +37,7 @@ interface GroupesContainerProps {
   panneauxCatalogue: PanneauCatalogue[];
   onSelectPanneau: (callback: (panneau: PanneauCatalogue) => void) => void;
   onOpenMulticouche?: () => void;
+  onEditMulticouche?: (groupeId: string) => void; // Pour éditer un groupe multicouche existant
   onCopierLigne: (ligneId: string) => void;
 }
 
@@ -44,6 +45,7 @@ export function GroupesContainer({
   panneauxCatalogue,
   onSelectPanneau,
   onOpenMulticouche,
+  onEditMulticouche,
   onCopierLigne,
 }: GroupesContainerProps) {
   const {
@@ -54,6 +56,7 @@ export function GroupesContainer({
     totauxGlobaux,
     creerGroupe,
     supprimerGroupe,
+    supprimerGroupeEtLignes,
     updatePanneauGroupe,
     toggleExpandGroupe,
     ajouterLigneNonAssignee,
@@ -71,6 +74,7 @@ export function GroupesContainer({
     toggleLigneSelection,
     clearSelection,
     isLigneSelected,
+    selectLignes,
     deplacerLignesMultiples,
     executerDeplacementMultiple,
   } = useGroupes();
@@ -104,6 +108,13 @@ export function GroupesContainer({
     pendingResult: DragEndResult | null;
     isMultiSelect: boolean;
   }>({ open: false, warning: null, pendingResult: null, isMultiSelect: false });
+
+  // State pour le dialog de confirmation de suppression de groupe
+  const [deleteGroupeDialog, setDeleteGroupeDialog] = useState<{
+    open: boolean;
+    groupeId: string | null;
+    nbLignes: number;
+  }>({ open: false, groupeId: null, nbLignes: 0 });
 
   // Sensors pour le drag
   const sensors = useSensors(
@@ -228,6 +239,28 @@ export function GroupesContainer({
     });
   }, [onSelectPanneau, updatePanneauGroupe]);
 
+  // === HANDLERS SUPPRESSION GROUPE ===
+
+  const handleOpenDeleteDialog = useCallback((groupeId: string) => {
+    const groupe = groupes.find(g => g.id === groupeId);
+    const nbLignes = groupe?.lignes.length ?? 0;
+    setDeleteGroupeDialog({ open: true, groupeId, nbLignes });
+  }, [groupes]);
+
+  const handleDeleteGroupeKeepLines = useCallback(() => {
+    if (deleteGroupeDialog.groupeId) {
+      supprimerGroupe(deleteGroupeDialog.groupeId);
+    }
+    setDeleteGroupeDialog({ open: false, groupeId: null, nbLignes: 0 });
+  }, [deleteGroupeDialog.groupeId, supprimerGroupe]);
+
+  const handleDeleteGroupeAndLines = useCallback(() => {
+    if (deleteGroupeDialog.groupeId) {
+      supprimerGroupeEtLignes(deleteGroupeDialog.groupeId);
+    }
+    setDeleteGroupeDialog({ open: false, groupeId: null, nbLignes: 0 });
+  }, [deleteGroupeDialog.groupeId, supprimerGroupeEtLignes]);
+
   // === HANDLER WARNING EPAISSEUR ===
 
   // Handler pour le déplacement simple (une seule ligne)
@@ -351,7 +384,8 @@ export function GroupesContainer({
               totaux={totaux}
               onToggleExpand={() => toggleExpandGroupe(groupe.id)}
               onSelectPanneau={() => handleSelectPanneauGroupe(groupe.id)}
-              onSupprimer={() => supprimerGroupe(groupe.id)}
+              onSelectMulticouche={onEditMulticouche ? () => onEditMulticouche(groupe.id) : undefined}
+              onSupprimer={() => handleOpenDeleteDialog(groupe.id)}
               onAjouterLigne={() => ajouterLigneGroupe(groupe.id)}
               onUpdateLigne={(ligneId, updates) => updateLigne(ligneId, updates as Partial<LignePrestationV3>)}
               onSupprimerLigne={supprimerLigne}
@@ -413,6 +447,8 @@ export function GroupesContainer({
           // Props de sélection
           selectedLigneIds={selectedLigneIds}
           onToggleLigneSelection={toggleLigneSelection}
+          onSelectAllLignes={selectLignes}
+          onClearSelection={clearSelection}
         />
 
         <style jsx>{`
@@ -675,6 +711,69 @@ export function GroupesContainer({
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog confirmation suppression groupe */}
+      <Dialog
+        open={deleteGroupeDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setDeleteGroupeDialog({ open: false, groupeId: null, nbLignes: 0 });
+        }}
+      >
+        <DialogContent className="!p-0 !gap-0 bg-zinc-900 border-zinc-700 max-w-sm">
+          <DialogTitle className="sr-only">Supprimer le groupe</DialogTitle>
+          <div className="p-5 pb-4">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-red-500 mb-1" aria-hidden="true">
+              <AlertTriangle size={14} className="flex-shrink-0" />
+              Supprimer le groupe ?
+            </h3>
+            <p className="text-xs text-zinc-400">
+              Ce groupe contient <span className="text-zinc-300 font-medium">{deleteGroupeDialog.nbLignes}</span> ligne{deleteGroupeDialog.nbLignes > 1 ? 's' : ''} de découpe.
+            </p>
+          </div>
+
+          <div className="px-5 pb-4 space-y-2">
+            {/* Option 1: Supprimer tout */}
+            <button
+              type="button"
+              onClick={handleDeleteGroupeAndLines}
+              className="w-full p-3 rounded border-l-2 border-l-red-500 border border-zinc-700 hover:border-red-500/50 hover:bg-red-950/30 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2 text-sm text-zinc-200">
+                <Trash2 size={14} className="text-red-500" />
+                Supprimer tout
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5 ml-[22px]">
+                Supprime le groupe et toutes ses lignes
+              </div>
+            </button>
+
+            {/* Option 2: Conserver les lignes */}
+            <button
+              type="button"
+              onClick={handleDeleteGroupeKeepLines}
+              className="w-full p-3 rounded border border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2 text-sm text-zinc-200">
+                <FolderOutput size={14} className="text-yellow-500" />
+                Conserver les lignes
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5 ml-[22px]">
+                Les lignes seront déplacées vers &quot;Non assignées&quot;
+              </div>
+            </button>
+          </div>
+
+          <div className="border-t border-zinc-800 p-3">
+            <button
+              type="button"
+              onClick={() => setDeleteGroupeDialog({ open: false, groupeId: null, nbLignes: 0 })}
+              className="w-full py-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
     </DndContext>

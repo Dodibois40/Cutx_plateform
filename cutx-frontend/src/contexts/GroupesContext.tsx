@@ -83,6 +83,7 @@ interface GroupesContextType {
   // Actions groupes
   creerGroupe: (options?: CreateGroupeOptions) => GroupePanneau;
   supprimerGroupe: (groupeId: string) => void;
+  supprimerGroupeEtLignes: (groupeId: string) => void; // Supprime le groupe ET toutes ses lignes
   updatePanneauGroupe: (groupeId: string, panneauGroupe: PanneauGroupe | null) => void;
   toggleExpandGroupe: (groupeId: string) => void;
 
@@ -288,6 +289,23 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
       const groupe = prev.find(g => g.id === groupeId);
       if (groupe && groupe.lignes.length > 0) {
         setLignesNonAssignees(prevLignes => [...prevLignes, ...groupe.lignes]);
+      }
+      return prev.filter(g => g.id !== groupeId);
+    });
+  }, []);
+
+  // Supprime le groupe ET toutes ses lignes (+ leurs finitions associées)
+  const supprimerGroupeEtLignes = useCallback((groupeId: string) => {
+    setGroupes(prev => {
+      const groupe = prev.find(g => g.id === groupeId);
+      if (groupe) {
+        // Supprimer les finitions associées aux lignes du groupe
+        const ligneIds = groupe.lignes.map(l => l.id);
+        setLignesFinition(prevFinitions => {
+          const newMap = new Map(prevFinitions);
+          ligneIds.forEach(id => newMap.delete(id));
+          return newMap;
+        });
       }
       return prev.filter(g => g.id !== groupeId);
     });
@@ -988,6 +1006,7 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
     // Actions groupes
     creerGroupe,
     supprimerGroupe,
+    supprimerGroupeEtLignes,
     updatePanneauGroupe,
     toggleExpandGroupe,
 
@@ -1037,6 +1056,7 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
     modeGroupes,
     creerGroupe,
     supprimerGroupe,
+    supprimerGroupeEtLignes,
     updatePanneauGroupe,
     toggleExpandGroupe,
     ajouterLigneNonAssignee,
