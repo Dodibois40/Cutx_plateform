@@ -213,14 +213,19 @@ export function useGroupesPanneaux(initialLignes: LignePrestationV3[] = []) {
     const nouvelleEpaisseur = getFirstEpaisseur(groupe.panneau);
     if (nouvelleEpaisseur <= 0) return;
 
+    // Trouver la ligne pour préserver ses dimensions existantes
+    const ligne = groupe.lignes.find(l => l.id === ligneId)
+      || lignesNonAssignees.find(l => l.id === ligneId);
+
+    if (!ligne) return;
+
     updateLigne(ligneId, {
       dimensions: {
-        longueur: 0, // sera récupéré par le spread
-        largeur: 0,
+        ...ligne.dimensions, // Préserver longueur et largeur
         epaisseur: nouvelleEpaisseur,
       },
     });
-  }, [groupes, updateLigne]);
+  }, [groupes, lignesNonAssignees, updateLigne]);
 
   // === IMPORT ===
 
