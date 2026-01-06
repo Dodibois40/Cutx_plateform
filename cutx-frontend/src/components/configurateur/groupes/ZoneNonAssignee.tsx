@@ -10,7 +10,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, AlertTriangle, Plus, ArrowDownToLine } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, Plus, ArrowDownToLine, CheckSquare, Square } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateur/types';
 import type { ColonneDuplicableGroupe, FinitionApplyValue } from '@/contexts/GroupesContext';
@@ -71,6 +71,8 @@ interface ZoneNonAssigneeProps {
   // Props de sélection
   selectedLigneIds?: Set<string>;
   onToggleLigneSelection?: (ligneId: string) => void;
+  onSelectAllLignes?: (ligneIds: string[]) => void;
+  onClearSelection?: () => void;
 }
 
 export function ZoneNonAssignee({
@@ -86,6 +88,8 @@ export function ZoneNonAssignee({
   onApplyToColumn,
   selectedLigneIds,
   onToggleLigneSelection,
+  onSelectAllLignes,
+  onClearSelection,
 }: ZoneNonAssigneeProps) {
   const t = useTranslations();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -128,6 +132,31 @@ export function ZoneNonAssignee({
             <ChevronRight className="w-5 h-5" />
           )}
         </button>
+
+        {/* Bouton Tout sélectionner / désélectionner - juste après le chevron */}
+        {onSelectAllLignes && onClearSelection && lignesPanneau.length > 1 && (() => {
+          // Vérifier si toutes les lignes de cette zone sont sélectionnées
+          const allSelected = ligneIds.length > 0 && ligneIds.every(id => selectedLigneIds?.has(id));
+          const someSelected = selectedLigneIds && selectedLigneIds.size > 0;
+
+          return (
+            <button
+              className={`select-all-btn ${someSelected ? 'has-selection' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (allSelected) {
+                  onClearSelection();
+                } else {
+                  onSelectAllLignes(ligneIds);
+                }
+              }}
+              title={allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+            >
+              {allSelected ? <Square className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+              <span>{allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}</span>
+            </button>
+          );
+        })()}
 
         {/* Icône warning si lignes non vides */}
         {nbLignesNonVides > 0 ? (
@@ -370,6 +399,34 @@ export function ZoneNonAssignee({
         .zone-count {
           font-size: var(--cx-text-xs);
           color: var(--cx-text-muted);
+        }
+
+        .select-all-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border: 1px solid var(--cx-border-default);
+          border-radius: var(--cx-radius-md);
+          background: var(--cx-surface-2);
+          color: var(--cx-text-tertiary);
+          font-size: var(--cx-text-xs);
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s;
+          flex-shrink: 0;
+        }
+
+        .select-all-btn:hover {
+          background: var(--cx-accent-muted);
+          border-color: var(--cx-accent);
+          color: var(--cx-accent);
+        }
+
+        .select-all-btn.has-selection {
+          background: var(--cx-accent-muted);
+          border-color: var(--cx-accent);
+          color: var(--cx-accent);
         }
 
         /* Button styles now in cutx.css (cx-add-ligne-btn) */

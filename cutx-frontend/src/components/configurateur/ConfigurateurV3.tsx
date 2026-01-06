@@ -126,6 +126,7 @@ function ConfigurateurContent() {
     updateLigne: updateLigneGroupe,
     importerLignes,
     creerGroupe,
+    updatePanneauGroupe,
   } = useGroupes();
 
   // State pour le sélecteur de panneau (mode groupes)
@@ -134,6 +135,7 @@ function ConfigurateurContent() {
 
   // State pour le popup multicouche (mode groupes)
   const [multicoucheGroupesOpen, setMulticoucheGroupesOpen] = useState(false);
+  const [editingMulticoucheGroupeId, setEditingMulticoucheGroupeId] = useState<string | null>(null);
 
   // Handler pour ouvrir le sélecteur de panneau (mode groupes)
   const handleSelectPanneauGroupes = useCallback((callback: (panneau: PanneauCatalogue) => void) => {
@@ -149,6 +151,12 @@ function ConfigurateurContent() {
     setSelecteurPanneauOpen(false);
     setSelecteurPanneauCallback(null);
   }, [selecteurPanneauCallback]);
+
+  // Handler pour ouvrir le popup multicouche en mode édition (pour un groupe existant)
+  const handleEditMulticoucheGroupe = useCallback((groupeId: string) => {
+    setEditingMulticoucheGroupeId(groupeId);
+    setMulticoucheGroupesOpen(true);
+  }, []);
 
   // Handler pour copier une ligne (mode groupes) - utilise le même modal
   const handleCopierLigneGroupes = useCallback((ligneId: string) => {
@@ -418,7 +426,11 @@ function ConfigurateurContent() {
           <GroupesContainer
             panneauxCatalogue={panneauxCatalogue}
             onSelectPanneau={handleSelectPanneauGroupes}
-            onOpenMulticouche={() => setMulticoucheGroupesOpen(true)}
+            onOpenMulticouche={() => {
+              setEditingMulticoucheGroupeId(null); // Création d'un nouveau groupe
+              setMulticoucheGroupesOpen(true);
+            }}
+            onEditMulticouche={handleEditMulticoucheGroupe}
             onCopierLigne={handleCopierLigneGroupes}
           />
         ) : (
@@ -615,13 +627,28 @@ function ConfigurateurContent() {
       <PopupMulticouche
         open={multicoucheGroupesOpen}
         panneauxCatalogue={panneauxCatalogue}
-        panneauMulticouche={null}
+        panneauMulticouche={(() => {
+          // Si on édite un groupe existant, passer son panneau multicouche
+          if (!editingMulticoucheGroupeId) return null;
+          const groupe = groupes.find(g => g.id === editingMulticoucheGroupeId);
+          if (!groupe?.panneau || groupe.panneau.type !== 'multicouche') return null;
+          return groupe.panneau.panneau;
+        })()}
         onSave={(panneau) => {
-          // Créer un groupe avec le panneau multicouche
-          creerGroupe({ panneau: { type: 'multicouche', panneau } });
+          if (editingMulticoucheGroupeId) {
+            // Mettre à jour le groupe existant
+            updatePanneauGroupe(editingMulticoucheGroupeId, { type: 'multicouche', panneau });
+          } else {
+            // Créer un nouveau groupe
+            creerGroupe({ panneau: { type: 'multicouche', panneau } });
+          }
           setMulticoucheGroupesOpen(false);
+          setEditingMulticoucheGroupeId(null);
         }}
-        onClose={() => setMulticoucheGroupesOpen(false)}
+        onClose={() => {
+          setMulticoucheGroupesOpen(false);
+          setEditingMulticoucheGroupeId(null);
+        }}
       />
 
       <style jsx>{`

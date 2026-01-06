@@ -332,6 +332,8 @@ export function useMulticoucheState({
       panneauNom: produit.nom,
       panneauReference: produit.reference,
       panneauImageUrl: produit.imageUrl || null,
+      panneauLongueur: produit.longueur || null,
+      panneauLargeur: produit.largeur || null,
       prixPanneauM2: produit.prixVenteM2 || produit.prixAchatM2 || 0,
       epaisseur: produit.epaisseur,
       materiau: produit.type,
@@ -345,6 +347,8 @@ export function useMulticoucheState({
       panneauNom: null,
       panneauReference: null,
       panneauImageUrl: null,
+      panneauLongueur: null,
+      panneauLargeur: null,
       prixPanneauM2: 0,
     });
   }, [updateCouche]);
