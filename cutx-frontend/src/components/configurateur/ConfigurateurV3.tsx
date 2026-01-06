@@ -662,16 +662,20 @@ function ConfigurateurContent() {
         .warning-banner {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 10px 24px;
+          gap: 10px;
+          margin: 0 24px 16px;
+          padding: 12px 16px;
           font-size: var(--cx-text-sm);
+          font-weight: 500;
           color: #f59e0b;
-          background: rgba(245, 158, 11, 0.1);
-          border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+          background: rgba(245, 158, 11, 0.08);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+          border-radius: var(--cx-radius-lg);
         }
 
         .warning-banner svg {
           flex-shrink: 0;
+          opacity: 0.9;
         }
 
         /* Toast */

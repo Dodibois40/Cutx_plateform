@@ -9,7 +9,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, Trash2, Package, Plus, ArrowDownToLine, Layers } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Package, Plus, ArrowDownToLine, Layers, MoveVertical } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { GroupePanneau as GroupePanneauType } from '@/lib/configurateur/groupes/types';
 import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateur/types';
@@ -66,6 +66,7 @@ interface GroupePanneauProps {
     surfaceTotaleM2: number;
     prixTotalHT: number;
   };
+  isDragging?: boolean; // État global de drag en cours
   onToggleExpand: () => void;
   onSelectPanneau: () => void;
   onSelectMulticouche?: () => void; // Callback pour ouvrir le popup multicouche
@@ -87,6 +88,7 @@ export function GroupePanneau({
   groupe,
   lignesFinition,
   totaux,
+  isDragging = false,
   onToggleExpand,
   onSelectPanneau,
   onSelectMulticouche,
@@ -103,10 +105,12 @@ export function GroupePanneau({
   onToggleLigneSelection,
 }: GroupePanneauProps) {
   const t = useTranslations();
-  const { setNodeRef, isOver } = useDroppable({
+
+  // Drop zone pour ce groupe - utilisé uniquement sur les zones drop-zone
+  const { setNodeRef: setDropZoneRef, isOver } = useDroppable({
     id: groupe.id,
     data: {
-      type: 'groupe',
+      type: 'drop-zone',
       groupeId: groupe.id,
     },
   });
@@ -114,14 +118,35 @@ export function GroupePanneau({
   const ligneIds = groupe.lignes.map(l => l.id);
   const lignesPanneau = groupe.lignes.filter(l => l.typeLigne === 'panneau');
 
+  // Calculer le prix du panneau brut pour l'afficher dans les stats
+  const prixPanneauBrut = (() => {
+    if (!groupe.panneau) return null;
+    const info = getPanneauDisplayInfo(groupe.panneau);
+    if (!info) return null;
+
+    // Multicouche: prix total des panneaux
+    if (info.isMulticouche && groupe.panneau.type === 'multicouche') {
+      const couches = groupe.panneau.panneau.couches;
+      const total = couches.reduce((sum, c) => {
+        if (c.panneauLongueur && c.panneauLargeur) {
+          return sum + (c.panneauLongueur * c.panneauLargeur / 1_000_000) * (c.prixPanneauM2 || 0);
+        }
+        return sum;
+      }, 0);
+      return total > 0 ? total : null;
+    }
+
+    // Catalogue: prix du panneau
+    if (info.prixM2 != null && info.prixM2 > 0 && info.longueur && info.largeur) {
+      return (info.longueur * info.largeur / 1_000_000) * info.prixM2;
+    }
+
+    return null;
+  })();
+
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'groupe-panneau',
-        isOver && 'is-over'
-      )}
-    >
+    <div className="groupe-panneau">
+
       {/* Header du groupe */}
       <div className="groupe-header" onClick={onToggleExpand}>
         {/* Chevron expand/collapse */}
@@ -159,6 +184,13 @@ export function GroupePanneau({
                 if (info.isMulticouche && groupe.panneau?.type === 'multicouche') {
                   const couches = groupe.panneau.panneau.couches;
                   const prixTotalM2 = couches.reduce((sum, c) => sum + (c.prixPanneauM2 || 0), 0);
+                  // Calculer le prix total de tous les panneaux
+                  const prixTotalPanneaux = couches.reduce((sum, c) => {
+                    if (c.panneauLongueur && c.panneauLargeur) {
+                      return sum + (c.panneauLongueur * c.panneauLargeur / 1_000_000) * (c.prixPanneauM2 || 0);
+                    }
+                    return sum;
+                  }, 0);
 
                   return (
                     <div className="multicouche-layout">
@@ -247,17 +279,9 @@ export function GroupePanneau({
                           <span>ép. {info.epaisseurs.join(', ')}mm</span>
                         )}
                         {info.prixM2 != null && info.prixM2 > 0 && (
-                          <>
-                            <span className="panneau-prix">
-                              {info.prixM2.toFixed(2)}€/m²
-                            </span>
-                            {/* Prix du panneau si dimensions connues */}
-                            {info.longueur && info.largeur && (
-                              <span className="panneau-prix-brut">
-                                Prix du panneau: {((info.longueur * info.largeur / 1_000_000) * info.prixM2).toFixed(2)}€
-                              </span>
-                            )}
-                          </>
+                          <span className="panneau-prix">
+                            {info.prixM2.toFixed(2)}€/m²
+                          </span>
                         )}
                       </span>
                     </div>
@@ -281,32 +305,44 @@ export function GroupePanneau({
 
         {/* Stats et actions */}
         <div className="groupe-stats">
-          <span className="lignes-count">
-            {totaux.nbLignes} ligne{totaux.nbLignes > 1 ? 's' : ''}
-          </span>
+          {/* Prix du panneau brut - largeur fixe pour alignement */}
+          <div className="prix-panneau-slot">
+            {prixPanneauBrut !== null && (
+              <span className="prix-panneau-brut">
+                Tarif achat panneau: {prixPanneauBrut.toFixed(2)}€
+              </span>
+            )}
+          </div>
 
-          {totaux.surfaceTotaleM2 > 0 && (
-            <span className="surface-total">
-              {totaux.surfaceTotaleM2.toFixed(2)}m²
+          {/* Stats lignes/surface/prix */}
+          <div className="stats-right">
+            <span className="lignes-count">
+              {totaux.nbLignes} ligne{totaux.nbLignes > 1 ? 's' : ''}
             </span>
-          )}
 
-          {totaux.prixTotalHT > 0 && (
-            <span className="prix-total">
-              {totaux.prixTotalHT.toFixed(2)}€
-            </span>
-          )}
+            {totaux.surfaceTotaleM2 > 0 && (
+              <span className="surface-total">
+                {totaux.surfaceTotaleM2.toFixed(2)}m²
+              </span>
+            )}
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSupprimer();
-            }}
-            className="delete-btn"
-            title="Supprimer le groupe"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            {totaux.prixTotalHT > 0 && (
+              <span className="prix-total">
+                {totaux.prixTotalHT.toFixed(2)}€
+              </span>
+            )}
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSupprimer();
+              }}
+              className="delete-btn"
+              title="Supprimer le groupe"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -318,10 +354,19 @@ export function GroupePanneau({
             strategy={verticalListSortingStrategy}
           >
             {lignesPanneau.length === 0 ? (
-              <div className="empty-zone">
-                <p>Glissez des lignes ici</p>
+              <div
+                ref={setDropZoneRef}
+                className={cn(
+                  'drop-zone',
+                  isDragging && 'drop-zone--active',
+                  isOver && 'drop-zone--over'
+                )}
+              >
+                <MoveVertical size={16} className="drop-zone-icon" />
+                <span>{isOver ? 'Relâchez pour déposer' : 'Glissez des lignes ici'}</span>
               </div>
             ) : (
+              <>
               <div className="cx-table-wrapper">
                 <div className="cx-table-scroll">
                   <table className="cx-data-table">
@@ -423,6 +468,18 @@ export function GroupePanneau({
                   </table>
                 </div>
               </div>
+              <div
+                ref={setDropZoneRef}
+                className={cn(
+                  'drop-zone drop-zone--compact',
+                  isDragging && 'drop-zone--active',
+                  isOver && 'drop-zone--over'
+                )}
+              >
+                <MoveVertical size={14} className="drop-zone-icon" />
+                <span>{isOver ? 'Relâchez pour déposer' : 'Glissez des lignes ici'}</span>
+              </div>
+              </>
             )}
           </SortableContext>
 
@@ -470,6 +527,8 @@ export function GroupePanneau({
           border-bottom: 1px solid var(--cx-border-subtle);
           cursor: pointer;
           transition: background 0.15s;
+          position: relative;
+          font-family: var(--cx-font-sans);
         }
 
         .groupe-header:hover {
@@ -577,16 +636,7 @@ export function GroupePanneau({
           font-weight: 600;
         }
 
-        .panneau-prix-brut {
-          color: var(--cx-warning);
-          font-weight: 600;
-          padding: 2px 6px;
-          background: var(--cx-warning-muted);
-          border-radius: 4px;
-        }
-
         .panneau-dimensions {
-          font-family: var(--cx-font-mono);
           color: var(--cx-text-secondary);
           padding: 2px 6px;
           background: var(--cx-surface-3);
@@ -658,7 +708,6 @@ export function GroupePanneau({
         }
 
         .multicouche-epaisseur {
-          font-family: var(--cx-font-mono);
           font-size: var(--cx-text-xs);
           color: var(--cx-text-secondary);
           white-space: nowrap;
@@ -710,20 +759,17 @@ export function GroupePanneau({
 
         .couche-epaisseur {
           color: var(--cx-text-tertiary);
-          font-family: var(--cx-font-mono);
           text-align: right;
         }
 
         .couche-prix-m2 {
           color: var(--cx-text-secondary);
-          font-family: var(--cx-font-mono);
           text-align: right;
         }
 
         .couche-prix-panneau {
           color: var(--cx-accent);
           font-weight: 600;
-          font-family: var(--cx-font-mono);
           text-align: right;
         }
 
@@ -754,6 +800,29 @@ export function GroupePanneau({
           flex-shrink: 0;
         }
 
+        .prix-panneau-slot {
+          position: absolute;
+          left: 850px;
+          display: flex;
+        }
+
+        .stats-right {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 16px;
+          margin-left: auto;
+        }
+
+        .prix-panneau-brut {
+          font-size: var(--cx-text-sm);
+          font-weight: 600;
+          color: var(--cx-warning);
+          padding: 4px 10px;
+          background: var(--cx-warning-muted);
+          border-radius: var(--cx-radius-md);
+        }
+
         .lignes-count {
           font-size: var(--cx-text-sm);
           color: var(--cx-text-tertiary);
@@ -761,14 +830,12 @@ export function GroupePanneau({
 
         .surface-total {
           font-size: var(--cx-text-sm);
-          font-family: var(--cx-font-mono);
           color: var(--cx-text-secondary);
         }
 
         .prix-total {
           font-size: var(--cx-text-sm);
           font-weight: 600;
-          font-family: var(--cx-font-mono);
           color: var(--cx-accent);
         }
 
@@ -796,15 +863,60 @@ export function GroupePanneau({
           padding: 12px;
         }
 
-        .empty-zone {
+        .drop-zone {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 32px;
-          border: 2px dashed var(--cx-border-default);
+          gap: 8px;
+          padding: 25px;
+          border: 1.5px dashed var(--cx-border-default);
           border-radius: var(--cx-radius-lg);
           color: var(--cx-text-muted);
           font-size: var(--cx-text-sm);
+          font-weight: 500;
+          letter-spacing: 0.01em;
+          transition: all 0.2s ease;
+        }
+
+        .drop-zone :global(.drop-zone-icon) {
+          opacity: 0.5;
+          transition: all 0.3s ease;
+        }
+
+        .drop-zone--active :global(.drop-zone-icon) {
+          opacity: 1;
+          animation: bounce-subtle 2s ease-in-out infinite;
+        }
+
+        .drop-zone--over :global(.drop-zone-icon) {
+          opacity: 1;
+          animation: none;
+          transform: scale(1.1);
+        }
+
+        @keyframes bounce-subtle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+
+        .drop-zone--compact {
+          margin-top: 8px;
+          padding: 20px;
+        }
+
+        /* État actif - drag en cours */
+        .drop-zone--active {
+          border-color: var(--cx-warning);
+          border-style: dashed;
+          color: var(--cx-warning);
+          background: rgba(251, 191, 36, 0.03);
+        }
+
+        /* État hover - prêt à recevoir */
+        .drop-zone--over {
+          border-color: var(--cx-warning);
+          color: var(--cx-warning);
+          background: rgba(251, 191, 36, 0.08);
         }
 
         /* TABLE styles now in cutx.css (cx-table-*, cx-col-*, cx-add-ligne-btn) */
@@ -855,7 +967,6 @@ export function GroupePanneau({
         .subtotal-value {
           font-size: var(--cx-text-sm);
           font-weight: 600;
-          font-family: var(--cx-font-mono);
           color: var(--cx-accent);
         }
       `}</style>

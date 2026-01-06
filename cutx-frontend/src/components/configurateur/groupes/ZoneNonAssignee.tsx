@@ -10,7 +10,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, AlertTriangle, Plus, ArrowDownToLine, CheckSquare, Square } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, Plus, ArrowDownToLine, CheckSquare, Square, MoveVertical } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateur/types';
 import type { ColonneDuplicableGroupe, FinitionApplyValue } from '@/contexts/GroupesContext';
@@ -60,6 +60,7 @@ function getFirstValueForColumn(
 interface ZoneNonAssigneeProps {
   lignes: LignePrestationV3[];
   lignesFinition: Map<string, LignePrestationV3>; // Map lignePanneauId -> ligneFinition
+  isDragging?: boolean; // État global de drag en cours
   onAjouterLigne: () => void;
   onUpdateLigne: (ligneId: string, updates: Partial<LignePrestationV3>) => void;
   onSupprimerLigne: (ligneId: string) => void;
@@ -78,6 +79,7 @@ interface ZoneNonAssigneeProps {
 export function ZoneNonAssignee({
   lignes,
   lignesFinition,
+  isDragging = false,
   onAjouterLigne,
   onUpdateLigne,
   onSupprimerLigne,
@@ -94,10 +96,11 @@ export function ZoneNonAssignee({
   const t = useTranslations();
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const { setNodeRef, isOver } = useDroppable({
+  // Drop zone - utilisé uniquement sur les zones drop-zone
+  const { setNodeRef: setDropZoneRef, isOver } = useDroppable({
     id: 'non-assignees',
     data: {
-      type: 'zone-non-assignee',
+      type: 'drop-zone',
       groupeId: null,
     },
   });
@@ -115,11 +118,9 @@ export function ZoneNonAssignee({
 
   return (
     <div
-      ref={setNodeRef}
       className={cn(
         'zone-non-assignee',
-        nbLignesNonVides > 0 && 'has-lignes',
-        isOver && 'is-over'
+        nbLignesNonVides > 0 && 'has-lignes'
       )}
     >
       {/* Header */}
@@ -187,11 +188,19 @@ export function ZoneNonAssignee({
             strategy={verticalListSortingStrategy}
           >
             {lignesPanneau.length === 0 ? (
-              <div className="empty-zone">
-                <p>Aucune ligne non assignée</p>
-                <p className="empty-hint">Ajoutez une ligne ou importez un fichier</p>
+              <div
+                ref={setDropZoneRef}
+                className={cn(
+                  'drop-zone',
+                  isDragging && 'drop-zone--active',
+                  isOver && 'drop-zone--over'
+                )}
+              >
+                <MoveVertical size={16} className="drop-zone-icon" />
+                <span>{isOver ? 'Relâchez pour déposer' : 'Glissez des lignes ici'}</span>
               </div>
             ) : (
+              <>
               <div className="cx-table-wrapper">
                 <div className="cx-table-scroll">
                   <table className="cx-data-table">
@@ -293,19 +302,20 @@ export function ZoneNonAssignee({
                   </table>
                 </div>
               </div>
+              <div
+                ref={setDropZoneRef}
+                className={cn(
+                  'drop-zone drop-zone--compact',
+                  isDragging && 'drop-zone--active',
+                  isOver && 'drop-zone--over'
+                )}
+              >
+                <MoveVertical size={14} className="drop-zone-icon" />
+                <span>{isOver ? 'Relâchez pour déposer' : 'Glissez des lignes ici'}</span>
+              </div>
+              </>
             )}
           </SortableContext>
-
-          {/* Message d'aide */}
-          {nbLignesNonVides > 0 && (
-            <div className="warning-message">
-              <AlertTriangle className="w-4 h-4" />
-              <span>
-                {nbLignesNonVides} ligne{nbLignesNonVides > 1 ? 's' : ''} non assignée{nbLignesNonVides > 1 ? 's' : ''}.
-                Glissez-les vers un groupe de panneau.
-              </span>
-            </div>
-          )}
 
           {/* Bouton ajouter ligne */}
           <button
@@ -345,6 +355,7 @@ export function ZoneNonAssignee({
           border-bottom: 1px solid var(--cx-border-subtle);
           cursor: pointer;
           transition: background 0.15s;
+          font-family: var(--cx-font-sans);
         }
 
         .zone-header:hover {
@@ -435,22 +446,61 @@ export function ZoneNonAssignee({
           padding: 12px;
         }
 
-        .empty-zone {
+        .drop-zone {
           display: flex;
-          flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 32px;
-          border: 2px dashed var(--cx-border-default);
+          gap: 8px;
+          padding: 25px;
+          border: 1.5px dashed var(--cx-border-default);
           border-radius: var(--cx-radius-lg);
           color: var(--cx-text-muted);
+          font-size: var(--cx-text-sm);
+          font-weight: 500;
+          letter-spacing: 0.01em;
           text-align: center;
+          transition: all 0.2s ease;
         }
 
-        .empty-hint {
-          font-size: var(--cx-text-xs);
-          margin-top: 4px;
-          opacity: 0.7;
+        .drop-zone :global(.drop-zone-icon) {
+          opacity: 0.5;
+          transition: all 0.3s ease;
+        }
+
+        .drop-zone--active :global(.drop-zone-icon) {
+          opacity: 1;
+          animation: bounce-subtle 2s ease-in-out infinite;
+        }
+
+        .drop-zone--over :global(.drop-zone-icon) {
+          opacity: 1;
+          animation: none;
+          transform: scale(1.1);
+        }
+
+        @keyframes bounce-subtle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+
+        .drop-zone--compact {
+          margin-top: 8px;
+          padding: 20px;
+        }
+
+        /* État actif - drag en cours */
+        .drop-zone--active {
+          border-color: var(--cx-warning);
+          border-style: dashed;
+          color: var(--cx-warning);
+          background: rgba(251, 191, 36, 0.03);
+        }
+
+        /* État hover - prêt à recevoir */
+        .drop-zone--over {
+          border-color: var(--cx-warning);
+          color: var(--cx-warning);
+          background: rgba(251, 191, 36, 0.08);
         }
 
         /* TABLE styles now in cutx.css (cx-table-*, cx-col-*) */
@@ -481,19 +531,6 @@ export function ZoneNonAssignee({
           opacity: 1;
           background: var(--cx-accent);
           color: var(--cx-surface-0);
-        }
-
-        .warning-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 12px;
-          padding: 12px;
-          background: rgba(249, 115, 22, 0.1);
-          border: 1px solid rgba(249, 115, 22, 0.2);
-          border-radius: var(--cx-radius-lg);
-          font-size: var(--cx-text-sm);
-          color: #f97316;
         }
       `}</style>
     </div>

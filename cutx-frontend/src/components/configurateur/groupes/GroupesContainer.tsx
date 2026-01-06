@@ -100,6 +100,7 @@ export function GroupesContainer({
   // State pour le drag
   const [activeDragItem, setActiveDragItem] = useState<LignePrestationV3 | null>(null);
   const [activeGroupeId, setActiveGroupeId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // State pour le warning épaisseur (single et multi-select)
   const [warningDialog, setWarningDialog] = useState<{
@@ -134,6 +135,7 @@ export function GroupesContainer({
     const { active } = event;
     const data = active.data.current;
 
+    setIsDragging(true);
     if (data?.type === 'ligne') {
       setActiveDragItem(data.ligne);
       setActiveGroupeId(data.groupeId);
@@ -143,6 +145,7 @@ export function GroupesContainer({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
+    setIsDragging(false);
     setActiveDragItem(null);
     setActiveGroupeId(null);
 
@@ -153,29 +156,38 @@ export function GroupesContainer({
 
     if (!activeData || activeData.type !== 'ligne') return;
 
+    const sourceGroupeId = activeData.groupeId;
+
     // Déterminer la destination
     let destinationGroupeId: string | null = null;
     let destinationIndex = 0;
 
-    if (overData?.type === 'groupe') {
+    if (overData?.type === 'drop-zone') {
+      // Drop sur une drop-zone dédiée
       destinationGroupeId = overData.groupeId;
-      const groupe = groupes.find(g => g.id === destinationGroupeId);
-      destinationIndex = groupe?.lignes.length ?? 0;
-    } else if (overData?.type === 'zone-non-assignee') {
-      destinationGroupeId = null;
-      destinationIndex = lignesNonAssignees.length;
+      if (destinationGroupeId) {
+        const groupe = groupes.find(g => g.id === destinationGroupeId);
+        destinationIndex = groupe?.lignes.length ?? 0;
+      } else {
+        destinationIndex = lignesNonAssignees.length;
+      }
     } else if (overData?.type === 'ligne') {
-      // Dropped sur une autre ligne
+      // Drop sur une ligne - seulement pour reordering dans le même groupe
       destinationGroupeId = overData.groupeId;
+      if (sourceGroupeId !== destinationGroupeId) {
+        // Déplacement inter-groupe via ligne non autorisé, ignorer
+        return;
+      }
       if (destinationGroupeId) {
         const groupe = groupes.find(g => g.id === destinationGroupeId);
         destinationIndex = groupe?.lignes.findIndex(l => l.id === over.id) ?? 0;
       } else {
         destinationIndex = lignesNonAssignees.findIndex(l => l.id === over.id);
       }
+    } else {
+      // Type non reconnu, ignorer
+      return;
     }
-
-    const sourceGroupeId = activeData.groupeId;
     const draggedLigneId = active.id as string;
 
     // Ne rien faire si même position
@@ -382,6 +394,7 @@ export function GroupesContainer({
               groupe={groupe}
               lignesFinition={lignesFinitionGroupe}
               totaux={totaux}
+              isDragging={isDragging}
               onToggleExpand={() => toggleExpandGroupe(groupe.id)}
               onSelectPanneau={() => handleSelectPanneauGroupe(groupe.id)}
               onSelectMulticouche={onEditMulticouche ? () => onEditMulticouche(groupe.id) : undefined}
@@ -432,6 +445,7 @@ export function GroupesContainer({
         <ZoneNonAssignee
           lignes={lignesNonAssignees}
           lignesFinition={lignesFinitionNonAssignees}
+          isDragging={isDragging}
           onAjouterLigne={ajouterLigneNonAssignee}
           onUpdateLigne={(ligneId, updates) => updateLigne(ligneId, updates as Partial<LignePrestationV3>)}
           onSupprimerLigne={supprimerLigne}
@@ -457,6 +471,7 @@ export function GroupesContainer({
             flex-wrap: wrap;
             gap: 12px;
             justify-content: center;
+            margin-top: 10px;
           }
 
           .panel-selector {
@@ -555,12 +570,11 @@ export function GroupesContainer({
             )}
             <style jsx>{`
               .drag-overlay-item {
-                opacity: 0.9;
                 background: var(--cx-surface-2);
-                border: 2px solid var(--cx-accent);
+                border: 1px solid rgba(251, 191, 36, 0.5);
                 border-radius: var(--cx-radius-lg);
                 padding: 12px 16px;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
               }
               .drag-preview {
                 display: flex;
@@ -571,29 +585,31 @@ export function GroupesContainer({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 24px;
-                height: 24px;
-                background: var(--cx-accent);
-                color: white;
-                border-radius: 50%;
-                font-size: 0.75rem;
+                width: 22px;
+                height: 22px;
+                background: var(--cx-warning);
+                color: #0C0C0B;
+                border-radius: 6px;
+                font-size: 0.7rem;
                 font-weight: 700;
                 flex-shrink: 0;
               }
               .drag-ref {
                 font-weight: 600;
+                font-size: 0.8125rem;
                 color: var(--cx-text-primary);
               }
               .drag-dims {
-                font-size: 0.875rem;
+                font-size: 0.75rem;
                 color: var(--cx-text-tertiary);
                 font-family: var(--cx-font-mono);
               }
               .drag-multi-hint {
                 margin-top: 8px;
-                font-size: 0.75rem;
+                padding-top: 8px;
+                border-top: 1px solid rgba(255, 255, 255, 0.06);
+                font-size: 0.6875rem;
                 color: var(--cx-text-muted);
-                font-style: italic;
               }
             `}</style>
           </div>
