@@ -68,6 +68,7 @@ interface GroupePanneauProps {
   };
   onToggleExpand: () => void;
   onSelectPanneau: () => void;
+  onSelectMulticouche?: () => void; // Callback pour ouvrir le popup multicouche
   onSupprimer: () => void;
   onAjouterLigne: () => void;
   onUpdateLigne: (ligneId: string, updates: Partial<LignePrestationV3>) => void;
@@ -88,6 +89,7 @@ export function GroupePanneau({
   totaux,
   onToggleExpand,
   onSelectPanneau,
+  onSelectMulticouche,
   onSupprimer,
   onAjouterLigne,
   onUpdateLigne,
@@ -140,13 +142,87 @@ export function GroupePanneau({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onSelectPanneau();
+                // Si c'est un panneau multicouche et qu'on a le callback, ouvrir le popup multicouche
+                if (groupe.panneau?.type === 'multicouche' && onSelectMulticouche) {
+                  onSelectMulticouche();
+                } else {
+                  onSelectPanneau();
+                }
               }}
               className="panneau-details panneau-details--clickable"
             >
               {(() => {
                 const info = getPanneauDisplayInfo(groupe.panneau);
                 if (!info) return null;
+
+                // Pour multicouche, afficher en 2 colonnes alignées ligne par ligne
+                if (info.isMulticouche && groupe.panneau?.type === 'multicouche') {
+                  const couches = groupe.panneau.panneau.couches;
+                  const prixTotalM2 = couches.reduce((sum, c) => sum + (c.prixPanneauM2 || 0), 0);
+
+                  return (
+                    <div className="multicouche-layout">
+                      {/* Colonne gauche: Infos générales */}
+                      <div className="multicouche-left">
+                        {/* Ligne 1: Titre */}
+                        <div className="multicouche-row">
+                          <div className="multicouche-icon">
+                            <Layers size={16} />
+                          </div>
+                          <div className="multicouche-row-content">
+                            <span className="multicouche-title">Panneau multicouche</span>
+                          </div>
+                        </div>
+                        {/* Ligne 2: Badges */}
+                        <div className="multicouche-row">
+                          <div className="multicouche-icon" />
+                          <div className="multicouche-row-content">
+                            <span className="badge-multicouche">{couches.length} couches</span>
+                            <span className={cn(
+                              'mode-badge',
+                              info.modeCollage === 'client' && 'mode-badge--client'
+                            )}>
+                              Collage {info.modeCollage === 'fournisseur' ? 'fournisseur' : 'client'}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Ligne 3: Prix */}
+                        <div className="multicouche-row">
+                          <div className="multicouche-icon" />
+                          <div className="multicouche-row-content">
+                            <span className="multicouche-epaisseur">Ép. totale: {info.epaisseur?.toFixed(1)}mm</span>
+                            <span className="multicouche-prix-m2">Prix: {prixTotalM2.toFixed(2)}€/m²</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Colonne droite: Liste des couches */}
+                      <div className="multicouche-right">
+                        {couches.map((couche, idx) => {
+                          // Calculer prix panneau si dimensions disponibles
+                          const prixPanneau = (couche.panneauLongueur && couche.panneauLargeur)
+                            ? (couche.panneauLongueur * couche.panneauLargeur / 1_000_000) * (couche.prixPanneauM2 || 0)
+                            : null;
+
+                          return (
+                            <div key={couche.id} className="couche-row">
+                              <span className="couche-ordre">{idx + 1}</span>
+                              <span className="couche-nom" title={couche.panneauNom || couche.materiau}>
+                                {couche.panneauNom || couche.materiau}
+                              </span>
+                              <span className="couche-epaisseur">{couche.epaisseur}mm</span>
+                              <span className="couche-prix-m2">{(couche.prixPanneauM2 || 0).toFixed(2)}€/m²</span>
+                              <span className="couche-prix-panneau">
+                                {prixPanneau !== null ? `${prixPanneau.toFixed(2)}€` : '-'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Affichage standard pour panneau catalogue
                 return (
                   <>
                     {info.imageUrl ? (
@@ -155,19 +231,10 @@ export function GroupePanneau({
                         alt={info.nomSansDimensions}
                         className="panneau-thumb"
                       />
-                    ) : info.isMulticouche ? (
-                      <div className="panneau-thumb panneau-thumb--multicouche">
-                        <Layers size={16} />
-                      </div>
                     ) : null}
                     <div className="panneau-text">
                       <span className="panneau-nom">
                         {info.nomSansDimensions}
-                        {info.isMulticouche && info.nbCouches && (
-                          <span className="badge-multicouche">
-                            {info.nbCouches} couches
-                          </span>
-                        )}
                       </span>
                       <span className="panneau-meta">
                         {/* Dimensions brut du panneau */}
@@ -176,20 +243,8 @@ export function GroupePanneau({
                             {info.longueur} × {info.largeur} mm
                           </span>
                         )}
-                        {info.isMulticouche ? (
-                          <>
-                            <span>ép. {info.epaisseur?.toFixed(1)}mm</span>
-                            <span className={cn(
-                              'mode-badge',
-                              info.modeCollage === 'client' && 'mode-badge--client'
-                            )}>
-                              {info.modeCollage === 'fournisseur' ? 'Collage fournisseur' : 'Collage client'}
-                            </span>
-                          </>
-                        ) : (
-                          info.epaisseurs.length > 0 && (
-                            <span>ép. {info.epaisseurs.join(', ')}mm</span>
-                          )
+                        {info.epaisseurs.length > 0 && (
+                          <span>ép. {info.epaisseurs.join(', ')}mm</span>
                         )}
                         {info.prixM2 != null && info.prixM2 > 0 && (
                           <>
@@ -539,7 +594,6 @@ export function GroupePanneau({
         }
 
         .badge-multicouche {
-          margin-left: 6px;
           padding: 2px 6px;
           font-size: var(--cx-text-xs);
           font-weight: 500;
@@ -559,6 +613,118 @@ export function GroupePanneau({
         .mode-badge--client {
           background: var(--cx-warning-muted);
           color: var(--cx-warning);
+        }
+
+        /* Multicouche layout 2 colonnes */
+        .multicouche-layout {
+          display: flex;
+          gap: 24px;
+          width: 100%;
+          align-items: stretch;
+        }
+
+        .multicouche-left {
+          display: flex;
+          flex-direction: column;
+          flex-shrink: 0;
+        }
+
+        .multicouche-row {
+          display: grid;
+          grid-template-columns: 32px 1fr;
+          align-items: center;
+          gap: 8px;
+          height: 20px; /* Même hauteur que couche-row */
+        }
+
+        .multicouche-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--cx-warning);
+        }
+
+        .multicouche-row-content {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .multicouche-title {
+          font-weight: 600;
+          font-size: var(--cx-text-sm);
+          color: var(--cx-text-primary);
+          white-space: nowrap;
+        }
+
+        .multicouche-epaisseur {
+          font-family: var(--cx-font-mono);
+          font-size: var(--cx-text-xs);
+          color: var(--cx-text-secondary);
+          white-space: nowrap;
+        }
+
+        .multicouche-prix-m2 {
+          font-weight: 600;
+          font-size: var(--cx-text-xs);
+          color: var(--cx-accent);
+          white-space: nowrap;
+        }
+
+        .multicouche-right {
+          display: flex;
+          flex-direction: column;
+          border-left: 1px solid var(--cx-border-subtle);
+          padding-left: 16px;
+        }
+
+        .couche-row {
+          display: grid;
+          grid-template-columns: 18px 200px 40px 65px 70px;
+          align-items: center;
+          gap: 6px;
+          font-size: var(--cx-text-xs);
+          height: 20px; /* Même hauteur que multicouche-row */
+        }
+
+        .couche-ordre {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          background: var(--cx-accent-muted);
+          color: var(--cx-accent);
+          border-radius: 50%;
+          font-weight: 600;
+          font-size: 9px;
+          flex-shrink: 0;
+        }
+
+        .couche-nom {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          color: var(--cx-text-primary);
+        }
+
+        .couche-epaisseur {
+          color: var(--cx-text-tertiary);
+          font-family: var(--cx-font-mono);
+          text-align: right;
+        }
+
+        .couche-prix-m2 {
+          color: var(--cx-text-secondary);
+          font-family: var(--cx-font-mono);
+          text-align: right;
+        }
+
+        .couche-prix-panneau {
+          color: var(--cx-accent);
+          font-weight: 600;
+          font-family: var(--cx-font-mono);
+          text-align: right;
         }
 
         .select-panneau-btn {
