@@ -32,6 +32,8 @@ export function creerNouvelleCouche(ordre: number, type: TypeCouche = 'ame'): Co
     panneauNom: null,
     panneauReference: null,
     panneauImageUrl: null,
+    panneauLongueur: null,
+    panneauLargeur: null,
     prixPanneauM2: 0,
     surfaceM2: 0,
     prixCouche: 0,

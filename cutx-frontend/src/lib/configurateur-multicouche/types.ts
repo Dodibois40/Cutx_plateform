@@ -27,6 +27,8 @@ export interface CoucheMulticouche {
   panneauNom: string | null;
   panneauReference: string | null;
   panneauImageUrl: string | null;
+  panneauLongueur: number | null; // mm - dimensions du panneau brut
+  panneauLargeur: number | null; // mm
   prixPanneauM2: number;
 
   // Calculé
