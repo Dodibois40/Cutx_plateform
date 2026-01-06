@@ -68,6 +68,7 @@ interface GroupesContextType {
   clearSelection: () => void;
   isLigneSelected: (ligneId: string) => boolean;
   selectLignes: (ligneIds: string[]) => void;
+  supprimerLignesMultiples: (ligneIds: string[]) => void;
   deplacerLignesMultiples: (destinationGroupeId: string | null, destinationIndex: number) => GroupeWarning | null;
   executerDeplacementMultiple: (
     ligneIds: string[],
@@ -350,6 +351,34 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
       // Garder au moins une ligne vide dans non assigné
       return filtered.length > 0 ? filtered : [creerNouvelleLigne()];
     });
+  }, []);
+
+  const supprimerLignesMultiples = useCallback((ligneIds: string[]) => {
+    if (ligneIds.length === 0) return;
+
+    const idsSet = new Set(ligneIds);
+
+    // Supprimer les finitions associées
+    setLignesFinition(prev => {
+      const newMap = new Map(prev);
+      ligneIds.forEach(id => newMap.delete(id));
+      return newMap;
+    });
+
+    // Supprimer des groupes
+    setGroupes(prev => prev.map(g => ({
+      ...g,
+      lignes: g.lignes.filter(l => !idsSet.has(l.id)),
+    })));
+
+    // Supprimer des non-assignés
+    setLignesNonAssignees(prev => {
+      const filtered = prev.filter(l => !idsSet.has(l.id));
+      return filtered.length > 0 ? filtered : [creerNouvelleLigne()];
+    });
+
+    // Vider la sélection
+    setSelectedLigneIds(new Set());
   }, []);
 
   const updateLigne = useCallback((ligneId: string, updates: Partial<LignePrestationV3>) => {
@@ -996,6 +1025,7 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
     clearSelection,
     isLigneSelected,
     selectLignes,
+    supprimerLignesMultiples,
     deplacerLignesMultiples,
     executerDeplacementMultiple,
 
@@ -1051,6 +1081,7 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
     clearSelection,
     isLigneSelected,
     selectLignes,
+    supprimerLignesMultiples,
     deplacerLignesMultiples,
     executerDeplacementMultiple,
     modeGroupes,

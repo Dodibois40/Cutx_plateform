@@ -10,7 +10,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, AlertTriangle, Plus, ArrowDownToLine, CheckSquare, Square, MoveVertical } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, Plus, ArrowDownToLine, CheckSquare, Square, MoveVertical, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateur/types';
 import type { ColonneDuplicableGroupe, FinitionApplyValue } from '@/contexts/GroupesContext';
@@ -61,6 +61,7 @@ interface ZoneNonAssigneeProps {
   lignes: LignePrestationV3[];
   lignesFinition: Map<string, LignePrestationV3>; // Map lignePanneauId -> ligneFinition
   isDragging?: boolean; // État global de drag en cours
+  isHovered?: boolean; // Cette zone est survolée pendant un drag
   onAjouterLigne: () => void;
   onUpdateLigne: (ligneId: string, updates: Partial<LignePrestationV3>) => void;
   onSupprimerLigne: (ligneId: string) => void;
@@ -74,12 +75,14 @@ interface ZoneNonAssigneeProps {
   onToggleLigneSelection?: (ligneId: string) => void;
   onSelectAllLignes?: (ligneIds: string[]) => void;
   onClearSelection?: () => void;
+  onSupprimerSelection?: () => void;
 }
 
 export function ZoneNonAssignee({
   lignes,
   lignesFinition,
   isDragging = false,
+  isHovered = false,
   onAjouterLigne,
   onUpdateLigne,
   onSupprimerLigne,
@@ -92,6 +95,7 @@ export function ZoneNonAssignee({
   onToggleLigneSelection,
   onSelectAllLignes,
   onClearSelection,
+  onSupprimerSelection,
 }: ZoneNonAssigneeProps) {
   const t = useTranslations();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -120,7 +124,8 @@ export function ZoneNonAssignee({
     <div
       className={cn(
         'zone-non-assignee',
-        nbLignesNonVides > 0 && 'has-lignes'
+        nbLignesNonVides > 0 && 'has-lignes',
+        isHovered && 'zone-non-assignee--drag-over'
       )}
     >
       {/* Header */}
@@ -158,6 +163,21 @@ export function ZoneNonAssignee({
             </button>
           );
         })()}
+
+        {/* Bouton Supprimer la sélection */}
+        {selectedLigneIds && selectedLigneIds.size > 0 && onSupprimerSelection && (
+          <button
+            className="delete-selection-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSupprimerSelection();
+            }}
+            title={`Supprimer ${selectedLigneIds.size} ligne${selectedLigneIds.size > 1 ? 's' : ''}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Supprimer ({selectedLigneIds.size})</span>
+          </button>
+        )}
 
         {/* Icône warning si lignes non vides */}
         {nbLignesNonVides > 0 ? (
@@ -330,7 +350,7 @@ export function ZoneNonAssignee({
 
       <style jsx>{`
         .zone-non-assignee {
-          border: 1px solid var(--cx-border-subtle);
+          border: 2px solid var(--cx-border-subtle);
           border-radius: var(--cx-radius-xl);
           overflow: hidden;
           background: var(--cx-surface-0);
@@ -341,9 +361,9 @@ export function ZoneNonAssignee({
           border-color: rgba(249, 115, 22, 0.3);
         }
 
-        .zone-non-assignee.is-over {
-          border-color: var(--cx-accent);
-          box-shadow: 0 0 0 2px var(--cx-accent-muted);
+        .zone-non-assignee--drag-over {
+          border: 1px dashed rgba(251, 191, 36, 0.5);
+          box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.1);
         }
 
         .zone-header {
@@ -438,6 +458,28 @@ export function ZoneNonAssignee({
           background: var(--cx-accent-muted);
           border-color: var(--cx-accent);
           color: var(--cx-accent);
+        }
+
+        .delete-selection-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border: 1px solid rgba(239, 68, 68, 0.4);
+          border-radius: var(--cx-radius-md);
+          background: rgba(239, 68, 68, 0.15);
+          color: #f87171;
+          font-size: var(--cx-text-xs);
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s;
+          flex-shrink: 0;
+        }
+
+        .delete-selection-btn:hover {
+          background: rgba(239, 68, 68, 0.25);
+          border-color: rgba(239, 68, 68, 0.6);
+          color: #fca5a5;
         }
 
         /* Button styles now in cutx.css (cx-add-ligne-btn) */

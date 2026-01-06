@@ -16,7 +16,7 @@ const MATERIAU_KEYWORDS: { keywords: string[]; value: Materiau }[] = [
 
 /**
  * Parse la cellule "Référence / Épaisseur du matériau" pour extraire matériau et épaisseur
- * Exemples: "mdf 30", "MDF 19", "Mélaminé 18", "plaqué chêne 22"
+ * Exemples: "mdf 30", "MDF 19", "Mélaminé 18", "plaqué chêne 22", "Base Egger H1180 / 19mm"
  */
 function parseMateriauEpaisseur(value: string | number | null): { materiau: Materiau | null; epaisseur: number } {
   if (value === null || value === undefined) {
@@ -25,9 +25,50 @@ function parseMateriauEpaisseur(value: string | number | null): { materiau: Mate
 
   const str = String(value).toLowerCase().trim();
 
-  // Extraire l'épaisseur (chercher un nombre dans la chaîne)
-  const epaisseurMatch = str.match(/(\d+)/);
-  const epaisseur = epaisseurMatch ? parseInt(epaisseurMatch[1], 10) : 19;
+  // Extraire l'épaisseur avec plusieurs stratégies (du plus précis au moins précis)
+  let epaisseur: number | null = null;
+
+  // 1. Chercher le pattern explicite "XXmm" ou "XX mm" (ex: "19mm", "19 mm")
+  const mmMatch = str.match(/(\d{1,2})\s*mm/);
+  if (mmMatch) {
+    epaisseur = parseInt(mmMatch[1], 10);
+  }
+
+  // 2. Chercher après "/" ou ":" (ex: "/ 19", ": 19")
+  if (epaisseur === null) {
+    const separatorMatch = str.match(/[/:]\s*(\d{1,2})(?:\s|$|mm)/);
+    if (separatorMatch) {
+      epaisseur = parseInt(separatorMatch[1], 10);
+    }
+  }
+
+  // 3. Chercher un nombre isolé de 1-2 chiffres (pas précédé d'une lettre comme H1180, U999)
+  if (epaisseur === null) {
+    const isolatedMatch = str.match(/(?:^|[^a-zA-Z0-9])(\d{1,2})(?:[^0-9]|$)/);
+    if (isolatedMatch) {
+      const candidate = parseInt(isolatedMatch[1], 10);
+      // Valider que c'est une épaisseur plausible (entre 3mm et 50mm)
+      if (candidate >= 3 && candidate <= 50) {
+        epaisseur = candidate;
+      }
+    }
+  }
+
+  // 4. En dernier recours, chercher à la fin de la chaîne
+  if (epaisseur === null) {
+    const endMatch = str.match(/(\d{1,2})$/);
+    if (endMatch) {
+      const candidate = parseInt(endMatch[1], 10);
+      if (candidate >= 3 && candidate <= 50) {
+        epaisseur = candidate;
+      }
+    }
+  }
+
+  // Valeur par défaut si aucune épaisseur trouvée
+  if (epaisseur === null) {
+    epaisseur = 19;
+  }
 
   // Identifier le matériau par mots-clés
   let materiau: Materiau | null = null;
