@@ -487,6 +487,36 @@ export default function LignePanneau({
                 min="0"
                 readOnly={!!(panneauGlobal || panneauMulticouche)}
               />
+              <button
+                type="button"
+                className={`btn-fil-icon ${ligne.sensDuFil === 'largeur' ? 'vertical' : ''}`}
+                onClick={() => onUpdate({
+                  sensDuFil: ligne.sensDuFil === 'longueur' ? 'largeur' : 'longueur'
+                })}
+                title={t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}
+              >
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {ligne.sensDuFil === 'longueur' ? (
+                    <>
+                      {/* Flèche horizontale en haut */}
+                      <line x1="4" y1="7" x2="24" y2="7" />
+                      <polyline points="20,3 28,7 20,11" />
+                      {/* Vagues horizontales en dessous */}
+                      <path d="M4 17 Q8 14 12 17 T20 17 T28 17" />
+                      <path d="M4 25 Q8 22 12 25 T20 25 T28 25" />
+                    </>
+                  ) : (
+                    <>
+                      {/* Flèche verticale à gauche */}
+                      <line x1="7" y1="4" x2="7" y2="24" />
+                      <polyline points="3,20 7,28 11,20" />
+                      {/* Vagues verticales à droite */}
+                      <path d="M17 4 Q14 8 17 12 T17 20 T17 28" />
+                      <path d="M25 4 Q22 8 25 12 T25 20 T25 28" />
+                    </>
+                  )}
+                </svg>
+              </button>
             </div>
           ) : (ligne.forme || 'rectangle') === 'circle' ? (
             /* CERCLE: 1 champ (diamètre) */
@@ -597,14 +627,33 @@ export default function LignePanneau({
               />
               <button
                 type="button"
-                className={`btn-fil ${ligne.sensDuFil === 'largeur' ? 'vertical' : ''}`}
+                className={`btn-fil-icon ${ligne.sensDuFil === 'largeur' ? 'vertical' : ''}`}
                 onClick={() => onUpdate({
                   sensDuFil: ligne.sensDuFil === 'longueur' ? 'largeur' : 'longueur'
                 })}
-                title={t('configurateur.grainDirection.clickToChange')}
+                title={t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}
               >
-                <span className="fil-icon">{ligne.sensDuFil === 'longueur' ? '\u2194' : '\u2195'}</span>
-                <span className="fil-text">{t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}</span>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {ligne.sensDuFil === 'longueur' ? (
+                    <>
+                      {/* Flèche horizontale en haut */}
+                      <line x1="4" y1="7" x2="24" y2="7" />
+                      <polyline points="20,3 28,7 20,11" />
+                      {/* Vagues horizontales en dessous */}
+                      <path d="M4 17 Q8 14 12 17 T20 17 T28 17" />
+                      <path d="M4 25 Q8 22 12 25 T20 25 T28 25" />
+                    </>
+                  ) : (
+                    <>
+                      {/* Flèche verticale à gauche */}
+                      <line x1="7" y1="4" x2="7" y2="24" />
+                      <polyline points="3,20 7,28 11,20" />
+                      {/* Vagues verticales à droite */}
+                      <path d="M17 4 Q14 8 17 12 T17 20 T17 28" />
+                      <path d="M25 4 Q22 8 25 12 T25 20 T25 28" />
+                    </>
+                  )}
+                </svg>
               </button>
             </div>
           )}
@@ -1631,12 +1680,12 @@ export default function LignePanneau({
 
         /* Inputs plus grands pour Longueur et Largeur */
         .input-dim-large {
-          width: 140px;
+          width: 90px;
         }
 
-        /* L-Shape dimensions (6 champs) */
+        /* L-Shape dimensions (5 champs) */
         .input-dim-lshape {
-          width: 90px;
+          width: 55px;
         }
 
         .input-dim-encoche {
@@ -1818,6 +1867,47 @@ export default function LignePanneau({
 
         .btn-fil.vertical:hover .fil-icon,
         .btn-fil.vertical:hover .fil-text {
+          color: white;
+        }
+
+        /* Bouton sens du fil compact (icône SVG flèche + vagues) */
+        .btn-fil-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          margin-left: 0.25rem;
+          padding: 2px;
+          background: var(--admin-olive-bg);
+          border: 1px solid var(--admin-olive-border);
+          border-radius: 5px;
+          cursor: pointer;
+          transition: all 0.2s;
+          flex-shrink: 0;
+          color: var(--admin-olive);
+        }
+
+        .btn-fil-icon svg {
+          width: 20px;
+          height: 20px;
+        }
+
+        .btn-fil-icon:hover {
+          background: var(--admin-olive);
+          border-color: var(--admin-olive);
+          color: white;
+        }
+
+        .btn-fil-icon.vertical {
+          background: var(--admin-sable-bg);
+          border-color: var(--admin-sable-border);
+          color: var(--admin-sable);
+        }
+
+        .btn-fil-icon.vertical:hover {
+          background: var(--admin-sable);
+          border-color: var(--admin-sable);
           color: white;
         }
 
@@ -2055,6 +2145,7 @@ export default function LignePanneau({
           align-items: center;
           justify-content: center;
           gap: 0.25rem;
+          margin: 0 auto;
           padding: 0.375rem 0.5rem;
           background: var(--admin-bg-tertiary);
           border: 1px solid var(--admin-border-default);
@@ -2368,12 +2459,6 @@ export default function LignePanneau({
           background: var(--admin-olive-bg);
           border-color: var(--admin-olive);
           color: var(--admin-olive);
-        }
-
-        .btn-delete:hover {
-          background: var(--admin-status-danger-bg);
-          border-color: var(--admin-status-danger-border);
-          color: var(--admin-status-danger);
         }
 
         .btn-action:disabled {
