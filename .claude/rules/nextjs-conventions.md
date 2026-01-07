@@ -93,6 +93,108 @@ src/components/
 └── layout/             # Header, Footer, Navigation
 ```
 
+## File Size Limits (CRITICAL)
+
+### Limites strictes
+
+| Type | Max lignes | Action si dépassé |
+|------|------------|-------------------|
+| Composant | 300 | Splitter en sous-composants |
+| Page | 200 | Extraire vers composants |
+| Context | 400 | Splitter par domaine |
+| Hook | 200 | Composer plusieurs hooks |
+
+### Avant d'ajouter du code
+
+AVANT d'ajouter plus de 20 lignes à un fichier, Claude DOIT :
+
+1. Vérifier le nombre de lignes actuel (`wc -l` ou compter)
+2. Si > 250 lignes : **STOP**, proposer un split AVANT d'ajouter
+3. Si > 300 lignes : **REFUSER** d'ajouter, exiger refactoring d'abord
+
+### Signaux d'alerte automatiques
+
+- 5+ useState → Extraire vers custom hook
+- 2+ useEffect → Revoir la logique
+- JSX répété → Extraire en sous-composant
+- Styles inline > 50 lignes → Extraire en CSS module
+
+## Complex Component Structure
+
+Quand un composant dépasse 200 lignes OU a 3+ sections distinctes, créer un dossier :
+
+```
+ComponentName/
+├── index.tsx              # Composant principal (<150 lignes)
+├── components/            # Sous-composants
+│   ├── SectionA.tsx
+│   ├── SectionB.tsx
+│   └── index.ts           # Barrel export
+├── hooks/                 # Hooks spécifiques
+│   ├── useComponentState.ts
+│   └── index.ts
+├── types.ts               # Types du composant
+└── utils/                 # Helpers
+```
+
+### Exemple bon pattern (existant dans le projet)
+
+```
+ligne-panneau/
+├── index.ts                    # Export barrel
+├── LignePanneauGrip.tsx       # Grip drag & drop
+├── LignePanneauDimensions.tsx # Inputs dimensions
+├── LignePanneauChants.tsx     # Sélection chants
+├── LignePanneauActions.tsx    # Boutons actions
+└── LigneFinitionRow.tsx       # Ligne finition
+```
+
+## Splitting Decision Tree
+
+```
+1. Fichier > 250 lignes ?
+   OUI → DOIT splitter avant d'ajouter
+   NON → Continuer
+
+2. Ajout > 50 lignes ?
+   OUI → Résultat > 200 lignes ?
+         OUI → Splitter d'abord
+         NON → Procéder avec prudence
+   NON → Procéder
+
+3. 3+ sections logiques distinctes ?
+   OUI → Envisager split proactif
+   NON → Procéder
+
+4. Code pattern répété 2+ fois ?
+   OUI → Extraire en composant/hook partagé
+   NON → Procéder
+```
+
+## Response Template - Architecture Check Failed
+
+Quand un fichier dépasse les limites, Claude DOIT répondre avec ce format :
+
+```
+⚠️ ARCHITECTURE CHECK
+
+Fichier: [nom]
+Actuel: [X] lignes | Limite: 300 lignes
+
+REFACTORING REQUIS avant d'ajouter du code :
+
+Structure proposée:
+[dossier]/
+├── index.tsx
+├── components/
+│   ├── [SousComposant1].tsx
+│   └── [SousComposant2].tsx
+└── hooks/
+    └── use[Feature].ts
+
+Procéder avec le refactoring ? (O/n)
+```
+
 ## Styling
 
 - Tailwind CSS pour tout le styling

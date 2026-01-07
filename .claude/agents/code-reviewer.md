@@ -49,3 +49,49 @@ Review code changes for:
 - Next.js: Server vs Client components, Suspense boundaries
 - Prisma: Efficient queries, proper relations, indexes
 - API: CORS, auth guards, error responses
+
+## Architecture Checks (OBLIGATOIRE)
+
+### Vérification taille fichiers
+
+Pour **chaque fichier modifié**, vérifier :
+
+1. Nombre de lignes actuel
+2. Changement depuis le PR
+3. Flag si > 200 lignes ou approchant 300
+
+```bash
+# Commande de vérification
+wc -l [fichier modifié]
+```
+
+### Patterns à signaler
+
+| Pattern | Sévérité | Action |
+|---------|----------|--------|
+| Fichier > 300 lignes | CRITIQUE | Bloquer, exiger refactoring |
+| Fichier 250-300 lignes | WARNING | Alerter, suggérer split |
+| useState > 5 dans composant | WARNING | Proposer extraction hook |
+| JSX répété 2+ fois | WARNING | Proposer extraction composant |
+| Dossier composant sans index.ts | INFO | Suggérer barrel export |
+
+### Section à ajouter dans les reviews
+
+```
+### Architecture
+- ✅/⚠️/❌ Taille fichiers respectée (< 300 lignes)
+- ✅/⚠️/❌ Structure dossiers correcte
+- Suggestions de refactoring si nécessaire
+```
+
+### Fichiers connus à surveiller (CutX)
+
+Ces fichiers dépassent les limites et ne doivent PAS grossir davantage :
+
+| Fichier | Lignes | Note |
+|---------|--------|------|
+| LignePanneau.tsx | 1804 | Extraction partielle dans ligne-panneau/ |
+| PopupSelectionPanneau.tsx | 1787 | Nécessite refactoring |
+| GroupePanneau.tsx | 975 | Nécessite refactoring |
+| GroupesContainer.tsx | 803 | Nécessite refactoring |
+| ConfigurateurV3.tsx | 841 | Surveiller |
