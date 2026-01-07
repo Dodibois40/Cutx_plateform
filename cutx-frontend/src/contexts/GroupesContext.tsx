@@ -100,6 +100,7 @@ interface GroupesContextType {
   creerLigneFinitionGroupe: (lignePanneauId: string, typeFinition: TypeFinition) => void;
   supprimerLigneFinitionGroupe: (lignePanneauId: string) => void;
   updateLigneFinition: (lignePanneauId: string, updates: Partial<LignePrestationV3>) => void;
+  dupliquerLigneFinitionGroupe: (lignePanneauSourceId: string, nouvelLignePanneauId: string, nouvelLignePanneau: LignePrestationV3) => void;
 
   // Apply to column (appliquer à toutes les lignes)
   applyToColumnGroupe: (
@@ -565,6 +566,33 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
       return new Map(prev).set(lignePanneauId, updated);
     });
   }, []);
+
+  // Dupliquer une ligne finition existante vers une nouvelle ligne panneau
+  const dupliquerLigneFinitionGroupe = useCallback((
+    lignePanneauSourceId: string,
+    nouvelLignePanneauId: string,
+    nouvelLignePanneau: LignePrestationV3
+  ) => {
+    const finitionSource = lignesFinition.get(lignePanneauSourceId);
+    if (!finitionSource) return;
+
+    // Créer une copie de la finition avec le nouveau parent ID
+    const nouvelleFinition: LignePrestationV3 = {
+      ...finitionSource,
+      id: crypto.randomUUID(),
+      ligneParentId: nouvelLignePanneauId,
+      // Mettre à jour les dimensions depuis la nouvelle ligne panneau
+      dimensions: { ...nouvelLignePanneau.dimensions },
+      surfaceM2: nouvelLignePanneau.surfaceM2,
+      reference: `${nouvelLignePanneau.reference} - Finition`,
+    };
+
+    // Recalculer les prix
+    const finitionCalculee = mettreAJourCalculsLigne(nouvelleFinition);
+
+    // Ajouter directement à la Map
+    setLignesFinition(prev => new Map(prev).set(nouvelLignePanneauId, finitionCalculee));
+  }, [lignesFinition]);
 
   // === APPLY TO COLUMN ===
 
@@ -1052,6 +1080,7 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
     creerLigneFinitionGroupe,
     supprimerLigneFinitionGroupe,
     updateLigneFinition,
+    dupliquerLigneFinitionGroupe,
 
     // Apply to column
     applyToColumnGroupe,
@@ -1099,6 +1128,7 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
     creerLigneFinitionGroupe,
     supprimerLigneFinitionGroupe,
     updateLigneFinition,
+    dupliquerLigneFinitionGroupe,
     applyToColumnGroupe,
     importerLignes,
     totauxParGroupe,

@@ -23,7 +23,6 @@ import PopupSelectionPanneau from './PopupSelectionPanneau';
 import { GroupesContainer } from './groupes';
 import RecapitulatifTotal from './recap/RecapitulatifTotal';
 import RecapTarifsDecoupe from './recap/RecapTarifsDecoupe';
-import ModalCopie from './dialogs/ModalCopie';
 import ModalEtiquettes from './dialogs/ModalEtiquettes';
 import WelcomeModal from './WelcomeModal';
 import { PopupOptimiseur } from './optimiseur';
@@ -82,8 +81,6 @@ function ConfigurateurContent() {
     panneauxCatalogue,
     isImporting,
     toast,
-    modalCopie,
-    setModalCopie,
     modalEtiquettes,
     setModalEtiquettes,
     highlightedColumn,
@@ -98,8 +95,6 @@ function ConfigurateurContent() {
     handleSupprimerLigne,
     handleUpdateLigne,
     handleCopierLigne,
-    handleConfirmerCopie,
-    handleAnnulerCopie,
     handleCreerLigneFinition,
     handleSupprimerLigneFinition,
     showToast,
@@ -119,14 +114,17 @@ function ConfigurateurContent() {
     setModeGroupes,
     groupes,
     lignesNonAssignees,
+    lignesFinition,
     totauxGlobaux,
     hasLignesNonAssignees,
     ajouterLigneNonAssignee,
+    ajouterLigneGroupe,
     supprimerLigne: supprimerLigneGroupe,
     updateLigne: updateLigneGroupe,
     importerLignes,
     creerGroupe,
     updatePanneauGroupe,
+    dupliquerLigneFinitionGroupe,
   } = useGroupes();
 
   // State pour le sélecteur de panneau (mode groupes)
@@ -158,42 +156,74 @@ function ConfigurateurContent() {
     setMulticoucheGroupesOpen(true);
   }, []);
 
-  // Handler pour copier une ligne (mode groupes) - utilise le même modal
+  // Helper: génère la prochaine référence pour une duplication
+  const genererProchaineReference = useCallback((referenceBase: string, toutesLesReferences: string[]): string => {
+    const match = referenceBase.match(/^(.+?)\s+(\d+)$/);
+    const base = match ? match[1] : referenceBase;
+    const regex = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+(\\d+))?$`);
+    const numerosExistants: number[] = [1];
+    for (const ref of toutesLesReferences) {
+      const refMatch = ref.match(regex);
+      if (refMatch) {
+        numerosExistants.push(refMatch[1] ? parseInt(refMatch[1], 10) : 1);
+      }
+    }
+    return `${base} ${Math.max(...numerosExistants) + 1}`;
+  }, []);
+
+  // Handler pour copier une ligne (mode groupes) - duplication directe sans popup
   const handleCopierLigneGroupes = useCallback((ligneId: string) => {
-    // Trouver la ligne dans les groupes ou non assignées
+    // Trouver la ligne source et son groupe d'origine
+    let ligneSource: LignePrestationV3 | undefined;
+    let groupeSourceId: string | null = null;
+
+    // Chercher dans les groupes
+    for (const groupe of groupes) {
+      const found = groupe.lignes.find(l => l.id === ligneId);
+      if (found) {
+        ligneSource = found;
+        groupeSourceId = groupe.id;
+        break;
+      }
+    }
+
+    // Si pas trouvé dans les groupes, chercher dans non assignées
+    if (!ligneSource) {
+      ligneSource = lignesNonAssignees.find(l => l.id === ligneId);
+      groupeSourceId = null;
+    }
+
+    if (!ligneSource) return;
+
+    // Ne pas dupliquer si pas de référence (l'animation est gérée par LignePanneau)
+    if (!ligneSource.reference?.trim()) return;
+
+    // Générer la nouvelle référence automatiquement
     const allLignes = [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees];
-    const ligne = allLignes.find(l => l.id === ligneId);
-    if (ligne) {
-      setModalCopie({
-        open: true,
-        ligneSource: ligne,
-        nouvelleReference: '',
-      });
-    }
-  }, [groupes, lignesNonAssignees, setModalCopie]);
+    const toutesLesReferences = allLignes.map(l => l.reference).filter(Boolean) as string[];
+    const nouvelleReference = genererProchaineReference(ligneSource.reference, toutesLesReferences);
 
-  // Handler mode-aware pour confirmer la copie
-  const handleConfirmerCopieWrapper = useCallback(() => {
-    if (!modalCopie.ligneSource) return;
-    if (!modalCopie.nouvelleReference.trim()) {
-      alert('La référence est obligatoire');
-      return;
-    }
+    const nouvelId = crypto.randomUUID();
+    const nouvelleLigne: LignePrestationV3 = {
+      ...mettreAJourCalculsLigne({
+        ...ligneSource,
+        reference: nouvelleReference,
+      }),
+      id: nouvelId,
+    };
 
-    if (modeGroupes) {
-      // Mode groupes: ajouter aux lignes non assignées
-      const nouvelleLigne: LignePrestationV3 = {
-        ...modalCopie.ligneSource,
-        id: crypto.randomUUID(),
-        reference: modalCopie.nouvelleReference.trim(),
-      };
-      ajouterLigneNonAssignee(mettreAJourCalculsLigne(nouvelleLigne));
-      setModalCopie({ open: false, ligneSource: null, nouvelleReference: '' });
+    // Ajouter au même groupe ou à non assigné
+    if (groupeSourceId) {
+      ajouterLigneGroupe(groupeSourceId, nouvelleLigne);
     } else {
-      // Mode classique: utiliser le handler du contexte
-      handleConfirmerCopie();
+      ajouterLigneNonAssignee(nouvelleLigne);
     }
-  }, [modeGroupes, modalCopie, ajouterLigneNonAssignee, setModalCopie, handleConfirmerCopie]);
+
+    // Dupliquer la finition si la ligne source en a une
+    if (ligneSource.avecFinition && ligneSource.typeFinition && lignesFinition.has(ligneId)) {
+      dupliquerLigneFinitionGroupe(ligneId, nouvelId, nouvelleLigne);
+    }
+  }, [groupes, lignesNonAssignees, lignesFinition, genererProchaineReference, ajouterLigneNonAssignee, ajouterLigneGroupe, dupliquerLigneFinitionGroupe]);
 
   // === WRAPPERS IMPORT (mode-aware) ===
 
@@ -558,15 +588,6 @@ function ConfigurateurContent() {
       />
 
       {/* Modals */}
-      <ModalCopie
-        open={modalCopie.open}
-        ligneSource={modalCopie.ligneSource}
-        nouvelleReference={modalCopie.nouvelleReference}
-        onReferenceChange={(ref) => setModalCopie(prev => ({ ...prev, nouvelleReference: ref }))}
-        onConfirmer={handleConfirmerCopieWrapper}
-        onAnnuler={handleAnnulerCopie}
-      />
-
       <ModalEtiquettes
         open={modalEtiquettes}
         referenceChantier={referenceChantier}
