@@ -47,6 +47,69 @@ export class CataloguesController {
     return result;
   }
 
+  /**
+   * Sponsored Panels - Panneaux sponsorisés
+   * Retourne les panneaux marqués comme sponsorisés (isSponsored = true)
+   * et dont la date d'expiration n'est pas dépassée
+   */
+  @Get('sponsored')
+  async getSponsored(
+    @Query('limit') limit?: string,
+    @Query('q') query?: string,
+  ) {
+    const panels = await this.cataloguesService.findSponsored(
+      limit ? parseInt(limit, 10) : 4,
+      query,
+    );
+
+    return { panels };
+  }
+
+  /**
+   * Smart Search - Recherche Intelligente
+   * Parse automatiquement les requêtes en langage naturel
+   *
+   * Exemples:
+   * - "mdf 19" → trouve les MDF en 19mm
+   * - "méla gris foncé" → trouve les mélaminés gris foncé
+   * - "agglo chêne 19" → trouve les agglomérés plaqués chêne en 19mm
+   */
+  @Get('smart-search')
+  async smartSearch(
+    @Query('q') query: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('catalogue') catalogueSlug?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDirection') sortDirection?: string,
+  ) {
+    if (!query || query.trim().length < 2) {
+      return {
+        panels: [],
+        total: 0,
+        page: 1,
+        limit: 100,
+        hasMore: false,
+        parsed: {
+          productTypes: [],
+          thickness: null,
+          searchTerms: [],
+          originalQuery: query || '',
+        },
+      };
+    }
+
+    const result = await this.cataloguesService.smartSearch(query, {
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 100,
+      catalogueSlug,
+      sortBy,
+      sortDirection: sortDirection as 'asc' | 'desc' | undefined,
+    });
+
+    return result;
+  }
+
   @Get('categories')
   async findAllCategories() {
     const categories = await this.cataloguesService.findAllParentCategories();
@@ -95,6 +158,11 @@ export class CataloguesController {
       limit: result.limit,
       hasMore: result.hasMore,
     };
+  }
+
+  @Get('filter-options')
+  async getFilterOptions(@Query('catalogue') catalogueSlug?: string) {
+    return this.cataloguesService.getFilterOptions(catalogueSlug);
   }
 
   @Get(':slug')

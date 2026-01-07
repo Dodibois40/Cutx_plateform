@@ -68,7 +68,8 @@ interface ApiPanel {
 // Transformer un panel API en CatalogueProduit
 function transformPanel(panel: ApiPanel): CatalogueProduit {
   // Épaisseur: priorité à defaultThickness, sinon premier élément du tableau
-  const epaisseur = panel.defaultThickness || panel.thickness[0] || 19;
+  // Ne pas utiliser de fallback par défaut - garder 0 si pas d'épaisseur
+  const epaisseur = panel.defaultThickness || panel.thickness[0] || 0;
 
   // Déterminer la sous-catégorie pour le filtrage
   const sousCategorie = panel.category?.parent?.name
@@ -143,6 +144,28 @@ export interface CatalogueStats {
   parMarque: { marque: string; count: number }[];
   parType: { type: string; count: number }[];
   parSousCategorie: { sousCategorie: string; count: number }[];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TYPES POUR LES OPTIONS DE FILTRES DYNAMIQUES
+// ═══════════════════════════════════════════════════════════════
+
+export interface FilterOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface ThicknessOption {
+  value: number;
+  count: number;
+}
+
+export interface FilterOptionsResponse {
+  productTypes: FilterOption[];
+  categories: FilterOption[];
+  thicknesses: ThicknessOption[];
+  catalogues: { slug: string; name: string }[];
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -250,20 +273,164 @@ export async function getCatalogues(): Promise<{ slug: string; name: string }[]>
 
 /**
  * Récupérer toutes les catégories parentes disponibles depuis l'API
- * Structure actuelle du catalogue B comme Bois:
- * - "Panneaux Basiques & Techniques" → Agglomérés, MDF, Contreplaqués, OSB, Lattés
- * - "Stratifiés - Mélaminés - Compacts - Chants" → Unis, Bois, Fantaisies, Mélaminés, Chants
- * - "Essences Fine" → Agglomérés/MDF/Contreplaqués/Lattés replaqués, Stratifiés flex
- * - "Panneaux Déco" → Panneaux décoratifs
+ * @deprecated Utiliser getFilterOptions() à la place pour obtenir les vraies valeurs de la DB
  */
 export async function getSousCategories(): Promise<string[]> {
-  // Catégories parentes principales du catalogue B comme Bois
+  // Fallback - utiliser getFilterOptions() pour les vraies valeurs
   return [
     'Panneaux Basiques & Techniques',
     'Stratifiés - Mélaminés - Compacts - Chants',
     'Essences Fine',
     'Panneaux Déco',
   ];
+}
+
+/**
+ * Récupérer les options de filtres dynamiques depuis la base de données
+ * Retourne les vraies valeurs de productType, categories et thicknesses avec leur count
+ * @param catalogueSlug - Optionnel: filtrer par catalogue spécifique
+ */
+export async function getFilterOptions(catalogueSlug?: string): Promise<FilterOptionsResponse> {
+  try {
+    const params = new URLSearchParams();
+    if (catalogueSlug) {
+      params.append('catalogue', catalogueSlug);
+    }
+
+    const endpoint = `/api/catalogues/filter-options${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await apiCall<FilterOptionsResponse>(endpoint);
+    return response;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des options de filtres:', error);
+    // Fallback avec valeurs par défaut si l'API échoue
+    return {
+      productTypes: [
+        { value: 'MELAMINE', label: 'Mélaminé', count: 0 },
+        { value: 'STRATIFIE', label: 'Stratifié', count: 0 },
+        { value: 'PLACAGE', label: 'Placage / Essence Fine', count: 0 },
+        { value: 'BANDE_DE_CHANT', label: 'Bande de chant', count: 0 },
+        { value: 'COMPACT', label: 'Compact', count: 0 },
+      ],
+      categories: [],
+      thicknesses: [],
+      catalogues: [],
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPONSORED PANELS - Panneaux sponsorisés
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Récupérer les panneaux sponsorisés
+ * @param limit - Nombre max de panneaux (défaut: 4)
+ * @param query - Optionnel: filtre par requête de recherche
+ */
+export async function getSponsored(
+  limit: number = 4,
+  query?: string
+): Promise<CatalogueProduit[]> {
+  try {
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (query) params.append('q', query);
+
+    const response = await apiCall<{ panels: ApiPanel[] }>(
+      `/api/catalogues/sponsored?${params}`
+    );
+
+    return (response.panels || []).map(transformPanel);
+  } catch (error) {
+    console.error('Error fetching sponsored panels:', error);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SMART SEARCH - Recherche Intelligente
+// ═══════════════════════════════════════════════════════════════
+
+export interface SmartSearchParsed {
+  productTypes: string[];
+  subcategories: string[];
+  thickness: number | null;
+  searchTerms: string[];
+  originalQuery: string;
+}
+
+export interface SmartSearchFacets {
+  genres: { label: string; count: number; searchTerm: string }[];
+  dimensions: { label: string; count: number; length: number; width: number }[];
+  thicknesses: { value: number; count: number }[];
+}
+
+export interface SmartSearchResult {
+  produits: CatalogueProduit[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  parsed: SmartSearchParsed;
+  facets: SmartSearchFacets;
+}
+
+/**
+ * Recherche Intelligente - Parse automatiquement les requêtes en langage naturel
+ *
+ * Exemples de requêtes supportées:
+ * - "mdf 19" → trouve les MDF en 19mm
+ * - "méla gris foncé" → trouve les mélaminés gris foncé
+ * - "agglo chêne 19" → trouve les agglomérés plaqués chêne en 19mm
+ * - "strat blanc 0.8" → trouve les stratifiés blancs en 0.8mm
+ * - "chant chêne" → trouve les bandes de chant chêne
+ *
+ * @param query - Requête en langage naturel
+ * @param options - Options de pagination et tri
+ */
+export async function smartSearch(
+  query: string,
+  options?: {
+    page?: number;
+    limit?: number;
+    catalogueSlug?: string;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+  }
+): Promise<SmartSearchResult> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('q', query);
+
+  if (options?.page) queryParams.append('page', options.page.toString());
+  if (options?.limit) queryParams.append('limit', options.limit.toString());
+  if (options?.catalogueSlug) queryParams.append('catalogue', options.catalogueSlug);
+  if (options?.sortBy) queryParams.append('sortBy', options.sortBy);
+  if (options?.sortDirection) queryParams.append('sortDirection', options.sortDirection);
+
+  const endpoint = `/api/catalogues/smart-search?${queryParams}`;
+
+  const response = await apiCall<{
+    panels: ApiPanel[];
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+    parsed: SmartSearchParsed;
+    facets: SmartSearchFacets;
+  }>(endpoint);
+
+  // Transformer les panels en produits
+  const produits = (response.panels || []).map(transformPanel);
+
+  return {
+    produits,
+    total: response.total || produits.length,
+    page: response.page || 1,
+    limit: response.limit || options?.limit || 100,
+    hasMore: response.hasMore ?? false,
+    parsed: response.parsed,
+    facets: response.facets || { genres: [], dimensions: [], thicknesses: [] },
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════

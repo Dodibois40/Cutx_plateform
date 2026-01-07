@@ -4,9 +4,6 @@
    Inspired by: Linear, Figma, Notion
    ============================================ */
 
-/* === TYPOGRAPHY === */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 /* === THEME SYSTEM (Linear-inspired: 3 core variables) === */
 :root {
   /* CORE THEME (only 3 base colors needed) */
@@ -87,6 +84,12 @@
   --cx-text-md: 0.875rem;     /* 14px */
   --cx-text-lg: 1rem;         /* 16px */
   --cx-text-xl: 1.125rem;     /* 18px */
+
+  /* CONVENIENT ALIASES */
+  --cx-background: var(--cx-surface-0);
+  --cx-border: var(--cx-border-default);
+  --cx-border-hover: var(--cx-border-strong);
+  --cx-text: var(--cx-text-primary);
 }
 
 /* === BASE STYLES === */
@@ -963,6 +966,47 @@ body {
   transform: scale(0.98);
 }
 
+/* Grain direction button (global) */
+.btn-fil-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 0.25rem;
+  padding: 2px;
+  background: rgba(139, 154, 75, 0.15);
+  border: 1px solid rgba(139, 154, 75, 0.4);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  color: #8B9A4B;
+}
+
+.btn-fil-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.btn-fil-icon:hover {
+  background: #8B9A4B;
+  border-color: #8B9A4B;
+  color: white;
+}
+
+.btn-fil-icon.vertical {
+  background: rgba(196, 164, 141, 0.12);
+  border-color: rgba(196, 164, 141, 0.3);
+  color: #c4a48d;
+}
+
+.btn-fil-icon.vertical:hover {
+  background: #c4a48d;
+  border-color: #c4a48d;
+  color: white;
+}
+
 /* ============================================
    RESPONSIVE BREAKPOINTS - Desktop Only
    Ces styles s'ajoutent progressivement sur
@@ -1093,4 +1137,175 @@ body {
     min-width: 80px;
     max-width: 80px;
   }
+}
+
+/* ========================================
+   LIGNE FINITION ROW STYLES
+   ======================================== */
+
+.ligne-finition {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.ligne-finition td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--admin-border-subtle);
+  border-right: 1px solid var(--admin-border-default);
+  vertical-align: middle;
+}
+
+.ligne-finition td:first-child {
+  border-left: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.ligne-finition td:last-child {
+  border-right: none;
+}
+
+.ligne-finition .cell-empty {
+  background: rgba(255, 255, 255, 0.01) !important;
+}
+
+.ligne-finition .finition-indent {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--admin-ardoise);
+  font-weight: 500;
+}
+
+.ligne-finition .cell-finition-detail {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.ligne-finition .finition-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ligne-finition .finition-field label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--admin-text-muted);
+}
+
+.ligne-finition .color-picker-wrapper {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.ligne-finition .input-with-picker {
+  flex: 1;
+}
+
+.ligne-finition .input-compact {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--admin-bg-tertiary);
+  border: 1px solid var(--admin-border-default);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--admin-text-primary);
+  transition: all 0.2s;
+}
+
+.ligne-finition .input-compact:focus {
+  outline: none;
+  border-color: var(--admin-olive);
+  background: var(--admin-bg-card);
+}
+
+.ligne-finition .input-compact.field-missing {
+  border-color: var(--admin-sable);
+  background: var(--admin-sable-bg);
+}
+
+.ligne-finition .btn-color-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--admin-bg-tertiary);
+  border: 1px solid var(--admin-border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--admin-text-muted);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.ligne-finition .btn-color-picker:hover {
+  border-color: var(--admin-olive);
+  background: var(--admin-olive-bg);
+}
+
+.ligne-finition .select-compact {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--admin-bg-tertiary);
+  border: 1px solid var(--admin-border-default);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--admin-text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ligne-finition .select-compact.field-missing {
+  border-color: var(--admin-sable);
+  background: var(--admin-sable-bg);
+}
+
+.ligne-finition .select-compact option {
+  background: var(--admin-bg-elevated);
+  color: var(--admin-text-primary);
+  padding: 0.5rem;
+}
+
+.ligne-finition .faces-toggle {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.ligne-finition .btn-face {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--admin-bg-tertiary);
+  border: 1px solid var(--admin-border-default);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ligne-finition .btn-face:hover {
+  border-color: var(--admin-olive);
+}
+
+.ligne-finition .btn-face.active {
+  background: var(--admin-olive-bg);
+  border-color: var(--admin-olive);
+  color: var(--admin-olive);
+}
+
+.ligne-finition .cell-prix {
+  text-align: right !important;
+}
+
+.ligne-finition .prix-finition {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--admin-ardoise);
 }

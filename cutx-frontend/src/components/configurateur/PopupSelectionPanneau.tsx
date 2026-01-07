@@ -19,9 +19,9 @@ import {
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { ProduitCatalogue } from '@/lib/catalogues';
 import {
-  getSousCategories as getCategoriesAPI,
-  getCatalogues as getCataloguesAPI,
+  getFilterOptions,
   type CatalogueProduit,
+  type FilterOptionsResponse,
 } from '@/lib/services/catalogue-api';
 import { useCatalogueSearch } from '@/lib/hooks/useCatalogueSearch';
 import { useDebounce } from '@/lib/hooks/useDebounce';
@@ -32,12 +32,15 @@ import { usePanneauxRecents } from '@/lib/hooks/usePanneauxRecents';
 type SortColumn = 'nom' | 'epaisseur' | 'prix' | 'stock' | 'reference' | null;
 type SortDirection = 'asc' | 'desc';
 
-// Types de produits (basés sur productType en DB)
-const PRODUCT_TYPE_KEYS = ['MELAMINE', 'STRATIFIE', 'PLACAGE', 'BANDE_DE_CHANT', 'COMPACT'] as const;
-
-// Épaisseurs disponibles (basé sur l'analyse de la DB)
-const EPAISSEURS_PANNEAUX = [8, 12, 16, 19, 38];
-const EPAISSEURS_CHANTS = [0.7, 0.8, 0.9, 1, 1.2, 1.5, 2];
+/**
+ * Formate l'affichage de l'épaisseur
+ * Affiche simplement "épaisseur mm" (ex: 0.8mm, 19mm)
+ * La largeur des chants est déjà affichée dans la colonne Dimensions
+ */
+function formatThicknessDisplay(produit: CatalogueProduit): string {
+  if (!produit.epaisseur) return '-';
+  return `${produit.epaisseur}mm`;
+}
 
 // Composant Image avec état de chargement - styles inline pour forcer le carré
 function ProductImage({ src, alt }: { src: string | undefined; alt: string }) {
@@ -164,12 +167,23 @@ export default function PopupSelectionPanneau({
   const [filtreEpaisseur, setFiltreEpaisseur] = useState<number | null>(null);
   const [filtreEnStock, setFiltreEnStock] = useState(false);
   const [filtreCatalogue, setFiltreCatalogue] = useState<string>('');
-  const [sousCategories, setSousCategories] = useState<string[]>([]);
-  const [catalogues, setCatalogues] = useState<{ slug: string; name: string }[]>([]);
+
+  // Options de filtres dynamiques depuis la DB
+  const [filterOptions, setFilterOptions] = useState<FilterOptionsResponse | null>(null);
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
+
+  // États dérivés pour la compatibilité (utilisés par le JSX)
+  const sousCategories = filterOptions?.categories.map(c => c.value) ?? [];
+  const catalogues = filterOptions?.catalogues ?? [];
 
   // Tri
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Déterminer si on utilise smart search:
+  // Smart search est activé si l'utilisateur tape du texte ET n'a pas de filtres manuels
+  const hasManualFilters = filtreProductType || filtreSousCategories.length > 0 || filtreEpaisseur || filtreEnStock;
+  const useSmartSearch = !!debouncedSearch && !hasManualFilters;
 
   // React Query pour le chargement des produits avec cache
   const {
@@ -181,6 +195,8 @@ export default function PopupSelectionPanneau({
     isError,
     error,
     fetchNextPage,
+    parsedFilters,
+    facets,
   } = useCatalogueSearch({
     search: debouncedSearch || undefined,
     productType: filtreProductType || undefined,
@@ -191,6 +207,7 @@ export default function PopupSelectionPanneau({
     sortBy: sortColumn || undefined,
     sortDirection: sortColumn ? sortDirection : undefined,
     enabled: open && mounted,
+    useSmartSearch,
   });
 
   // Filtrage côté client pour multi sous-catégories
@@ -198,8 +215,8 @@ export default function PopupSelectionPanneau({
     ? produits.filter(p => filtreSousCategories.includes(p.sousCategorie))
     : produits;
 
-  // Épaisseurs dynamiques selon le type de produit
-  const epaisseurs = filtreProductType === 'BANDE_DE_CHANT' ? EPAISSEURS_CHANTS : EPAISSEURS_PANNEAUX;
+  // Épaisseurs dynamiques depuis la DB
+  const epaisseurs = filterOptions?.thicknesses.map(t => t.value) ?? [];
 
   const hasFilters = search || filtreSousCategories.length > 0 || filtreProductType || filtreEpaisseur || filtreEnStock || filtreCatalogue;
 
@@ -220,23 +237,23 @@ export default function PopupSelectionPanneau({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [hasMore, isFetchingNextPage, fetchNextPage, open]);
 
-  // Charger les catégories et catalogues disponibles
+  // Charger les options de filtres dynamiques depuis la DB
   useEffect(() => {
     if (!open) return;
     const loadFilters = async () => {
+      setFilterOptionsLoading(true);
       try {
-        const [categoriesData, cataloguesData] = await Promise.all([
-          getCategoriesAPI(),
-          getCataloguesAPI(),
-        ]);
-        setSousCategories([...new Set(categoriesData)]);
-        setCatalogues(cataloguesData);
+        // Charger les options, filtré par catalogue si sélectionné
+        const options = await getFilterOptions(filtreCatalogue || undefined);
+        setFilterOptions(options);
       } catch (err) {
         console.error('Erreur chargement filtres:', err);
+      } finally {
+        setFilterOptionsLoading(false);
       }
     };
     loadFilters();
-  }, [open]);
+  }, [open, filtreCatalogue]); // Re-charger quand le catalogue change
 
   // Reset des filtres quand on ouvre la popup
   const wasOpenRef = useRef(false);
@@ -387,12 +404,13 @@ export default function PopupSelectionPanneau({
             categorie: panel.category?.parent?.name || panel.category?.name || '',
             sousCategorie: panel.category?.name || '',
             type: panel.productType || '',
-            epaisseur: panel.defaultThickness || (panel.thickness?.[0] ?? 0),
+            epaisseur: panel.defaultThickness || panel.thickness?.[0] || 0,
             longueur: panel.isVariableLength ? 'Variable' : panel.defaultLength,
             largeur: panel.defaultWidth,
             prixAchatM2: panel.pricePerM2,
             prixVenteM2: panel.pricePerM2,
             prixMl: panel.pricePerMl,
+            prixUnit: panel.pricePerUnit,
             stock: panel.stockStatus === 'EN STOCK' ? 'EN STOCK' : 'Sur commande',
             imageUrl: panel.imageUrl,
             productType: panel.productType,
@@ -505,10 +523,13 @@ export default function PopupSelectionPanneau({
             value={filtreProductType}
             onChange={(e) => setFiltreProductType(e.target.value)}
             className={`filter-select ${filtreProductType ? 'active' : ''}`}
+            disabled={filterOptionsLoading}
           >
             <option value="">{t('typeFilter')}</option>
-            {PRODUCT_TYPE_KEYS.map(key => (
-              <option key={key} value={key}>{t(`productTypes.${key}`)}</option>
+            {filterOptions?.productTypes.map(pt => (
+              <option key={pt.value} value={pt.value}>
+                {t(`productTypes.${pt.value}`, { defaultValue: pt.label })} ({pt.count})
+              </option>
             ))}
           </select>
 
@@ -520,6 +541,7 @@ export default function PopupSelectionPanneau({
                 const el = document.getElementById('categories-dropdown');
                 if (el) el.classList.toggle('open');
               }}
+              disabled={filterOptionsLoading}
             >
               <span>{t('categoryFilter')}</span>
               {filtreSousCategories.length > 0 && (
@@ -528,14 +550,14 @@ export default function PopupSelectionPanneau({
               <ArrowDown size={12} />
             </button>
             <div id="categories-dropdown" className="filter-dropdown-menu">
-              {sousCategories.map(sc => (
-                <label key={sc} className="dropdown-item">
+              {filterOptions?.categories.map(cat => (
+                <label key={cat.value} className="dropdown-item">
                   <input
                     type="checkbox"
-                    checked={filtreSousCategories.includes(sc)}
-                    onChange={() => toggleSousCategorie(sc)}
+                    checked={filtreSousCategories.includes(cat.value)}
+                    onChange={() => toggleSousCategorie(cat.value)}
                   />
-                  <span>{sc}</span>
+                  <span>{cat.label} ({cat.count})</span>
                 </label>
               ))}
             </div>
@@ -546,10 +568,11 @@ export default function PopupSelectionPanneau({
             value={filtreEpaisseur ?? ''}
             onChange={(e) => setFiltreEpaisseur(e.target.value ? Number(e.target.value) : null)}
             className={`filter-select ${filtreEpaisseur ? 'active' : ''}`}
+            disabled={filterOptionsLoading}
           >
             <option value="">{t('thicknessFilter')}</option>
-            {epaisseurs.map(ep => (
-              <option key={ep} value={ep}>{ep}mm</option>
+            {filterOptions?.thicknesses.map(t => (
+              <option key={t.value} value={t.value}>{t.value}mm ({t.count})</option>
             ))}
           </select>
 
@@ -605,6 +628,100 @@ export default function PopupSelectionPanneau({
           </div>
         )}
 
+        {/* Affichage des filtres détectés par Smart Search */}
+        {useSmartSearch && parsedFilters && (
+          parsedFilters.productTypes.length > 0 ||
+          parsedFilters.subcategories?.length > 0 ||
+          parsedFilters.thickness ||
+          parsedFilters.searchTerms.length > 0
+        ) && (
+          <div className="smart-search-info">
+            <span className="smart-search-label">🧠 Détecté :</span>
+            {parsedFilters.productTypes.map(type => (
+              <span key={type} className="smart-tag type">
+                {t(`productTypes.${type}`, { defaultValue: type })}
+              </span>
+            ))}
+            {parsedFilters.subcategories?.map(subcat => (
+              <span key={subcat} className="smart-tag subcategory">
+                {subcat}
+              </span>
+            ))}
+            {parsedFilters.thickness && (
+              <span className="smart-tag thickness">{parsedFilters.thickness}mm</span>
+            )}
+            {parsedFilters.searchTerms.slice(0, 3).map((term, i) => (
+              <span key={i} className="smart-tag term">{term}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Facettes suggérées - filtres cliquables pour affiner la recherche */}
+        {useSmartSearch && facets && (facets.genres.length > 0 || facets.dimensions.length > 0) && total > 10 && (
+          <div className="facets-section">
+            <span className="facets-label">Affiner :</span>
+
+            {/* Genres / Qualités */}
+            {facets.genres.length > 0 && (
+              <div className="facets-group">
+                <span className="facets-group-label">Genre</span>
+                {facets.genres.slice(0, 5).map((genre) => (
+                  <button
+                    key={genre.label}
+                    className="facet-chip genre"
+                    onClick={() => {
+                      // Ajouter le terme de recherche à la requête
+                      setSearch((prev) => prev + ' ' + genre.searchTerm);
+                    }}
+                  >
+                    {genre.label}
+                    <span className="facet-count">{genre.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Dimensions */}
+            {facets.dimensions.length > 1 && (
+              <div className="facets-group">
+                <span className="facets-group-label">Format</span>
+                {facets.dimensions.slice(0, 4).map((dim) => (
+                  <button
+                    key={dim.label}
+                    className="facet-chip dimension"
+                    onClick={() => {
+                      // Ajouter les dimensions à la recherche
+                      setSearch((prev) => prev + ' ' + dim.length + 'x' + dim.width);
+                    }}
+                  >
+                    {dim.label}
+                    <span className="facet-count">{dim.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Épaisseurs si pas déjà filtrées */}
+            {!parsedFilters?.thickness && facets.thicknesses.length > 1 && (
+              <div className="facets-group">
+                <span className="facets-group-label">Épaisseur</span>
+                {facets.thicknesses.slice(0, 6).map((thick) => (
+                  <button
+                    key={thick.value}
+                    className="facet-chip thickness"
+                    onClick={() => {
+                      setSearch((prev) => prev + ' ' + thick.value);
+                    }}
+                  >
+                    {thick.value}mm
+                    <span className="facet-count">{thick.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Section Panneaux Récents - visible uniquement sans filtres actifs */}
         {!hasFilters && recents.length > 0 && (
           <div className="recents-section">
@@ -648,7 +765,7 @@ export default function PopupSelectionPanneau({
                         {nomCourt}
                       </span>
                       <span className="recent-meta">
-                        <span className="recent-epaisseur">{produit.epaisseur}mm</span>
+                        <span className="recent-epaisseur">{formatThicknessDisplay(produit)}</span>
                         {dims && <span className="recent-dims">{dims}</span>}
                       </span>
                     </div>
@@ -733,8 +850,10 @@ export default function PopupSelectionPanneau({
                   const isEnStock = produit.stock === 'EN STOCK';
                   const prixM2 = produit.prixVenteM2 || produit.prixAchatM2 || 0;
                   const prixMl = produit.prixMl || 0;
-                  const prix = prixMl > 0 ? prixMl : prixM2;
-                  const prixUnit = prixMl > 0 ? '€/ml' : '€/m²';
+                  const prixUnitaire = produit.prixUnit || 0;
+                  // Priorité: prixMl > prixUnit > prixM2
+                  const prix = prixMl > 0 ? prixMl : (prixUnitaire > 0 ? prixUnitaire : prixM2);
+                  const prixUnitLabel = prixMl > 0 ? '€/ml' : (prixUnitaire > 0 ? '€/u' : '€/m²');
 
                   // Calcul des dimensions - cas spécial pour les chants
                   const isChant = produit.productType === 'BANDE_DE_CHANT';
@@ -784,9 +903,9 @@ export default function PopupSelectionPanneau({
                           <span className="type-badge">{t(`productTypes.${produit.productType}`)}</span>
                         ) : '-'}
                       </td>
-                      <td className="col-dim">{produit.epaisseur}mm</td>
+                      <td className="col-dim">{formatThicknessDisplay(produit)}</td>
                       <td className="col-dimensions">{dimensionsDisplay}</td>
-                      <td className="col-prix">{prix > 0 ? `${prix.toFixed(2)} ${prixUnit}` : '-'}</td>
+                      <td className="col-prix">{prix > 0 ? `${prix.toFixed(2)} ${prixUnitLabel}` : '-'}</td>
                       <td className="col-stock">
                         {isEnStock ? (
                           <span className="stock-badge en-stock">
@@ -1145,6 +1264,155 @@ export default function PopupSelectionPanneau({
           .filter-tag button:hover {
             background: var(--admin-olive);
             color: white;
+          }
+
+          /* Smart Search Info */
+          .smart-search-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+          }
+
+          .smart-search-label {
+            font-size: 0.6875rem;
+            color: var(--admin-text-muted);
+            font-weight: 500;
+          }
+
+          .smart-tag {
+            display: inline-flex;
+            align-items: center;
+            height: 22px;
+            padding: 0 8px;
+            border-radius: 11px;
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+          }
+
+          .smart-tag.type {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+          }
+
+          .smart-tag.thickness {
+            background: rgba(34, 197, 94, 0.15);
+            color: #16a34a;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+          }
+
+          .smart-tag.term {
+            background: rgba(147, 51, 234, 0.15);
+            color: #9333ea;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+          }
+
+          .smart-tag.subcategory {
+            background: rgba(245, 158, 11, 0.15);
+            color: #d97706;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            text-transform: capitalize;
+          }
+
+          /* Section Facettes - Filtres suggérés */
+          .facets-section {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.625rem 1rem;
+            background: var(--admin-bg-tertiary);
+            border-bottom: 1px solid var(--admin-border-subtle);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+          }
+
+          .facets-label {
+            font-size: 0.6875rem;
+            color: var(--admin-text-muted);
+            font-weight: 500;
+            padding-top: 0.25rem;
+          }
+
+          .facets-group {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+          }
+
+          .facets-group-label {
+            font-size: 0.625rem;
+            color: var(--admin-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-weight: 600;
+            margin-right: 0.25rem;
+          }
+
+          .facet-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            height: 24px;
+            padding: 0 0.5rem;
+            border-radius: 12px;
+            font-size: 0.6875rem;
+            font-weight: 500;
+            border: 1px solid;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+          }
+
+          .facet-chip:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+
+          .facet-chip.genre {
+            background: rgba(245, 158, 11, 0.08);
+            color: #b45309;
+            border-color: rgba(245, 158, 11, 0.25);
+          }
+
+          .facet-chip.genre:hover {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+          }
+
+          .facet-chip.dimension {
+            background: rgba(99, 102, 241, 0.08);
+            color: #4f46e5;
+            border-color: rgba(99, 102, 241, 0.25);
+          }
+
+          .facet-chip.dimension:hover {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.4);
+          }
+
+          .facet-chip.thickness {
+            background: rgba(34, 197, 94, 0.08);
+            color: #16a34a;
+            border-color: rgba(34, 197, 94, 0.25);
+          }
+
+          .facet-chip.thickness:hover {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.4);
+          }
+
+          .facet-count {
+            font-size: 0.5625rem;
+            opacity: 0.7;
+            font-weight: 600;
           }
 
           /* Section Récents */

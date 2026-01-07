@@ -1,7 +1,14 @@
 'use client';
 
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { searchCatalogues, type SearchParams, type CatalogueProduit } from '@/lib/services/catalogue-api';
+import {
+  searchCatalogues,
+  smartSearch,
+  type SearchParams,
+  type CatalogueProduit,
+  type SmartSearchParsed,
+  type SmartSearchFacets,
+} from '@/lib/services/catalogue-api';
 
 const PAGE_SIZE = 100;
 
@@ -15,6 +22,8 @@ interface UseCatalogueSearchParams {
   sortBy?: 'nom' | 'reference' | 'prix' | 'epaisseur' | 'stock';
   sortDirection?: 'asc' | 'desc';
   enabled?: boolean;
+  /** Utiliser la recherche intelligente (parse "mdf 19" en type:MDF + épaisseur:19mm) */
+  useSmartSearch?: boolean;
 }
 
 interface CatalogueSearchResult {
@@ -22,16 +31,41 @@ interface CatalogueSearchResult {
   total: number;
   hasMore: boolean;
   page: number;
+  /** Filtres détectés par smart search (si activé) */
+  parsed?: SmartSearchParsed;
+  /** Facettes disponibles pour affiner la recherche */
+  facets?: SmartSearchFacets;
 }
 
 export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
-  const { enabled = true, ...searchParams } = params;
+  const { enabled = true, useSmartSearch = false, ...searchParams } = params;
 
-  const queryKey = ['catalogue-search', searchParams];
+  const queryKey = ['catalogue-search', searchParams, { smart: useSmartSearch }];
 
   const query = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam = 1 }) => {
+      // Si smart search activé ET qu'il y a une recherche texte, utiliser smart search
+      if (useSmartSearch && searchParams.search && searchParams.search.length >= 2) {
+        const result = await smartSearch(searchParams.search, {
+          page: pageParam,
+          limit: PAGE_SIZE,
+          catalogueSlug: searchParams.catalogue || undefined,
+          sortBy: searchParams.sortBy,
+          sortDirection: searchParams.sortDirection,
+        });
+
+        return {
+          produits: result.produits,
+          total: result.total,
+          hasMore: result.hasMore,
+          page: pageParam,
+          parsed: result.parsed,
+          facets: result.facets,
+        } as CatalogueSearchResult;
+      }
+
+      // Sinon, recherche classique
       const apiParams: SearchParams = {
         q: searchParams.search || undefined,
         productType: searchParams.productType || undefined,
@@ -76,6 +110,11 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
   const total = query.data?.pages[0]?.total ?? 0;
   const hasMore = query.data?.pages[query.data.pages.length - 1]?.hasMore ?? false;
 
+  // Récupérer les filtres parsés de la première page (smart search)
+  const parsedFilters = query.data?.pages[0]?.parsed ?? null;
+  // Récupérer les facettes de la première page (smart search)
+  const facets = query.data?.pages[0]?.facets ?? null;
+
   return {
     produits: uniqueProduits,
     total,
@@ -86,5 +125,12 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
     error: query.error,
     fetchNextPage: query.fetchNextPage,
     refetch: query.refetch,
+    /** Filtres détectés par smart search (productType, épaisseur, termes) */
+    parsedFilters,
+    /** Facettes disponibles pour affiner la recherche */
+    facets,
   };
 }
+
+// Re-export des types utiles
+export type { SmartSearchParsed, SmartSearchFacets } from '@/lib/services/catalogue-api';

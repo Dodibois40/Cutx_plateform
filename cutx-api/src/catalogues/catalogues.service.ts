@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { Catalogue, Category, Panel, Prisma } from '@prisma/client';
 
@@ -38,7 +40,10 @@ interface FullTextSearchResult {
 
 @Injectable()
 export class CataloguesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   // ============================================
   // CATALOGUES
@@ -481,11 +486,15 @@ export class CataloguesService {
 
     // Trigram similarity search using searchText column or ILIKE with unaccent
     // Threshold 0.2 means 20% similarity required (lower = more results)
+    // Search in all reference fields: manufacturerRef, colorChoice, colorCode, supplierCode
     const searchCondition = `(
       similarity(COALESCE(p."searchText", ''), $1) > 0.2 OR
       lower(unaccent(p.name)) LIKE '%' || $1 || '%' OR
       lower(unaccent(p.reference)) LIKE '%' || $1 || '%' OR
-      lower(unaccent(COALESCE(p."manufacturerRef", ''))) LIKE '%' || $1 || '%'
+      lower(unaccent(COALESCE(p."manufacturerRef", ''))) LIKE '%' || $1 || '%' OR
+      lower(unaccent(COALESCE(p."colorChoice", ''))) LIKE '%' || $1 || '%' OR
+      lower(unaccent(COALESCE(p."colorCode", ''))) LIKE '%' || $1 || '%' OR
+      lower(unaccent(COALESCE(p."supplierCode", ''))) LIKE '%' || $1 || '%'
     )`;
 
     let orderBy = `similarity(COALESCE(p."searchText", ''), $1) DESC, p.name ASC`;
@@ -560,7 +569,7 @@ export class CataloguesService {
   /**
    * Get sort field SQL with proper NULL handling
    * - Uses COALESCE for price to combine pricePerM2 and pricePerMl
-   * - Does NOT use COALESCE for thickness (NULLs go to end via NULLS LAST)
+   * - Uses COALESCE for thickness to fallback to thickness[1] when defaultThickness is NULL
    */
   private getSortField(sortBy: string): string {
     const fieldMap: Record<string, string> = {
@@ -568,8 +577,8 @@ export class CataloguesService {
       reference: 'p.reference',
       // Use COALESCE to handle edge bands (pricePerMl) and panels (pricePerM2)
       pricePerM2: 'COALESCE(p."pricePerM2", p."pricePerMl")',
-      // Don't use COALESCE - let NULLS LAST handle NULL values
-      defaultThickness: 'p."defaultThickness"',
+      // Use COALESCE to fallback to thickness[1] (PostgreSQL 1-indexed) when defaultThickness is NULL
+      defaultThickness: 'COALESCE(p."defaultThickness", p.thickness[1])',
       stockStatus: 'p."stockStatus"',
     };
     return fieldMap[sortBy] || 'p.name';
@@ -677,6 +686,9 @@ export class CataloguesService {
         { name: { contains: options.search, mode: 'insensitive' } },
         { reference: { contains: options.search, mode: 'insensitive' } },
         { manufacturerRef: { contains: options.search, mode: 'insensitive' } },
+        { colorChoice: { contains: options.search, mode: 'insensitive' } },
+        { colorCode: { contains: options.search, mode: 'insensitive' } },
+        { supplierCode: { contains: options.search, mode: 'insensitive' } },
       ];
     }
 
@@ -827,7 +839,13 @@ export class CataloguesService {
     const upperTerms = terms.map(t => t.toUpperCase());
 
     // Build dynamic WHERE condition: ALL terms must match at least one field
-    // Each term must match in name OR reference OR manufacturerRef
+    // Each term must match in one of these fields:
+    // - name: product name (with unaccent for accent-insensitive search)
+    // - reference: internal reference
+    // - manufacturerRef: Egger/manufacturer ref (Dispano uses this)
+    // - colorChoice: Egger ref for Bouney
+    // - colorCode: color code (Dispano uses this too)
+    // - supplierCode: supplier internal code (Bouney uses this like "81163")
     const termConditions = terms.map((term, i) => {
       const upperTerm = upperTerms[i];
       // Escape single quotes for SQL safety
@@ -837,6 +855,9 @@ export class CataloguesService {
         lower(unaccent(p.name)) LIKE '%${safeTerm}%'
         OR UPPER(p.reference) LIKE '%${safeUpperTerm}%'
         OR UPPER(COALESCE(p."manufacturerRef", '')) LIKE '%${safeUpperTerm}%'
+        OR UPPER(COALESCE(p."colorChoice", '')) LIKE '%${safeUpperTerm}%'
+        OR UPPER(COALESCE(p."colorCode", '')) LIKE '%${safeUpperTerm}%'
+        OR UPPER(COALESCE(p."supplierCode", '')) LIKE '%${safeUpperTerm}%'
       )`;
     });
 
@@ -872,14 +893,24 @@ export class CataloguesService {
         CASE
           -- Exact reference match (case-insensitive)
           WHEN UPPER(p.reference) = '${safeUpperQuery}' THEN 1
-          -- Exact manufacturer reference match
+          -- Exact manufacturer reference match (manufacturerRef, colorChoice, colorCode, supplierCode)
           WHEN UPPER(COALESCE(p."manufacturerRef", '')) = '${safeUpperQuery}' THEN 2
+          WHEN UPPER(COALESCE(p."colorChoice", '')) = '${safeUpperQuery}' THEN 2
+          WHEN UPPER(COALESCE(p."colorCode", '')) = '${safeUpperQuery}' THEN 2
+          WHEN UPPER(COALESCE(p."supplierCode", '')) = '${safeUpperQuery}' THEN 2
           -- Reference starts with query
           WHEN UPPER(p.reference) LIKE '${safeUpperQuery}%' THEN 3
-          -- Manufacturer ref starts with query
+          -- Manufacturer/color/supplier ref starts with query
           WHEN UPPER(COALESCE(p."manufacturerRef", '')) LIKE '${safeUpperQuery}%' THEN 4
+          WHEN UPPER(COALESCE(p."colorChoice", '')) LIKE '${safeUpperQuery}%' THEN 4
+          WHEN UPPER(COALESCE(p."colorCode", '')) LIKE '${safeUpperQuery}%' THEN 4
+          WHEN UPPER(COALESCE(p."supplierCode", '')) LIKE '${safeUpperQuery}%' THEN 4
           -- Reference contains full query
           WHEN UPPER(p.reference) LIKE '%${safeUpperQuery}%' THEN 5
+          -- Any ref field contains query
+          WHEN UPPER(COALESCE(p."colorChoice", '')) LIKE '%${safeUpperQuery}%' THEN 5
+          WHEN UPPER(COALESCE(p."colorCode", '')) LIKE '%${safeUpperQuery}%' THEN 5
+          WHEN UPPER(COALESCE(p."supplierCode", '')) LIKE '%${safeUpperQuery}%' THEN 5
           -- Name contains full query (normalized for accents)
           WHEN lower(unaccent(p.name)) LIKE '%${safeNormalizedQuery}%' THEN 6
           ELSE 7
@@ -933,5 +964,509 @@ export class CataloguesService {
       suggestions,
       totalMatches: Number(countResult[0]?.count || 0),
     };
+  }
+
+  // ============================================
+  // FILTER OPTIONS - Dynamic filter values from DB
+  // ============================================
+
+  private static readonly FILTER_OPTIONS_CACHE_TTL = 300000; // 5 minutes
+
+  /**
+   * Get available filter options based on actual data in the database
+   * Returns unique productTypes, categories, and thicknesses with counts
+   * Optionally filtered by catalogue
+   *
+   * CACHED: Results are cached for 5 minutes to reduce database load
+   */
+  async getFilterOptions(catalogueSlug?: string): Promise<{
+    productTypes: { value: string; label: string; count: number }[];
+    categories: { value: string; label: string; count: number }[];
+    thicknesses: { value: number; count: number }[];
+    catalogues: { slug: string; name: string }[];
+  }> {
+    // Check cache first
+    const cacheKey = `filter-options:${catalogueSlug || 'all'}`;
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      return cached as Awaited<ReturnType<typeof this.getFilterOptions>>;
+    }
+
+    // Build catalogue filter condition
+    const catalogueCondition = catalogueSlug
+      ? Prisma.sql`AND c.slug = ${catalogueSlug}`
+      : Prisma.empty;
+
+    // Get unique productType values with counts
+    const productTypes = await this.prisma.$queryRaw<{ value: string; count: bigint }[]>`
+      SELECT
+        p."productType" as value,
+        COUNT(*) as count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id
+      WHERE p."isActive" = true
+        AND c."isActive" = true
+        AND p."productType" IS NOT NULL
+        ${catalogueCondition}
+      GROUP BY p."productType"
+      ORDER BY count DESC
+    `;
+
+    // Get unique category names (using parent category if exists) with counts
+    const categories = await this.prisma.$queryRaw<{ value: string; count: bigint }[]>`
+      SELECT
+        COALESCE(parent.name, cat.name) as value,
+        COUNT(*) as count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id
+      LEFT JOIN "Category" cat ON p."categoryId" = cat.id
+      LEFT JOIN "Category" parent ON cat."parentId" = parent.id
+      WHERE p."isActive" = true
+        AND c."isActive" = true
+        ${catalogueCondition}
+      GROUP BY COALESCE(parent.name, cat.name)
+      HAVING COALESCE(parent.name, cat.name) IS NOT NULL
+      ORDER BY count DESC
+    `;
+
+    // Get unique thickness values from the thickness array with counts
+    // Filter out aberrant values (> 100mm are likely data errors - product refs stored as thickness)
+    const thicknesses = await this.prisma.$queryRaw<{ value: number; count: bigint }[]>`
+      SELECT
+        thickness_val as value,
+        COUNT(DISTINCT p.id) as count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id,
+      UNNEST(p.thickness) as thickness_val
+      WHERE p."isActive" = true
+        AND c."isActive" = true
+        AND thickness_val > 0
+        AND thickness_val <= 100
+        ${catalogueCondition}
+      GROUP BY thickness_val
+      ORDER BY thickness_val ASC
+    `;
+
+    // Get all active catalogues
+    const catalogues = await this.findAllCatalogues();
+
+    // Product type labels for display
+    const productTypeLabels: Record<string, string> = {
+      MELAMINE: 'Mélaminé',
+      STRATIFIE: 'Stratifié',
+      PLACAGE: 'Placage / Essence Fine',
+      BANDE_DE_CHANT: 'Bande de chant',
+      COMPACT: 'Compact',
+      MDF: 'MDF',
+      CONTREPLAQUE: 'Contreplaqué',
+      PANNEAU_MASSIF: 'Panneau massif',
+      OSB: 'OSB',
+      PARTICULE: 'Particule',
+      PLAN_DE_TRAVAIL: 'Plan de travail',
+      PANNEAU_DECORATIF: 'Panneau décoratif',
+      PANNEAU_3_PLIS: 'Panneau 3 plis',
+      SOLID_SURFACE: 'Solid Surface',
+      PANNEAU_SPECIAL: 'Panneau spécial',
+      PANNEAU_CONSTRUCTION: 'Panneau construction',
+      PANNEAU_ISOLANT: 'Panneau isolant',
+      CIMENT_BOIS: 'Ciment bois',
+      LATTE: 'Latte',
+      PANNEAU_ALVEOLAIRE: 'Panneau alvéolaire',
+      ALVEOLAIRE: 'Alvéolaire',
+      PVC: 'PVC',
+      SANITAIRE: 'Sanitaire',
+      PORTE: 'Porte',
+      COLLE: 'Colle',
+    };
+
+    const result = {
+      productTypes: productTypes.map((pt) => ({
+        value: pt.value,
+        label: productTypeLabels[pt.value] || pt.value,
+        count: Number(pt.count),
+      })),
+      categories: categories.map((cat) => ({
+        value: cat.value,
+        label: cat.value,
+        count: Number(cat.count),
+      })),
+      thicknesses: thicknesses.map((t) => ({
+        value: Number(t.value),
+        count: Number(t.count),
+      })),
+      catalogues: catalogues.map((c) => ({ slug: c.slug, name: c.name })),
+    };
+
+    // Store in cache
+    await this.cacheManager.set(
+      cacheKey,
+      result,
+      CataloguesService.FILTER_OPTIONS_CACHE_TTL,
+    );
+
+    return result;
+  }
+
+  /**
+   * Invalidate filter options cache
+   * Should be called after importing/updating products
+   *
+   * @param catalogueSlug Optional: invalidate only specific catalogue cache
+   */
+  async invalidateFilterOptionsCache(catalogueSlug?: string): Promise<void> {
+    if (catalogueSlug) {
+      await this.cacheManager.del(`filter-options:${catalogueSlug}`);
+    }
+    // Always invalidate the global "all" cache
+    await this.cacheManager.del('filter-options:all');
+  }
+
+  // ============================================
+  // SMART SEARCH - Recherche Intelligente
+  // ============================================
+
+  /**
+   * Smart Search: Parse une requête en langage naturel et applique les filtres automatiquement
+   *
+   * Exemples:
+   * - "mdf 19" → productType: MDF, épaisseur: 19mm
+   * - "méla gris foncé" → productType: MELAMINE, recherche: "gris foncé"
+   * - "agglo chêne 19" → productType: PARTICULE, recherche: "chêne", épaisseur: 19mm
+   * - "strat blanc 0.8" → productType: STRATIFIE, recherche: "blanc", épaisseur: 0.8mm
+   */
+  async smartSearch(
+    query: string,
+    options?: {
+      page?: number;
+      limit?: number;
+      catalogueSlug?: string;
+      sortBy?: string;
+      sortDirection?: 'asc' | 'desc';
+    },
+  ): Promise<{
+    panels: Panel[];
+    total: number;
+    hasMore: boolean;
+    page: number;
+    limit: number;
+    parsed: {
+      productTypes: string[];
+      subcategories: string[];
+      thickness: number | null;
+      searchTerms: string[];
+      originalQuery: string;
+    };
+    facets: {
+      genres: { label: string; count: number; searchTerm: string }[];
+      dimensions: { label: string; count: number; length: number; width: number }[];
+      thicknesses: { value: number; count: number }[];
+    };
+  }> {
+    // Import du parser
+    const { parseSmartQuery, buildSmartSearchSQL } = await import('./utils/smart-search-parser.js');
+
+    const page = options?.page || 1;
+    const limit = options?.limit || 100;
+    const offset = (page - 1) * limit;
+
+    // Parser la requête
+    const parsed = parseSmartQuery(query);
+
+    // Construire les conditions SQL
+    const { whereClause, params } = buildSmartSearchSQL(parsed);
+
+    // Ajouter le filtre catalogue si spécifié
+    let catalogueCondition = '';
+    if (options?.catalogueSlug) {
+      catalogueCondition = `AND c.slug = $${params.length + 1}`;
+      params.push(options.catalogueSlug);
+    }
+
+    // Construire le ORDER BY
+    const sortBy = options?.sortBy || 'name';
+    const sortDir = (options?.sortDirection || 'asc').toUpperCase();
+    const orderByClause = this.buildOrderByClause(sortBy, sortDir);
+
+    // Requête principale
+    const sql = `
+      SELECT
+        p.*,
+        c.name as catalogue_name,
+        cat.name as category_name,
+        cat.slug as category_slug,
+        parent.name as parent_name,
+        parent.slug as parent_slug
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      LEFT JOIN "Category" cat ON p."categoryId" = cat.id
+      LEFT JOIN "Category" parent ON cat."parentId" = parent.id
+      WHERE ${whereClause}
+        ${catalogueCondition}
+      ORDER BY ${orderByClause}
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    // Requête count
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+    `;
+
+    // Exécuter les requêtes
+    const [results, countResult] = await Promise.all([
+      this.prisma.$queryRawUnsafe<FullTextSearchResult[]>(sql, ...params),
+      this.prisma.$queryRawUnsafe<[{ total: bigint }]>(countSql, ...params),
+    ]);
+
+    const total = Number(countResult[0]?.total || 0);
+
+    // Transformer les résultats
+    const panels = results.map((p) => ({
+      id: p.id,
+      reference: p.reference,
+      name: p.name,
+      description: p.description,
+      thickness: p.thickness,
+      defaultLength: p.defaultLength,
+      defaultWidth: p.defaultWidth,
+      defaultThickness: p.defaultThickness,
+      isVariableLength: p.isVariableLength,
+      pricePerM2: p.pricePerM2,
+      pricePerMl: p.pricePerMl,
+      pricePerUnit: p.pricePerUnit,
+      productType: p.productType,
+      material: p.material,
+      finish: p.finish,
+      colorCode: p.colorCode,
+      imageUrl: p.imageUrl,
+      isActive: p.isActive,
+      stockStatus: p.stockStatus,
+      manufacturerRef: p.manufacturerRef,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+      catalogue: { name: p.catalogue_name },
+      category: p.category_name
+        ? {
+            name: p.category_name,
+            slug: p.category_slug,
+            parent: p.parent_name ? { name: p.parent_name, slug: p.parent_slug } : null,
+          }
+        : null,
+    }));
+
+    const hasMore = offset + panels.length < total;
+
+    // Agréger les facettes disponibles dans les résultats
+    const facets = await this.aggregateSmartSearchFacets(whereClause, params, catalogueCondition);
+
+    return {
+      panels: panels as unknown as Panel[],
+      total,
+      hasMore,
+      page,
+      limit,
+      parsed: {
+        productTypes: parsed.productTypes,
+        subcategories: parsed.subcategories,
+        thickness: parsed.thickness,
+        searchTerms: [...parsed.colors, ...parsed.woods, ...parsed.decors, ...parsed.colorQualifiers],
+        originalQuery: parsed.originalQuery,
+      },
+      facets,
+    };
+  }
+
+  /**
+   * Agrège les facettes de recherche en 3 requêtes parallèles (optimisé).
+   * Avant: 19+ requêtes séquentielles pour les genres.
+   * Après: 1 requête avec CASE WHEN + 2 requêtes parallèles = 3 total.
+   */
+  private async aggregateSmartSearchFacets(
+    whereClause: string,
+    params: any[],
+    catalogueCondition: string,
+  ): Promise<{
+    genres: { label: string; count: number; searchTerm: string }[];
+    dimensions: { label: string; count: number; length: number; width: number }[];
+    thicknesses: { value: number; count: number }[];
+  }> {
+    // Mots-clés pour détecter les genres dans les noms de produits
+    const genreKeywords = [
+      { keyword: 'hydrofuge', label: 'Hydrofuge', searchTerm: 'hydrofuge' },
+      { keyword: 'standard', label: 'Standard', searchTerm: 'standard' },
+      { keyword: 'ignifug', label: 'Ignifugé', searchTerm: 'ignifugé' },
+      { keyword: 'teinté', label: 'Teinté masse', searchTerm: 'teinté' },
+      { keyword: 'teinte', label: 'Teinté masse', searchTerm: 'teinté' },
+      { keyword: 'laqué', label: 'Laqué', searchTerm: 'laqué' },
+      { keyword: 'laquable', label: 'Laquable', searchTerm: 'laqué' },
+      { keyword: 'cintrable', label: 'Cintrable', searchTerm: 'cintrable' },
+      { keyword: 'léger', label: 'Léger / Allégé', searchTerm: 'léger' },
+      { keyword: 'allégé', label: 'Léger / Allégé', searchTerm: 'léger' },
+      { keyword: 'bouche-pores', label: 'Bouche-pores', searchTerm: 'bouche-pores' },
+      { keyword: 'bouche pores', label: 'Bouche-pores', searchTerm: 'bouche-pores' },
+      { keyword: 'filmé', label: 'Filmé / Coffrage', searchTerm: 'filmé' },
+      { keyword: 'coffrage', label: 'Filmé / Coffrage', searchTerm: 'filmé' },
+      { keyword: 'ctbx', label: 'CTBX Extérieur', searchTerm: 'ctbx' },
+      { keyword: 'okoumé', label: 'Okoumé', searchTerm: 'okoumé' },
+      { keyword: 'okoume', label: 'Okoumé', searchTerm: 'okoumé' },
+      { keyword: 'bouleau', label: 'Bouleau', searchTerm: 'bouleau' },
+      { keyword: 'peuplier', label: 'Peuplier', searchTerm: 'peuplier' },
+    ];
+
+    // Construire les CASE WHEN pour compter tous les genres en une seule requête
+    const genreCaseStatements = genreKeywords
+      .map(
+        (g, i) =>
+          `SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%' || unaccent(lower('${g.keyword.replace(/'/g, "''")}')) || '%' THEN 1 ELSE 0 END) as "count_${i}"`,
+      )
+      .join(',\n        ');
+
+    const genresSql = `
+      SELECT
+        ${genreCaseStatements}
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+    `;
+
+    const dimensionsSql = `
+      SELECT
+        p."defaultLength" as length,
+        p."defaultWidth" as width,
+        COUNT(*) as count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+        AND p."defaultLength" > 0
+        AND p."defaultWidth" > 0
+      GROUP BY p."defaultLength", p."defaultWidth"
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+
+    const thicknessSql = `
+      SELECT
+        unnest(p.thickness) as thickness_value,
+        COUNT(*) as count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+      GROUP BY thickness_value
+      ORDER BY thickness_value ASC
+    `;
+
+    // Exécuter les 3 requêtes en parallèle (au lieu de 19+ séquentielles)
+    const [genreResult, dimResults, thickResults] = await Promise.all([
+      this.prisma
+        .$queryRawUnsafe<[Record<string, bigint>]>(genresSql, ...params)
+        .catch(() => [{}] as [Record<string, bigint>]),
+      this.prisma
+        .$queryRawUnsafe<{ length: number; width: number; count: bigint }[]>(
+          dimensionsSql,
+          ...params,
+        )
+        .catch(() => [] as { length: number; width: number; count: bigint }[]),
+      this.prisma
+        .$queryRawUnsafe<{ thickness_value: number; count: bigint }[]>(thicknessSql, ...params)
+        .catch(() => [] as { thickness_value: number; count: bigint }[]),
+    ]);
+
+    // Parser les résultats des genres
+    const genreCounts: { label: string; count: number; searchTerm: string }[] = [];
+    const seenLabels = new Set<string>();
+    const genreRow = genreResult[0] || {};
+
+    genreKeywords.forEach((genre, i) => {
+      const count = Number(genreRow[`count_${i}`] || 0);
+      if (count > 0 && !seenLabels.has(genre.label)) {
+        seenLabels.add(genre.label);
+        genreCounts.push({ label: genre.label, count, searchTerm: genre.searchTerm });
+      }
+    });
+
+    // Trier par count décroissant
+    genreCounts.sort((a, b) => b.count - a.count);
+
+    // Parser les dimensions
+    const dimensions = dimResults.map((d) => ({
+      label: `${d.length} × ${d.width}`,
+      count: Number(d.count),
+      length: d.length,
+      width: d.width,
+    }));
+
+    // Parser les épaisseurs
+    const thicknesses = thickResults
+      .filter((t) => t.thickness_value > 0)
+      .map((t) => ({
+        value: t.thickness_value,
+        count: Number(t.count),
+      }));
+
+    return { genres: genreCounts, dimensions, thicknesses };
+  }
+
+  // ============================================
+  // SPONSORED PANELS - Panneaux sponsorisés
+  // ============================================
+
+  /**
+   * Find sponsored panels
+   * Returns panels where isSponsored = true and sponsoredUntil is not expired
+   * Optionally filters by search query
+   */
+  async findSponsored(
+    limit: number = 4,
+    searchQuery?: string,
+  ): Promise<Panel[]> {
+    const where: Prisma.PanelWhereInput = {
+      isActive: true,
+      isSponsored: true,
+      OR: [
+        { sponsoredUntil: null },
+        { sponsoredUntil: { gte: new Date() } },
+      ],
+      catalogue: { isActive: true },
+    };
+
+    // Add search filter if query provided
+    if (searchQuery && searchQuery.trim().length >= 2) {
+      const normalizedQuery = this.normalizeSearchTerm(searchQuery);
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: normalizedQuery, mode: 'insensitive' } },
+            { reference: { contains: normalizedQuery, mode: 'insensitive' } },
+            { manufacturerRef: { contains: normalizedQuery, mode: 'insensitive' } },
+            { productType: { contains: normalizedQuery, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+
+    return this.prisma.panel.findMany({
+      where,
+      take: limit,
+      orderBy: [
+        { sponsoredUntil: 'desc' }, // Panels with expiration first (they paid more)
+        { name: 'asc' },
+      ],
+      include: {
+        catalogue: { select: { name: true, slug: true } },
+        category: {
+          select: {
+            name: true,
+            slug: true,
+            parent: { select: { name: true, slug: true } },
+          },
+        },
+      },
+    });
   }
 }
