@@ -14,7 +14,6 @@ import {
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
-  type DragOverEvent,
 } from '@dnd-kit/core';
 import {
   sortableKeyboardCoordinates,
@@ -103,7 +102,6 @@ export function GroupesContainer({
   const [activeDragItem, setActiveDragItem] = useState<LignePrestationV3 | null>(null);
   const [activeGroupeId, setActiveGroupeId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [hoveredGroupeId, setHoveredGroupeId] = useState<string | null | 'non-assignees'>(null);
 
   // State pour le warning épaisseur (single et multi-select)
   const [warningDialog, setWarningDialog] = useState<{
@@ -145,39 +143,12 @@ export function GroupesContainer({
     }
   }, []);
 
-  // Tracker quel groupe est survolé pendant le drag
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const { over } = event;
-    if (!over) {
-      setHoveredGroupeId(null);
-      return;
-    }
-
-    const overData = over.data.current;
-    // Extraire le groupeId de n'importe quel type d'élément survolé
-    if (overData?.groupeId !== undefined) {
-      setHoveredGroupeId(overData.groupeId ?? 'non-assignees');
-    } else if (over.id === 'non-assignees' || String(over.id).includes('non-assignees')) {
-      setHoveredGroupeId('non-assignees');
-    } else {
-      // Essayer d'extraire le groupeId depuis l'ID (pour les lignes)
-      const overId = String(over.id);
-      const groupe = groupes.find(g => g.lignes.some(l => l.id === overId));
-      if (groupe) {
-        setHoveredGroupeId(groupe.id);
-      } else if (lignesNonAssignees.some(l => l.id === overId)) {
-        setHoveredGroupeId('non-assignees');
-      }
-    }
-  }, [groupes, lignesNonAssignees]);
-
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
     setIsDragging(false);
     setActiveDragItem(null);
     setActiveGroupeId(null);
-    setHoveredGroupeId(null);
 
     if (!over) return;
 
@@ -402,7 +373,6 @@ export function GroupesContainer({
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-4">
@@ -430,7 +400,6 @@ export function GroupesContainer({
               lignesFinition={lignesFinitionGroupe}
               totaux={totaux}
               isDragging={isDragging}
-              isHovered={isDragging && hoveredGroupeId === groupe.id}
               onToggleExpand={() => toggleExpandGroupe(groupe.id)}
               onSelectPanneau={() => handleSelectPanneauGroupe(groupe.id)}
               onSelectMulticouche={onEditMulticouche ? () => onEditMulticouche(groupe.id) : undefined}
@@ -482,7 +451,6 @@ export function GroupesContainer({
           lignes={lignesNonAssignees}
           lignesFinition={lignesFinitionNonAssignees}
           isDragging={isDragging}
-          isHovered={isDragging && hoveredGroupeId === 'non-assignees'}
           onAjouterLigne={ajouterLigneNonAssignee}
           onUpdateLigne={(ligneId, updates) => updateLigne(ligneId, updates as Partial<LignePrestationV3>)}
           onSupprimerLigne={supprimerLigne}

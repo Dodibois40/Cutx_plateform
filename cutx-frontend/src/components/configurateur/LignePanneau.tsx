@@ -3,11 +3,10 @@
 import { useState, useRef, useEffect, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { Copy, Trash2, Wrench, Paintbrush, X, Pipette, Layers, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
+import { Wrench, Paintbrush, X, Layers, ChevronDown, ChevronRight } from 'lucide-react';
 import type { DraggableAttributes } from '@dnd-kit/core';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
-import { getRALByCode } from '@/lib/configurateur/ral-colors';
-import type { LignePrestationV3, TypeFinition, Brillance, FormePanneau, ChantsConfig, DimensionsLShape, DimensionsTriangle } from '@/lib/configurateur/types';
+import type { LignePrestationV3, TypeFinition, Brillance, FormePanneau, ChantsConfig } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
 import {
@@ -20,11 +19,18 @@ import {
 import SelecteurForme from './SelecteurForme';
 import SelecteurFinition from './SelecteurFinition';
 import { getEtatLigne, getChampsManquants, formaterPrix, calculerMetresLineairesParForme } from '@/lib/configurateur/calculs';
-import PopupLaque from './dialogs/PopupLaque';
 import PopupEnConstruction from './dialogs/PopupEnConstruction';
 import PopupFormePentagon from './dialogs/PopupFormePentagon';
 import PopupFormeTriangle from './dialogs/PopupFormeTriangle';
 import PopupUsinages from './dialogs/PopupUsinages';
+// Composants modulaires refactorisés
+import {
+  LignePanneauGrip,
+  LignePanneauDimensions,
+  LignePanneauChants,
+  LignePanneauActions,
+  LigneFinitionRow,
+} from './ligne-panneau';
 
 // Props pour le drag & drop (optionnelles)
 interface DragProps {
@@ -86,32 +92,7 @@ export default function LignePanneau({
   const t = useTranslations();
   const [showEnConstruction, setShowEnConstruction] = useState<'percage' | null>(null);
   const [showUsinages, setShowUsinages] = useState(false);
-  const [showLaque, setShowLaque] = useState(false);
   const [showPentagon, setShowPentagon] = useState(false);
-
-  // Détection click vs drag sur le grip handle
-  // On utilise un ref pour stocker le timestamp du pointerDown
-  const pointerDownTimeRef = useRef<number>(0);
-  const pointerDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const CLICK_THRESHOLD_MS = 200; // Temps max pour considérer comme un clic
-  const MOVE_THRESHOLD_PX = 5; // Distance max pour considérer comme un clic
-
-  const handleGripPointerDown = (e: React.PointerEvent) => {
-    pointerDownTimeRef.current = Date.now();
-    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleGripPointerUp = (e: React.PointerEvent) => {
-    const elapsed = Date.now() - pointerDownTimeRef.current;
-    const dx = Math.abs(e.clientX - pointerDownPosRef.current.x);
-    const dy = Math.abs(e.clientY - pointerDownPosRef.current.y);
-    const moved = dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX;
-
-    // Si c'était un clic rapide sans mouvement, toggle la sélection
-    if (elapsed < CLICK_THRESHOLD_MS && !moved && onToggleSelection) {
-      onToggleSelection();
-    }
-  };
   const [showTriangle, setShowTriangle] = useState(false);
   const [showEtatTooltip, setShowEtatTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
@@ -269,41 +250,18 @@ export default function LignePanneau({
       >
         {/* État + Grip de drag combinés */}
         <td className="cx-col-etat cell-etat cell-group-id">
-          <div className="etat-grip-container">
-            {/* Grip de drag - visible uniquement si drag props sont présentes */}
-            {dragListeners ? (
-              <button
-                className={`grip-handle ${isSelected ? 'selected' : ''}`}
-                style={{ color: isSelected ? 'var(--cx-accent)' : indicateur.couleur }}
-                {...(dragAttributes as React.ButtonHTMLAttributes<HTMLButtonElement>)}
-                {...(dragListeners as React.ButtonHTMLAttributes<HTMLButtonElement>)}
-                onPointerDown={(e) => {
-                  handleGripPointerDown(e);
-                  // Laisser dnd-kit gérer le pointerdown aussi
-                  if (dragListeners?.onPointerDown) {
-                    (dragListeners.onPointerDown as (e: React.PointerEvent) => void)(e);
-                  }
-                }}
-                onPointerUp={handleGripPointerUp}
-              >
-                {isSelected && selectedCount > 1 ? (
-                  <span className="selection-badge">{selectedCount}</span>
-                ) : (
-                  <GripVertical size={16} />
-                )}
-              </button>
-            ) : (
-              <span
-                ref={etatRef}
-                className="etat-indicateur"
-                style={{ color: indicateur.couleur }}
-                onMouseEnter={handleEtatMouseEnter}
-                onMouseLeave={() => setShowEtatTooltip(false)}
-              >
-                {indicateur.icone}
-              </span>
-            )}
-          </div>
+          <LignePanneauGrip
+            indicateurCouleur={indicateur.couleur}
+            indicateurIcone={indicateur.icone}
+            isSelected={isSelected}
+            selectedCount={selectedCount}
+            onToggleSelection={onToggleSelection}
+            dragAttributes={dragAttributes}
+            dragListeners={dragListeners}
+            onMouseEnter={handleEtatMouseEnter}
+            onMouseLeave={() => setShowEtatTooltip(false)}
+            etatRef={etatRef}
+          />
           {etatTooltip}
         </td>
 
@@ -395,469 +353,27 @@ export default function LignePanneau({
 
         {/* Dimensions - Adaptatives selon forme */}
         <td className="cx-col-dimensions cell-dimensions cell-group-panneau" title={t('configurateur.tooltips.dimensions')}>
-          {(ligne.forme || 'rectangle') === 'pentagon' ? (
-            /* L-SHAPE: 5 champs sur une ligne (L1 × W1 | L2 × W2 × Ép) */
-            <div className="dimensions-compact">
-              <input
-                type="number"
-                value={ligne.dimensionsLShape?.longueurTotale || ''}
-                onChange={(e) => onUpdate({
-                  dimensionsLShape: {
-                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
-                    longueurTotale: Number(e.target.value) || 0
-                  }
-                })}
-                onFocus={(e) => e.target.select()}
-                placeholder="L1"
-                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.longueurTotale ? 'empty' : ''}`}
-                min="0"
-                title={t('configurateur.lshape.totalLength')}
-              />
-              <span className="dim-x">x</span>
-              <input
-                type="number"
-                value={ligne.dimensionsLShape?.largeurTotale || ''}
-                onChange={(e) => onUpdate({
-                  dimensionsLShape: {
-                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
-                    largeurTotale: Number(e.target.value) || 0
-                  }
-                })}
-                onFocus={(e) => e.target.select()}
-                placeholder="W1"
-                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.largeurTotale ? 'empty' : ''}`}
-                min="0"
-                title={t('configurateur.lshape.totalWidth')}
-              />
-              <span className="dim-separator">|</span>
-              <input
-                type="number"
-                value={ligne.dimensionsLShape?.longueurEncoche || ''}
-                onChange={(e) => onUpdate({
-                  dimensionsLShape: {
-                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
-                    longueurEncoche: Number(e.target.value) || 0
-                  }
-                })}
-                onFocus={(e) => e.target.select()}
-                placeholder="L2"
-                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.longueurEncoche ? 'empty' : ''}`}
-                min="0"
-                title={t('configurateur.lshape.notchLength')}
-              />
-              <span className="dim-x">x</span>
-              <input
-                type="number"
-                value={ligne.dimensionsLShape?.largeurEncoche || ''}
-                onChange={(e) => onUpdate({
-                  dimensionsLShape: {
-                    ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
-                    largeurEncoche: Number(e.target.value) || 0
-                  }
-                })}
-                onFocus={(e) => e.target.select()}
-                placeholder="W2"
-                className={`input-dim input-dim-lshape ${!ligne.dimensionsLShape?.largeurEncoche ? 'empty' : ''}`}
-                min="0"
-                title={t('configurateur.lshape.notchWidth')}
-              />
-              <span className="dim-x">x</span>
-              <input
-                type="number"
-                value={
-                  panneauMulticouche
-                    ? panneauMulticouche.epaisseurTotale
-                    : panneauGlobal
-                      ? panneauGlobal.epaisseurs[0]
-                      : (ligne.dimensionsLShape?.epaisseur || '')
-                }
-                onChange={(e) => {
-                  if (!panneauGlobal && !panneauMulticouche) {
-                    onUpdate({
-                      dimensionsLShape: {
-                        ...(ligne.dimensionsLShape || { longueurTotale: 0, largeurTotale: 0, longueurEncoche: 0, largeurEncoche: 0, epaisseur: 0 }),
-                        epaisseur: Number(e.target.value) || 0
-                      }
-                    });
-                  }
-                }}
-                onFocus={(e) => e.target.select()}
-                placeholder={t('configurateur.placeholders.thickness')}
-                className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
-                min="0"
-                readOnly={!!(panneauGlobal || panneauMulticouche)}
-              />
-              <button
-                type="button"
-                className={`btn-fil-icon ${ligne.sensDuFil === 'largeur' ? 'vertical' : ''}`}
-                onClick={() => onUpdate({
-                  sensDuFil: ligne.sensDuFil === 'longueur' ? 'largeur' : 'longueur'
-                })}
-                title={t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}
-              >
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {ligne.sensDuFil === 'longueur' ? (
-                    <>
-                      {/* Flèche horizontale en haut */}
-                      <line x1="4" y1="7" x2="24" y2="7" />
-                      <polyline points="20,3 28,7 20,11" />
-                      {/* Vagues horizontales en dessous */}
-                      <path d="M4 17 Q8 14 12 17 T20 17 T28 17" />
-                      <path d="M4 25 Q8 22 12 25 T20 25 T28 25" />
-                    </>
-                  ) : (
-                    <>
-                      {/* Flèche verticale à gauche */}
-                      <line x1="7" y1="4" x2="7" y2="24" />
-                      <polyline points="3,20 7,28 11,20" />
-                      {/* Vagues verticales à droite */}
-                      <path d="M17 4 Q14 8 17 12 T17 20 T17 28" />
-                      <path d="M25 4 Q22 8 25 12 T25 20 T25 28" />
-                    </>
-                  )}
-                </svg>
-              </button>
-            </div>
-          ) : (ligne.forme || 'rectangle') === 'circle' ? (
-            /* CERCLE: 1 champ (diamètre) */
-            <div className="dimensions-circle">
-              <span className="diameter-symbol">Ø</span>
-              <input
-                type="number"
-                value={ligne.dimensions.longueur || ''}
-                onChange={(e) => onUpdate({
-                  dimensions: { ...ligne.dimensions, longueur: Number(e.target.value) || 0, largeur: Number(e.target.value) || 0 }
-                })}
-                onFocus={(e) => e.target.select()}
-                placeholder="Diamètre"
-                className={`input-dim input-dim-diameter ${!ligne.dimensions.longueur ? 'empty' : ''}`}
-                min="0"
-              />
-              <span className="dim-x">x</span>
-              <input
-                type="number"
-                value={
-                  panneauMulticouche
-                    ? panneauMulticouche.epaisseurTotale
-                    : panneauGlobal
-                      ? panneauGlobal.epaisseurs[0]
-                      : (ligne.dimensions.epaisseur || '')
-                }
-                onChange={(e) => {
-                  if (!panneauGlobal && !panneauMulticouche) {
-                    onUpdate({
-                      dimensions: { ...ligne.dimensions, epaisseur: Number(e.target.value) || 0 }
-                    });
-                  }
-                }}
-                onFocus={(e) => e.target.select()}
-                placeholder={t('configurateur.placeholders.thickness')}
-                className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
-                min="0"
-                readOnly={!!(panneauGlobal || panneauMulticouche)}
-              />
-            </div>
-          ) : (ligne.forme || 'rectangle') === 'custom' ? (
-            /* CUSTOM DXF: Affichage read-only */
-            <div className="dimensions-custom">
-              {ligne.formeCustom ? (
-                <>
-                  <span className="custom-surface">{ligne.formeCustom.surfaceM2.toFixed(3)} m²</span>
-                  <span className="custom-perimetre">{ligne.formeCustom.perimetreM.toFixed(2)} m</span>
-                </>
-              ) : (
-                <span className="custom-empty">Import DXF requis</span>
-              )}
-            </div>
-          ) : (
-            /* RECTANGLE, ELLIPSE, TRIANGLE: 2 champs (L × l) */
-            <div className="dimensions-compact">
-              <input
-                type="number"
-                value={ligne.dimensions.longueur || ''}
-                onChange={(e) => onUpdate({
-                  dimensions: { ...ligne.dimensions, longueur: Number(e.target.value) || 0 }
-                })}
-                onFocus={(e) => e.target.select()}
-                placeholder={t('configurateur.placeholders.length')}
-                className={`input-dim input-dim-large ${!ligne.dimensions.longueur ? 'empty' : ''}`}
-                min="0"
-              />
-              <span className="dim-x">x</span>
-              <input
-                type="number"
-                value={ligne.dimensions.largeur || ''}
-                onChange={(e) => onUpdate({
-                  dimensions: { ...ligne.dimensions, largeur: Number(e.target.value) || 0 }
-                })}
-                onFocus={(e) => e.target.select()}
-                placeholder={t('configurateur.placeholders.width')}
-                className={`input-dim input-dim-large ${!ligne.dimensions.largeur ? 'empty' : ''}`}
-                min="0"
-              />
-              <span className="dim-x">x</span>
-              <input
-                type="number"
-                value={
-                  panneauMulticouche
-                    ? panneauMulticouche.epaisseurTotale
-                    : panneauGlobal
-                      ? panneauGlobal.epaisseurs[0]
-                      : (ligne.dimensions.epaisseur || '')
-                }
-                onChange={(e) => {
-                  if (!panneauGlobal && !panneauMulticouche) {
-                    onUpdate({
-                      dimensions: { ...ligne.dimensions, epaisseur: Number(e.target.value) || 0 }
-                    });
-                  }
-                }}
-                onFocus={(e) => e.target.select()}
-                placeholder={t('configurateur.placeholders.thickness')}
-                className={`input-dim input-ep ${(panneauGlobal || panneauMulticouche) ? 'input-locked' : ''}`}
-                min="0"
-                readOnly={!!(panneauGlobal || panneauMulticouche)}
-                title={
-                  panneauMulticouche
-                    ? `${t('configurateur.multilayer.totalThickness')}: ${panneauMulticouche.epaisseurTotale}mm`
-                    : panneauGlobal
-                      ? `${t('configurateur.placeholders.thickness')}: ${panneauGlobal.epaisseurs[0]}mm`
-                      : t('configurateur.placeholders.thickness')
-                }
-              />
-              <button
-                type="button"
-                className={`btn-fil-icon ${ligne.sensDuFil === 'largeur' ? 'vertical' : ''}`}
-                onClick={() => onUpdate({
-                  sensDuFil: ligne.sensDuFil === 'longueur' ? 'largeur' : 'longueur'
-                })}
-                title={t('configurateur.grainDirection.label', { direction: ligne.sensDuFil === 'longueur' ? t('configurateur.grainDirection.length') : t('configurateur.grainDirection.width') })}
-              >
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {ligne.sensDuFil === 'longueur' ? (
-                    <>
-                      {/* Flèche horizontale en haut */}
-                      <line x1="4" y1="7" x2="24" y2="7" />
-                      <polyline points="20,3 28,7 20,11" />
-                      {/* Vagues horizontales en dessous */}
-                      <path d="M4 17 Q8 14 12 17 T20 17 T28 17" />
-                      <path d="M4 25 Q8 22 12 25 T20 25 T28 25" />
-                    </>
-                  ) : (
-                    <>
-                      {/* Flèche verticale à gauche */}
-                      <line x1="7" y1="4" x2="7" y2="24" />
-                      <polyline points="3,20 7,28 11,20" />
-                      {/* Vagues verticales à droite */}
-                      <path d="M17 4 Q14 8 17 12 T17 20 T17 28" />
-                      <path d="M25 4 Q22 8 25 12 T25 20 T25 28" />
-                    </>
-                  )}
-                </svg>
-              </button>
-            </div>
-          )}
+          <LignePanneauDimensions
+            forme={ligne.forme || 'rectangle'}
+            dimensions={ligne.dimensions}
+            dimensionsLShape={ligne.dimensionsLShape}
+            formeCustom={ligne.formeCustom}
+            sensDuFil={ligne.sensDuFil}
+            panneauGlobal={panneauGlobal}
+            panneauMulticouche={panneauMulticouche}
+            onUpdate={onUpdate}
+          />
         </td>
 
         {/* Chants - Dynamiques selon forme */}
         <td className="cx-col-chants cell-chants cell-group-panneau" title={t('configurateur.tooltips.edges')}>
-          {/* RECTANGLE: 4 boutons A/B/C/D */}
-          {(ligne.forme || 'rectangle') === 'rectangle' && (
-            <div className="chants-row">
-              <span className="chant-label">L1</span>
-              <button
-                type="button"
-                className={`chant-btn ${ligne.chants.A ? 'active' : ''}`}
-                onClick={() => onUpdate({ chants: { ...ligne.chants, A: !ligne.chants.A } })}
-              >
-                <span className="chant-edge-top" />
-                <span className="chant-letter">A</span>
-              </button>
-              <span className="chant-label">l1</span>
-              <button
-                type="button"
-                className={`chant-btn ${ligne.chants.B ? 'active' : ''}`}
-                onClick={() => onUpdate({ chants: { ...ligne.chants, B: !ligne.chants.B } })}
-              >
-                <span className="chant-edge-left" />
-                <span className="chant-letter">B</span>
-              </button>
-              <span className="chant-label">L2</span>
-              <button
-                type="button"
-                className={`chant-btn ${ligne.chants.C ? 'active' : ''}`}
-                onClick={() => onUpdate({ chants: { ...ligne.chants, C: !ligne.chants.C } })}
-              >
-                <span className="chant-edge-bottom" />
-                <span className="chant-letter">C</span>
-              </button>
-              <span className="chant-label">l2</span>
-              <button
-                type="button"
-                className={`chant-btn ${ligne.chants.D ? 'active' : ''}`}
-                onClick={() => onUpdate({ chants: { ...ligne.chants, D: !ligne.chants.D } })}
-              >
-                <span className="chant-edge-right" />
-                <span className="chant-letter">D</span>
-              </button>
-              {/* Affichage ml total */}
-              {mlChants > 0 && (
-                <span className="chants-ml-total">
-                  <span className="ml-value">{mlChants.toFixed(2)}</span>
-                  <span className="ml-unit">ml</span>
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* TRIANGLE: 3 boutons A/B/C */}
-          {ligne.forme === 'triangle' && ligne.chantsConfig?.type === 'triangle' && (() => {
-            const edges = ligne.chantsConfig.edges as { A: boolean; B: boolean; C: boolean };
-            return (
-              <div className="chants-row chants-triangle">
-                <button
-                  type="button"
-                  className={`chant-btn chant-btn-small ${edges.A ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: {
-                      type: 'triangle',
-                      edges: { A: !edges.A, B: edges.B, C: edges.C }
-                    }
-                  })}
-                >
-                  <span className="chant-letter">A</span>
-                </button>
-                <button
-                  type="button"
-                  className={`chant-btn chant-btn-small ${edges.B ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: {
-                      type: 'triangle',
-                      edges: { A: edges.A, B: !edges.B, C: edges.C }
-                    }
-                  })}
-                >
-                  <span className="chant-letter">B</span>
-                </button>
-                <button
-                  type="button"
-                  className={`chant-btn chant-btn-small ${edges.C ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: {
-                      type: 'triangle',
-                      edges: { A: edges.A, B: edges.B, C: !edges.C }
-                    }
-                  })}
-                >
-                  <span className="chant-letter">C</span>
-                </button>
-                {/* Affichage ml total */}
-                {mlChants > 0 && (
-                  <span className="chants-ml-total">
-                    <span className="ml-value">{mlChants.toFixed(2)}</span>
-                    <span className="ml-unit">ml</span>
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* PENTAGON (L-Shape): 5 boutons A/B/C/D/E - même style que rectangle */}
-          {ligne.forme === 'pentagon' && ligne.chantsConfig?.type === 'pentagon' && (() => {
-            const edges = ligne.chantsConfig.edges as { A: boolean; B: boolean; C: boolean; D: boolean; E: boolean };
-            return (
-              <div className="chants-row">
-                <span className="chant-label">L1</span>
-                <button
-                  type="button"
-                  className={`chant-btn ${edges.A ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: { type: 'pentagon', edges: { ...edges, A: !edges.A } }
-                  })}
-                >
-                  <span className="chant-edge-top" />
-                  <span className="chant-letter">A</span>
-                </button>
-                <span className="chant-label">l1</span>
-                <button
-                  type="button"
-                  className={`chant-btn ${edges.B ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: { type: 'pentagon', edges: { ...edges, B: !edges.B } }
-                  })}
-                >
-                  <span className="chant-edge-left" />
-                  <span className="chant-letter">B</span>
-                </button>
-                <span className="chant-label">L2</span>
-                <button
-                  type="button"
-                  className={`chant-btn ${edges.C ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: { type: 'pentagon', edges: { ...edges, C: !edges.C } }
-                  })}
-                >
-                  <span className="chant-edge-bottom" />
-                  <span className="chant-letter">C</span>
-                </button>
-                <span className="chant-label">l2</span>
-                <button
-                  type="button"
-                  className={`chant-btn ${edges.D ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: { type: 'pentagon', edges: { ...edges, D: !edges.D } }
-                  })}
-                >
-                  <span className="chant-edge-right" />
-                  <span className="chant-letter">D</span>
-                </button>
-                <span className="chant-label">diag</span>
-                <button
-                  type="button"
-                  className={`chant-btn ${edges.E ? 'active' : ''}`}
-                  onClick={() => onUpdate({
-                    chantsConfig: { type: 'pentagon', edges: { ...edges, E: !edges.E } }
-                  })}
-                >
-                  <span className="chant-edge-diagonal" />
-                  <span className="chant-letter">E</span>
-                </button>
-                {/* Affichage ml total */}
-                {mlChants > 0 && (
-                  <span className="chants-ml-total">
-                    <span className="ml-value">{mlChants.toFixed(2)}</span>
-                    <span className="ml-unit">ml</span>
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* CIRCLE, ELLIPSE, CUSTOM: 1 toggle "Contour courbé" */}
-          {(ligne.forme === 'circle' || ligne.forme === 'ellipse' || ligne.forme === 'custom') && (
-            <div className="chants-curved">
-              <button
-                type="button"
-                className={`chant-btn-curved ${ligne.chantsConfig?.type === 'curved' && ligne.chantsConfig.edges.contour ? 'active' : ''}`}
-                onClick={() => onUpdate({
-                  chantsConfig: {
-                    type: 'curved',
-                    edges: { contour: !(ligne.chantsConfig?.type === 'curved' && ligne.chantsConfig.edges.contour) }
-                  }
-                })}
-              >
-                <span className="curved-icon">⟳</span>
-                <span className="curved-label">{t('configurateur.edges.contour')}</span>
-              </button>
-              {/* Affichage ml total */}
-              {mlChants > 0 && (
-                <span className="chants-ml-total">
-                  <span className="ml-value">{mlChants.toFixed(2)}</span>
-                  <span className="ml-unit">ml</span>
-                </span>
-              )}
-            </div>
-          )}
+          <LignePanneauChants
+            forme={ligne.forme || 'rectangle'}
+            chants={ligne.chants}
+            chantsConfig={ligne.chantsConfig}
+            mlChants={mlChants}
+            onUpdate={onUpdate}
+          />
         </td>
 
         {/* Usinages */}
@@ -999,240 +515,23 @@ export default function LignePanneau({
 
         {/* Actions */}
         <td className="cx-col-actions cell-group-prix cell-actions">
-          <div className="actions-group">
-            <button className="btn-action" onClick={onCopier} title={t('common.actions.duplicate')}>
-              <Copy size={14} />
-            </button>
-            <button
-              className="btn-action btn-delete"
-              onClick={onSupprimer}
-              disabled={!canDelete}
-              title={t('common.actions.delete')}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+          <LignePanneauActions
+            onCopier={onCopier}
+            onSupprimer={onSupprimer}
+            canDelete={canDelete}
+          />
         </td>
       </tr>
 
       {/* === SOUS-LIGNE FINITION === (Accordion: only show when expanded) */}
       {ligneFinition && onUpdateFinition && isFinitionExpanded && (
-        <tr ref={finitionRowRef} className="ligne-finition">
-          {hidePanelColumn ? (
-            <>
-              {/* Mode Groupes: 10 colonnes (ETAT, REFERENCE, FORME, DIMENSIONS, CHANTS, USINAGES, PERCAGE, FINITION, PRIX, ACTIONS) */}
-              {/* Colonnes 1-2 vides (ETAT + REFERENCE) */}
-              <td className="cell-empty"></td>
-              <td className="cell-empty">
-                <span className="finition-indent">{'\u21B3'} {t('configurateur.columns.finish')}</span>
-              </td>
-
-              {/* Teinte/RAL - couvre FORME + DIMENSIONS (colonnes 3-4) */}
-              <td className="cell-finition-detail" colSpan={2}>
-                <div className="finition-field">
-                  <label>
-                    {ligneFinition.finition === 'laque' ? t('configurateur.finish.ralCode') : t('configurateur.finish.tint')}
-                  </label>
-                  {ligneFinition.finition === 'laque' ? (
-                    <div className="color-picker-wrapper">
-                      <input
-                        type="text"
-                        value={ligneFinition.codeCouleurLaque?.replace(/\s*\(#[0-9a-fA-F]+\)/, '') || ''}
-                        readOnly
-                        onClick={() => setShowLaque(true)}
-                        placeholder={t('configurateur.placeholders.chooseRAL')}
-                        className={`input-compact input-with-picker ${!ligneFinition.codeCouleurLaque ? 'field-missing' : ''}`}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <button
-                        className="btn-color-picker"
-                        onClick={() => setShowLaque(true)}
-                        style={ligneFinition.codeCouleurLaque ? {
-                          backgroundColor: ligneFinition.codeCouleurLaque.match(/#[0-9a-fA-F]{6}/)?.[0] || getRALByCode(ligneFinition.codeCouleurLaque)?.hex || '#888',
-                        } : undefined}
-                      >
-                        {!ligneFinition.codeCouleurLaque && <Pipette size={14} />}
-                      </button>
-                    </div>
-                  ) : (
-                    <input
-                      type="text"
-                      value={ligneFinition.teinte || ''}
-                      onChange={(e) => onUpdateFinition({ teinte: e.target.value || null })}
-                      placeholder={ligneFinition.typeFinition === 'teinte_vernis' ? t('configurateur.placeholders.tint') : t('common.misc.optional')}
-                      className={`input-compact ${ligneFinition.typeFinition === 'teinte_vernis' && !ligneFinition.teinte ? 'field-missing' : ''}`}
-                    />
-                  )}
-                  <PopupLaque
-                    open={showLaque}
-                    codeCouleurActuel={ligneFinition.codeCouleurLaque}
-                    onUpdate={(codeCouleur) => onUpdateFinition?.({ codeCouleurLaque: codeCouleur })}
-                    onClose={() => setShowLaque(false)}
-                  />
-                </div>
-              </td>
-
-              {/* Brillance - couvre CHANTS + USINAGES (colonnes 5-6) */}
-              <td className="cell-finition-detail" colSpan={2}>
-                <div className="finition-field">
-                  <label>{t('configurateur.finish.gloss')}</label>
-                  <select
-                    value={ligneFinition.brillance || ''}
-                    onChange={(e) => onUpdateFinition({ brillance: e.target.value as Brillance || null })}
-                    className={`select-compact ${!ligneFinition.brillance ? 'field-missing' : ''}`}
-                  >
-                    <option value="">{t('configurateur.placeholders.choose')}</option>
-                    {brillancesDisponibles.map(b => {
-                      const prix = ligneFinition.finition === 'laque' ? b.prixLaque : b.prixVernis;
-                      return (
-                        <option key={b.value} value={b.value}>
-                          {t(BRILLANCES_TRANSLATION_KEYS[b.value])} ({prix}{t('configurateur.units.euroPerM2')})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </td>
-
-              {/* Faces - colonne PERCAGE (colonne 7) */}
-              <td className="cell-finition-detail">
-                <div className="finition-field">
-                  <label>{t('configurateur.finish.faces')}</label>
-                  <div className="faces-toggle">
-                    <button
-                      className={`btn-face ${ligneFinition.nombreFaces === 1 ? 'active' : ''}`}
-                      onClick={() => onUpdateFinition({ nombreFaces: 1 })}
-                    >
-                      1
-                    </button>
-                    <button
-                      className={`btn-face ${ligneFinition.nombreFaces === 2 ? 'active' : ''}`}
-                      onClick={() => onUpdateFinition({ nombreFaces: 2 })}
-                    >
-                      2
-                    </button>
-                  </div>
-                </div>
-              </td>
-
-              {/* Vide - colonne FINITION (colonne 8) */}
-              <td className="cell-empty"></td>
-
-              {/* Prix finition (colonne 9) */}
-              <td className="cell-prix">
-                <span className="prix-finition">{formaterPrix(ligneFinition.prixHT)}</span>
-              </td>
-
-              {/* Actions vide (colonne 10) */}
-              <td className="cell-actions"></td>
-            </>
-          ) : (
-            <>
-              {/* Mode Classique: 14 colonnes avec panneau/materiau */}
-              {/* Cellules vides pour alignement */}
-              <td className="cell-empty cell-group-id"></td>
-              <td className="cell-empty cell-group-id"></td>
-              <td className="cell-empty cell-group-id cell-group-end-sticky">
-                <span className="finition-indent">{'\u21B3'} {t('configurateur.columns.finish')}</span>
-              </td>
-              <td className="cell-empty cell-group-panneau"></td>
-
-              {/* Teinte/RAL - couvre Dimensions + Chants */}
-              <td className="cell-finition-detail" colSpan={2}>
-                <div className="finition-field">
-                  <label>
-                    {ligneFinition.finition === 'laque' ? t('configurateur.finish.ralCode') : t('configurateur.finish.tint')}
-                  </label>
-                  {ligneFinition.finition === 'laque' ? (
-                    <div className="color-picker-wrapper">
-                      <input
-                        type="text"
-                        value={ligneFinition.codeCouleurLaque?.replace(/\s*\(#[0-9a-fA-F]+\)/, '') || ''}
-                        readOnly
-                        onClick={() => setShowLaque(true)}
-                        placeholder={t('configurateur.placeholders.chooseRAL')}
-                        className={`input-compact input-with-picker ${!ligneFinition.codeCouleurLaque ? 'field-missing' : ''}`}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <button
-                        className="btn-color-picker"
-                        onClick={() => setShowLaque(true)}
-                        style={ligneFinition.codeCouleurLaque ? {
-                          backgroundColor: ligneFinition.codeCouleurLaque.match(/#[0-9a-fA-F]{6}/)?.[0] || getRALByCode(ligneFinition.codeCouleurLaque)?.hex || '#888',
-                        } : undefined}
-                      >
-                        {!ligneFinition.codeCouleurLaque && <Pipette size={14} />}
-                      </button>
-                    </div>
-                  ) : (
-                    <input
-                      type="text"
-                      value={ligneFinition.teinte || ''}
-                      onChange={(e) => onUpdateFinition({ teinte: e.target.value || null })}
-                      placeholder={ligneFinition.typeFinition === 'teinte_vernis' ? t('configurateur.placeholders.tint') : t('common.misc.optional')}
-                      className={`input-compact ${ligneFinition.typeFinition === 'teinte_vernis' && !ligneFinition.teinte ? 'field-missing' : ''}`}
-                    />
-                  )}
-                  <PopupLaque
-                    open={showLaque}
-                    codeCouleurActuel={ligneFinition.codeCouleurLaque}
-                    onUpdate={(codeCouleur) => onUpdateFinition?.({ codeCouleurLaque: codeCouleur })}
-                    onClose={() => setShowLaque(false)}
-                  />
-                </div>
-              </td>
-
-              {/* Brillance - couvre Usinages + Perçage */}
-              <td className="cell-finition-detail cell-group-end" colSpan={2}>
-                <div className="finition-field">
-                  <label>{t('configurateur.finish.gloss')}</label>
-                  <select
-                    value={ligneFinition.brillance || ''}
-                    onChange={(e) => onUpdateFinition({ brillance: e.target.value as Brillance || null })}
-                    className={`select-compact ${!ligneFinition.brillance ? 'field-missing' : ''}`}
-                  >
-                    <option value="">{t('configurateur.placeholders.choose')}</option>
-                    {brillancesDisponibles.map(b => {
-                      const prix = ligneFinition.finition === 'laque' ? b.prixLaque : b.prixVernis;
-                      return (
-                        <option key={b.value} value={b.value}>
-                          {t(BRILLANCES_TRANSLATION_KEYS[b.value])} ({prix}{t('configurateur.units.euroPerM2')})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </td>
-
-              {/* Faces - colonne Finition seule */}
-              <td className="cell-finition-detail cell-group-end">
-                <div className="finition-field">
-                  <label>{t('configurateur.finish.faces')}</label>
-                  <div className="faces-toggle">
-                    <button
-                      className={`btn-face ${ligneFinition.nombreFaces === 1 ? 'active' : ''}`}
-                      onClick={() => onUpdateFinition({ nombreFaces: 1 })}
-                    >
-                      1
-                    </button>
-                    <button
-                      className={`btn-face ${ligneFinition.nombreFaces === 2 ? 'active' : ''}`}
-                      onClick={() => onUpdateFinition({ nombreFaces: 2 })}
-                    >
-                      2
-                    </button>
-                  </div>
-                </div>
-              </td>
-
-              {/* Prix finition */}
-              <td className="cell-group-prix cell-prix">
-                <span className="prix-finition">{formaterPrix(ligneFinition.prixHT)}</span>
-              </td>
-              <td className="cell-group-prix cell-actions"></td>
-            </>
-          )}
-        </tr>
+        <LigneFinitionRow
+          ligneFinition={ligneFinition}
+          onUpdateFinition={onUpdateFinition}
+          hidePanelColumn={hidePanelColumn}
+          brillancesDisponibles={brillancesDisponibles}
+          finitionRowRef={finitionRowRef}
+        />
       )}
 
       <style jsx>{`

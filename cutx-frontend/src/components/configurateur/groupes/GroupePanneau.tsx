@@ -145,7 +145,7 @@ export function GroupePanneau({
   })();
 
   return (
-    <div className="groupe-panneau">
+    <div className={`groupe-panneau ${isOver ? 'is-over' : ''}`}>
 
       {/* Header du groupe */}
       <div className="groupe-header" onClick={onToggleExpand}>
@@ -514,7 +514,7 @@ export function GroupePanneau({
         }
 
         .groupe-panneau.is-over {
-          border-color: var(--cx-accent);
+          border: 2px dashed var(--cx-accent);
           box-shadow: 0 0 0 2px var(--cx-accent-muted);
         }
 

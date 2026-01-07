@@ -106,6 +106,10 @@ body {
   min-height: 100vh;
   background: var(--cx-surface-0);
   font-family: var(--cx-font-sans);
+  /* Contraintes de largeur desktop */
+  max-width: 1900px;
+  min-width: 1200px;
+  margin: 0 auto;
 }
 
 /* === CARD COMPONENT === */
@@ -853,6 +857,12 @@ body {
   --admin-olive-hover: var(--cx-accent-hover);
   --admin-olive-bg: var(--cx-accent-muted);
   --admin-olive-border: var(--cx-border-accent);
+  --admin-ardoise: #7d8d5c;
+  --admin-ardoise-bg: rgba(125, 141, 92, 0.12);
+  --admin-ardoise-border: rgba(125, 141, 92, 0.3);
+  --admin-sable: #c4a48d;
+  --admin-sable-bg: rgba(196, 164, 141, 0.12);
+  --admin-sable-border: rgba(196, 164, 141, 0.3);
   --admin-status-success: var(--cx-success);
   --admin-status-success-bg: var(--cx-success-muted);
   --admin-status-warning: var(--cx-warning);
@@ -918,11 +928,11 @@ body {
 /* Column widths - FIXED (min/max pour empêcher le redimensionnement) */
 .cx-col-etat { width: 50px; min-width: 50px; max-width: 50px; text-align: center !important; overflow: hidden; }
 .cx-col-reference { width: 250px; min-width: 250px; max-width: 250px; overflow: hidden; }
-.cx-col-forme { width: 80px; min-width: 80px; max-width: 80px; overflow: hidden; }
+.cx-col-forme { width: 60px; min-width: 60px; max-width: 60px; overflow: hidden; }
 .cx-col-dimensions { width: 340px; min-width: 340px; max-width: 340px; overflow: hidden; }
 .cx-col-chants { width: 180px; min-width: 180px; max-width: 180px; overflow: hidden; }
-.cx-col-usinages { width: 80px; min-width: 80px; max-width: 80px; text-align: center !important; overflow: hidden; }
-.cx-col-percage { width: 70px; min-width: 70px; max-width: 70px; text-align: center !important; overflow: hidden; }
+.cx-col-usinages { width: 60px; min-width: 60px; max-width: 60px; text-align: center !important; overflow: hidden; }
+.cx-col-percage { width: 60px; min-width: 60px; max-width: 60px; text-align: center !important; overflow: hidden; }
 .cx-col-finition { width: 150px; min-width: 150px; max-width: 150px; overflow: hidden; }
 .cx-col-prix { width: 70px; min-width: 70px; max-width: 70px; text-align: right !important; overflow: hidden; }
 .cx-col-actions { width: 100px; min-width: 100px; max-width: 100px; text-align: center !important; overflow: hidden; }
