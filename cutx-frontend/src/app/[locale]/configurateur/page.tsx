@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/routing';
 import ConfigurateurV3 from '@/components/configurateur/ConfigurateurV3';
+import ThicknessMismatchDialog, { type ThicknessMismatchInfo } from '@/components/configurateur/dialogs/ThicknessMismatchDialog';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import type { PanneauGroupe } from '@/lib/configurateur/groupes/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -161,6 +162,15 @@ function ConfigurateurContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasReceivedData = useRef(false);
+  const waitingForUserChoice = useRef(false);
+
+  // State for thickness mismatch dialog
+  const [thicknessMismatchInfo, setThicknessMismatchInfo] = useState<ThicknessMismatchInfo | null>(null);
+  const [pendingGroupeData, setPendingGroupeData] = useState<{
+    panneauCatalogue: PanneauCatalogue;
+    importedLines: LignePrestationV3[];
+    projectName: string;
+  } | null>(null);
 
   // Charger les donnees depuis l'API si ?import= ou ?panel= est present
   useEffect(() => {
@@ -168,8 +178,8 @@ function ConfigurateurContent() {
     const panelRef = searchParams.get('panel');
     const debitRef = searchParams.get('ref'); // Reference du debit depuis la homepage
 
-    // Mode 1: Import depuis SketchUp
-    if (importId && !hasReceivedData.current) {
+    // Mode 1: Import depuis SketchUp (ignore "session" qui est géré différemment)
+    if (importId && importId !== 'session' && !hasReceivedData.current) {
       hasReceivedData.current = true;
       setIsLoading(true);
       setError(null);
@@ -269,17 +279,43 @@ function ConfigurateurContent() {
             imageUrl: panel.imageUrl || undefined,
           };
 
-          // Creer le groupe avec le panneau ET les lignes importées
+          const projectName = debitRef || `Débit - ${panel.name}`;
+          const panelThickness = panel.defaultThickness || 19;
+
+          // Check for thickness mismatches if there are imported lines
+          if (importedLines && importedLines.length > 0) {
+            const mismatchedLines = importedLines.filter(
+              (line) => line.dimensions.epaisseur !== panelThickness
+            );
+
+            if (mismatchedLines.length > 0) {
+              // Show dialog for user to decide - keep loading state until user chooses
+              waitingForUserChoice.current = true;
+              const matchedCount = importedLines.length - mismatchedLines.length;
+              setThicknessMismatchInfo({
+                panelThickness,
+                panelName: panel.name,
+                mismatchedLines: mismatchedLines.map((line) => ({
+                  reference: line.reference || 'Sans ref',
+                  thickness: line.dimensions.epaisseur,
+                })),
+                matchedCount,
+              });
+              setPendingGroupeData({
+                panneauCatalogue,
+                importedLines,
+                projectName,
+              });
+              console.log('[ConfigV3] Epaisseurs incompatibles detectees:', mismatchedLines.length, 'pieces');
+              return; // Don't proceed, wait for user choice
+            }
+          }
+
+          // No mismatches, proceed normally
           const groupe: { panneau: PanneauGroupe; lignes?: LignePrestationV3[] } = {
-            panneau: {
-              type: 'catalogue',
-              panneau: panneauCatalogue,
-            },
+            panneau: { type: 'catalogue', panneau: panneauCatalogue },
             lignes: importedLines || undefined,
           };
-
-          // Utiliser la reference fournie par l'utilisateur ou generer un nom par defaut
-          const projectName = debitRef || `Débit - ${panel.name}`;
           setProjetNom(projectName);
           setInitialGroupe(groupe);
 
@@ -291,7 +327,10 @@ function ConfigurateurContent() {
           setError(err.message || 'Erreur lors du chargement du panneau');
         })
         .finally(() => {
-          setIsLoading(false);
+          // Don't set loading false if waiting for user to choose in thickness mismatch dialog
+          if (!waitingForUserChoice.current) {
+            setIsLoading(false);
+          }
         });
     }
   }, [searchParams]);
@@ -340,14 +379,106 @@ function ConfigurateurContent() {
     }
   }, [router]);
 
-  // Afficher le loader pendant le chargement
-  if (isLoading) {
+  // Handle thickness mismatch: convert all lines to panel thickness
+  const handleConvertThickness = useCallback(() => {
+    if (!pendingGroupeData) return;
+
+    const { panneauCatalogue, importedLines, projectName } = pendingGroupeData;
+    const panelThickness = panneauCatalogue.epaisseurs[0];
+
+    // Convert all lines to the panel thickness
+    const convertedLines = importedLines.map((line) => ({
+      ...line,
+      dimensions: {
+        ...line.dimensions,
+        epaisseur: panelThickness,
+      },
+    }));
+
+    const groupe: { panneau: PanneauGroupe; lignes: LignePrestationV3[] } = {
+      panneau: { type: 'catalogue', panneau: panneauCatalogue },
+      lignes: convertedLines,
+    };
+
+    // Clear dialog and waiting state first, then set data
+    waitingForUserChoice.current = false;
+    setThicknessMismatchInfo(null);
+    setPendingGroupeData(null);
+    setProjetNom(projectName);
+    setInitialGroupe(groupe);
+    setIsLoading(false);
+
+    console.log('[ConfigV3] Lignes converties en', panelThickness, 'mm');
+  }, [pendingGroupeData]);
+
+  // Handle thickness mismatch: keep mismatched lines as unassigned
+  const handleKeepUnassigned = useCallback(() => {
+    if (!pendingGroupeData) return;
+
+    const { panneauCatalogue, importedLines, projectName } = pendingGroupeData;
+    const panelThickness = panneauCatalogue.epaisseurs[0];
+
+    // Split lines: matched go to group, mismatched go to initial lignes (unassigned)
+    const matchedLines = importedLines.filter(
+      (line) => line.dimensions.epaisseur === panelThickness
+    );
+    const mismatchedLines = importedLines.filter(
+      (line) => line.dimensions.epaisseur !== panelThickness
+    );
+
+    // Create group with matched lines only
+    const groupe: { panneau: PanneauGroupe; lignes: LignePrestationV3[] } = {
+      panneau: { type: 'catalogue', panneau: panneauCatalogue },
+      lignes: matchedLines,
+    };
+
+    // Clear dialog and waiting state first, then set data
+    waitingForUserChoice.current = false;
+    setThicknessMismatchInfo(null);
+    setPendingGroupeData(null);
+    setProjetNom(projectName);
+    setInitialGroupe(groupe);
+    // Mismatched lines go to initial lignes (will be shown as unassigned)
+    if (mismatchedLines.length > 0) {
+      setInitialLignes(mismatchedLines);
+    }
+    setIsLoading(false);
+
+    console.log('[ConfigV3] Lignes compatibles:', matchedLines.length, '- Non assignees:', mismatchedLines.length);
+  }, [pendingGroupeData]);
+
+  // Handle thickness mismatch: cancel import
+  const handleCancelImport = useCallback(() => {
+    waitingForUserChoice.current = false;
+    setThicknessMismatchInfo(null);
+    setPendingGroupeData(null);
+    setIsLoading(false);
+    router.push('/');
+  }, [router]);
+
+  // Afficher le loader pendant le chargement (sauf si on attend le choix utilisateur)
+  if (isLoading && !thicknessMismatchInfo) {
     return (
       <div className="min-h-screen bg-[#0F0E0D] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500 mx-auto mb-4"></div>
           <p className="text-white text-lg">Chargement des panneaux depuis SketchUp...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show only the dialog when waiting for user choice
+  if (thicknessMismatchInfo && isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F0E0D]">
+        <ThicknessMismatchDialog
+          open={true}
+          info={thicknessMismatchInfo}
+          onConvert={handleConvertThickness}
+          onKeepUnassigned={handleKeepUnassigned}
+          onCancel={handleCancelImport}
+        />
       </div>
     );
   }
@@ -379,11 +510,22 @@ function ConfigurateurContent() {
   } : undefined;
 
   return (
-    <ConfigurateurV3
-      isClientMode={true}
-      initialData={initialData}
-      onBack={handleBack}
-    />
+    <>
+      <ConfigurateurV3
+        isClientMode={true}
+        initialData={initialData}
+        onBack={handleBack}
+      />
+
+      {/* Thickness mismatch dialog */}
+      <ThicknessMismatchDialog
+        open={!!thicknessMismatchInfo}
+        info={thicknessMismatchInfo}
+        onConvert={handleConvertThickness}
+        onKeepUnassigned={handleKeepUnassigned}
+        onCancel={handleCancelImport}
+      />
+    </>
   );
 }
 

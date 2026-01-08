@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
-import { Search, X, Loader2, Sparkles, FileCode, FileSpreadsheet, Upload, CheckCircle } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { Search, X, Loader2, Sparkles, FileCode, FileSpreadsheet, Upload, CheckCircle, ImageIcon, FolderOpen } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface ImportedFileInfo {
@@ -37,14 +37,42 @@ export default function HomeSearchBar({
 }: HomeSearchBarProps) {
   const t = useTranslations('home');
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const shouldMaintainFocusRef = useRef(false);
 
   useEffect(() => {
     if (autoFocus && inputRef.current) {
       inputRef.current.focus();
     }
   }, [autoFocus]);
+
+  // Maintain focus while typing - restore focus after search results update
+  useEffect(() => {
+    if (shouldMaintainFocusRef.current && inputRef.current) {
+      // Use requestAnimationFrame to ensure DOM has settled
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }
+  }, [isSearching]);
+
+  // Handle file selection from button click
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      onFileDrop?.(files[0]);
+    }
+    // Reset input to allow selecting same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [onFileDrop]);
+
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   // Global keyboard shortcut (Ctrl/Cmd + K)
   useEffect(() => {
@@ -91,7 +119,9 @@ export default function HomeSearchBar({
     if (files.length > 0) {
       const file = files[0];
       const ext = file.name.split('.').pop()?.toLowerCase();
-      if (ext === 'dxf' || ext === 'xlsx' || ext === 'xls') {
+      // Support DXF, XLSX, XLS, and images
+      const supportedExts = ['dxf', 'xlsx', 'xls', 'jpg', 'jpeg', 'png', 'webp', 'gif'];
+      if (ext && supportedExts.includes(ext)) {
         onFileDrop?.(file);
       }
     }
@@ -117,8 +147,8 @@ export default function HomeSearchBar({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onFocus={() => { setIsFocused(true); shouldMaintainFocusRef.current = true; }}
+            onBlur={() => { setIsFocused(false); setTimeout(() => { shouldMaintainFocusRef.current = false; }, 100); }}
             placeholder={t('search.placeholder')}
             className="flex-1 bg-transparent border-none outline-none text-[var(--cx-text)] placeholder:text-[var(--cx-text-muted)] text-base"
             autoComplete="off"
@@ -172,8 +202,8 @@ export default function HomeSearchBar({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onFocus={() => { setIsFocused(true); shouldMaintainFocusRef.current = true; }}
+            onBlur={() => { setIsFocused(false); setTimeout(() => { shouldMaintainFocusRef.current = false; }, 100); }}
             placeholder={t('search.placeholder')}
             className="flex-1 bg-transparent border-none outline-none text-[var(--cx-text)] placeholder:text-[var(--cx-text-muted)] text-lg"
             autoComplete="off"
@@ -192,6 +222,15 @@ export default function HomeSearchBar({
 
         {/* Separator */}
         <div className="mx-6 border-t border-[var(--cx-border)]" />
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".dxf,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.gif"
+          onChange={handleFileInputChange}
+          className="hidden"
+        />
 
         {/* Drop zone hint */}
         <div className={`flex items-center justify-center gap-6 h-28 px-6 transition-colors ${isDragging ? 'bg-amber-500/5' : importedFile ? 'bg-green-500/5' : ''}`}>
@@ -224,20 +263,33 @@ export default function HomeSearchBar({
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <div className="flex items-center gap-8">
+              <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 text-[var(--cx-text-muted)]">
-                  <FileCode className="w-6 h-6" />
-                  <span className="text-base font-medium">DXF</span>
+                  <FileCode className="w-5 h-5" />
+                  <span className="text-sm font-medium">DXF</span>
                 </div>
-                <span className="text-[var(--cx-text-muted)]/50">ou</span>
                 <div className="flex items-center gap-2 text-[var(--cx-text-muted)]">
-                  <FileSpreadsheet className="w-6 h-6" />
-                  <span className="text-base font-medium">XLSX</span>
+                  <FileSpreadsheet className="w-5 h-5" />
+                  <span className="text-sm font-medium">XLSX</span>
+                </div>
+                <div className="flex items-center gap-2 text-[var(--cx-text-muted)]">
+                  <ImageIcon className="w-5 h-5" />
+                  <span className="text-sm font-medium">Image</span>
                 </div>
               </div>
-              <span className="text-sm text-[var(--cx-text-muted)]/60">
-                Glissez un fichier ici pour importer votre liste de débit
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-[var(--cx-text-muted)]/60">
+                  Glissez un fichier ici
+                </span>
+                <span className="text-[var(--cx-text-muted)]/40">ou</span>
+                <button
+                  onClick={handleImportClick}
+                  className="flex items-center gap-2 px-4 py-2 bg-[var(--cx-surface-2)] hover:bg-[var(--cx-surface-3)] border border-[var(--cx-border)] hover:border-[var(--cx-border-strong)] rounded-lg text-sm text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Parcourir
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -30,6 +30,7 @@ export interface CatalogueProduit {
   prixVenteM2?: number;
   imageUrl?: string;
   disponible: boolean;
+  fournisseur?: string; // Nom du fournisseur (B comme Bois, Dispano)
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +62,7 @@ interface ApiPanel {
     slug: string;
     parent?: { name: string; slug: string } | null;
   };
+  catalogue?: { name: string }; // Fournisseur (Bouney, Dispano)
   createdAt: string;
   updatedAt: string;
 }
@@ -109,6 +111,7 @@ function transformPanel(panel: ApiPanel): CatalogueProduit {
     prixVenteM2: prixM2,
     imageUrl: panel.imageUrl || undefined,
     disponible: panel.isActive,
+    fournisseur: panel.catalogue?.name || undefined,
     createdAt: panel.createdAt,
     updatedAt: panel.updatedAt,
   };

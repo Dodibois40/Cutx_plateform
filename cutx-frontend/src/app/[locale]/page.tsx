@@ -113,6 +113,7 @@ export default function HomePage() {
     imageUrl: p.imageUrl,
     stock: p.stock,
     isVariableLength: p.isVariableLength,
+    fournisseur: p.fournisseur,
   });
 
   const searchProducts: SearchProduct[] = produits.map(mapToSearchProduct);

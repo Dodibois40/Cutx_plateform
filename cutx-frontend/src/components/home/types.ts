@@ -19,6 +19,7 @@ export interface SearchProduct {
   imageUrl?: string | null;
   stock?: string | null;
   isVariableLength?: boolean;
+  fournisseur?: string | null; // Nom du fournisseur (B comme Bois, Dispano)
 }
 
 export interface SmartSearchFacets {

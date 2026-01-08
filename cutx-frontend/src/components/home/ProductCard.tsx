@@ -4,11 +4,13 @@ import Image from 'next/image';
 import { ImageIcon, Package } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { SearchProduct } from './types';
+import type { ViewMode } from './SearchResults';
 
 interface ProductCardProps {
   product: SearchProduct;
   onClick: (product: SearchProduct) => void;
   isSponsored?: boolean;
+  viewMode?: ViewMode;
 }
 
 // Product type labels with colors
@@ -38,7 +40,13 @@ function calculatePanelPrice(
   return Math.round(priceM2 * surfaceM2 * 100) / 100;
 }
 
-export default function ProductCard({ product, onClick, isSponsored = false }: ProductCardProps) {
+// Supplier badge config - keys must match API catalogue.name values
+const SUPPLIER_CONFIG: Record<string, { letter: string; color: string; title: string }> = {
+  'Bouney': { letter: 'B', color: 'bg-sky-500/20 text-sky-400 border-sky-500/40', title: 'B comme Bois' },
+  'Dispano': { letter: 'D', color: 'bg-rose-500/20 text-rose-400 border-rose-500/40', title: 'Dispano' },
+};
+
+export default function ProductCard({ product, onClick, isSponsored = false, viewMode = 'grid' }: ProductCardProps) {
   const t = useTranslations('home');
 
   const {
@@ -46,6 +54,8 @@ export default function ProductCard({ product, onClick, isSponsored = false }: P
     reference,
     refFabricant,
     marque,
+    categorie,
+    sousCategorie,
     productType,
     epaisseur,
     longueur,
@@ -55,9 +65,11 @@ export default function ProductCard({ product, onClick, isSponsored = false }: P
     imageUrl,
     stock,
     isVariableLength,
+    fournisseur,
   } = product;
 
   const typeConfig = productType ? PRODUCT_TYPE_CONFIG[productType] : null;
+  const supplierConfig = fournisseur ? SUPPLIER_CONFIG[fournisseur] : null;
   const priceM2 = prixAchatM2 || prixMl;
   const priceUnit = prixAchatM2 ? 'm²' : prixMl ? 'ml' : '';
   const panelPrice = calculatePanelPrice(prixAchatM2, longueur, largeur);
@@ -68,6 +80,183 @@ export default function ProductCard({ product, onClick, isSponsored = false }: P
 
   const isInStock = stock === 'EN STOCK';
 
+  // ============ LIST VIEW (Compact) ============
+  if (viewMode === 'list') {
+    return (
+      <button
+        onClick={() => onClick(product)}
+        className="group w-full text-left bg-[var(--cx-surface-1)]/30 border border-[var(--cx-border)] rounded-lg overflow-hidden transition-all duration-200 hover:bg-[var(--cx-surface-1)] hover:border-amber-500/50 focus:outline-none focus:border-amber-500"
+      >
+        <div className="flex items-center gap-3 px-3 py-2">
+          {/* Mini image - w-10 */}
+          <div className="relative flex-shrink-0 w-10 h-10 bg-[var(--cx-surface-2)] rounded overflow-hidden">
+            {imageUrl ? (
+              <Image src={imageUrl} alt={nom} fill className="object-cover" sizes="40px" />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full">
+                <ImageIcon className="w-4 h-4 text-[var(--cx-text-muted)]" />
+              </div>
+            )}
+          </div>
+
+          {/* Type badge - w-16 */}
+          <div className="w-16 flex-shrink-0">
+            {typeConfig && (
+              <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold border rounded-full ${typeConfig.color}`}>
+                {typeConfig.label}
+              </span>
+            )}
+          </div>
+
+          {/* Name - flex-1 */}
+          <span className="flex-1 min-w-0 text-sm font-medium text-[var(--cx-text)] truncate group-hover:text-amber-500 transition-colors">
+            {nom}
+          </span>
+
+          {/* Ref - w-24 */}
+          <span className="w-24 flex-shrink-0 font-mono text-xs text-[var(--cx-text-muted)] bg-white/5 px-1.5 py-0.5 rounded truncate">
+            {refFabricant || reference}
+          </span>
+
+          {/* Dimensions - w-24 */}
+          <span className="w-24 flex-shrink-0 text-xs text-[var(--cx-text-muted)]">
+            {dimensions}
+          </span>
+
+          {/* Thickness - w-16 */}
+          <span className="w-16 flex-shrink-0 text-xs font-bold text-[var(--cx-text)]">
+            {epaisseur ? `${epaisseur}mm` : '-'}
+          </span>
+
+          {/* Price - w-24 */}
+          <span className="w-24 flex-shrink-0 text-sm font-bold text-amber-500">
+            {priceM2 ? `${priceM2.toFixed(2)} €/${priceUnit}` : '-'}
+          </span>
+
+          {/* Stock indicator - w-4 */}
+          <Package className={`flex-shrink-0 w-4 h-4 ${isInStock ? 'text-emerald-500' : 'text-amber-500'}`} />
+
+          {/* Supplier badge - w-6 */}
+          {supplierConfig && (
+            <span
+              className={`flex-shrink-0 w-6 h-6 flex items-center justify-center text-[10px] font-bold border rounded ${supplierConfig.color}`}
+              title={supplierConfig.title}
+            >
+              {supplierConfig.letter}
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  }
+
+  // ============ DETAIL VIEW (Large) ============
+  if (viewMode === 'detail') {
+    return (
+      <button
+        onClick={() => onClick(product)}
+        className="group w-full text-left bg-[var(--cx-surface-1)]/50 backdrop-blur-sm border border-[var(--cx-border)] rounded-2xl overflow-hidden transition-all duration-300 hover:bg-[var(--cx-surface-1)] hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/5 focus:outline-none focus:border-amber-500"
+      >
+        <div className="flex gap-6 p-6">
+          {/* Large image */}
+          <div className="relative flex-shrink-0 w-48 h-48 bg-[var(--cx-surface-2)] rounded-xl overflow-hidden">
+            {imageUrl ? (
+              <Image src={imageUrl} alt={nom} fill className="object-cover" sizes="192px" />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full">
+                <ImageIcon className="w-16 h-16 text-[var(--cx-text-muted)]" />
+              </div>
+            )}
+            {isSponsored && (
+              <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium bg-amber-500 text-black rounded-md">
+                Sponsorisé
+              </span>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            {/* Header row: Type + Supplier + Stock */}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                {typeConfig && (
+                  <span className={`px-3 py-1.5 text-sm font-semibold border rounded-full ${typeConfig.color}`}>
+                    {typeConfig.label}
+                  </span>
+                )}
+                {supplierConfig && (
+                  <span
+                    className={`w-7 h-7 flex items-center justify-center text-xs font-bold border rounded ${supplierConfig.color}`}
+                    title={supplierConfig.title}
+                  >
+                    {supplierConfig.letter}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Package className={`w-4 h-4 ${isInStock ? 'text-emerald-500' : 'text-amber-500'}`} />
+                <span className={`text-sm font-medium ${isInStock ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  {isInStock ? t('product.inStock') : t('product.onOrder')}
+                </span>
+              </div>
+            </div>
+
+            {/* Name */}
+            <h3 className="text-xl font-bold text-[var(--cx-text)] mb-2 group-hover:text-amber-500 transition-colors">
+              {nom}
+            </h3>
+
+            {/* Reference + Brand */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="font-mono text-sm bg-white/5 px-2 py-1 rounded">{refFabricant || reference}</span>
+              {marque && <span className="text-sm text-[var(--cx-text-muted)]">• {marque}</span>}
+            </div>
+
+            {/* Category info */}
+            {(categorie || sousCategorie) && (
+              <p className="text-sm text-[var(--cx-text-muted)] mb-4">
+                {categorie}{sousCategorie ? ` › ${sousCategorie}` : ''}
+              </p>
+            )}
+
+            {/* Specs grid */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {epaisseur && (
+                <div className="flex flex-col px-3 py-2 bg-white/5 rounded-lg">
+                  <span className="text-xs text-[var(--cx-text-muted)]">{t('product.thickness')}</span>
+                  <span className="text-lg font-bold text-[var(--cx-text)]">{epaisseur}mm</span>
+                </div>
+              )}
+              <div className="flex flex-col px-3 py-2 bg-white/5 rounded-lg">
+                <span className="text-xs text-[var(--cx-text-muted)]">{t('product.dimensions')}</span>
+                <span className="text-lg font-bold text-[var(--cx-text)]">{dimensions}</span>
+              </div>
+              {panelPrice && (
+                <div className="flex flex-col px-3 py-2 bg-white/5 rounded-lg">
+                  <span className="text-xs text-[var(--cx-text-muted)]">Prix panneau</span>
+                  <span className="text-lg font-bold text-[var(--cx-text)]">{panelPrice.toFixed(0)} €</span>
+                </div>
+              )}
+            </div>
+
+            {/* Price row */}
+            <div className="flex items-center justify-between mt-auto pt-4 border-t border-[var(--cx-border)]">
+              {priceM2 && (
+                <span className="text-2xl font-bold text-amber-500">
+                  {priceM2.toFixed(2)} €<span className="text-base font-normal text-[var(--cx-text-muted)]">/{priceUnit}</span>
+                </span>
+              )}
+              <span className="text-sm text-[var(--cx-text-muted)] px-3 py-1.5 bg-amber-500/10 rounded-lg">
+                Cliquer pour voir les options
+              </span>
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // ============ GRID VIEW (Default - 2 columns) ============
   return (
     <button
       onClick={() => onClick(product)}
@@ -98,13 +287,23 @@ export default function ProductCard({ product, onClick, isSponsored = false }: P
 
         {/* Content */}
         <div className="flex-1 min-w-0 flex flex-col">
-          {/* Header row: Type + Stock */}
+          {/* Header row: Type + Supplier + Stock */}
           <div className="flex items-center justify-between gap-2 mb-2">
-            {typeConfig && (
-              <span className={`px-2.5 py-1 text-xs font-semibold border rounded-full ${typeConfig.color}`}>
-                {typeConfig.label}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {typeConfig && (
+                <span className={`px-2.5 py-1 text-xs font-semibold border rounded-full ${typeConfig.color}`}>
+                  {typeConfig.label}
+                </span>
+              )}
+              {supplierConfig && (
+                <span
+                  className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold border rounded ${supplierConfig.color}`}
+                  title={supplierConfig.title}
+                >
+                  {supplierConfig.letter}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5">
               <Package className={`w-3.5 h-3.5 ${isInStock ? 'text-emerald-500' : 'text-amber-500'}`} />
               <span className={`text-xs font-medium ${isInStock ? 'text-emerald-500' : 'text-amber-500'}`}>

@@ -445,7 +445,7 @@ function ConfigurateurContent() {
 
       {/* Warning si lignes non assignées (mode groupes) */}
       {modeGroupes && hasLignesNonAssignees && (
-        <div className="warning-banner mt-[10px]">
+        <div className="warning-banner">
           <AlertTriangle size={14} />
           <span>
             Certaines lignes ne sont pas assignées à un panneau. Glissez-les vers un groupe.
@@ -687,7 +687,7 @@ function ConfigurateurContent() {
           display: flex;
           align-items: center;
           gap: 10px;
-          margin: 0 24px 16px;
+          margin: 10px 24px 16px;
           padding: 12px 16px;
           font-size: var(--cx-text-sm);
           font-weight: 500;
@@ -783,6 +783,7 @@ function ConfigurateurContent() {
         /* Table Section */
         .table-section {
           padding: 0 24px;
+          margin-top: 10px;
         }
 
         /* Action Bar */
