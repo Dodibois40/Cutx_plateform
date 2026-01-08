@@ -44,6 +44,19 @@ export const PRODUCT_TYPE_SYNONYMS: Record<string, string> = {
   solid: 'SOLID_SURFACE', corian: 'SOLID_SURFACE',
 };
 
+// Mapping des types de produits vers les noms complets pour recherche textuelle
+// Utilisé quand on combine support + essence (ex: "agglo chêne")
+export const PRODUCT_TYPE_FULL_NAMES: Record<string, string[]> = {
+  MELAMINE: ['mélaminé', 'melamine', 'mélamine'],
+  STRATIFIE: ['stratifié', 'stratifie', 'laminé'],
+  MDF: ['mdf', 'medium', 'fibre'],
+  PARTICULE: ['aggloméré', 'agglomere', 'particule', 'agglo'],
+  CONTREPLAQUE: ['contreplaqué', 'contreplaque', 'multiplis', 'cp'],
+  OSB: ['osb'],
+  PLACAGE: ['placage', 'plaqué'],
+  COMPACT: ['compact'],
+};
+
 // ============================================================================
 // DICTIONNAIRE - ESSENCES DE BOIS
 // ============================================================================
@@ -387,8 +400,42 @@ export function buildSmartSearchSQL(parsed: ParsedSmartQuery): {
   const params: any[] = [];
   let paramIndex = 1;
 
-  // Type de produit
-  if (parsed.productTypes.length > 0) {
+  // Cas spécial: Support + Essence (ex: "agglo chêne", "mdf noyer")
+  // Ces combinaisons doivent chercher dans le nom car le productType peut être différent
+  // Ex: "Aggloméré chêne A/B" a productType=PLACAGE, pas PARTICULE
+  const hasWoodOrDecor = parsed.woods.length > 0 || parsed.decors.length > 0;
+  const hasProductType = parsed.productTypes.length > 0;
+
+  if (hasProductType && hasWoodOrDecor) {
+    // Recherche flexible: productType OU nom contient le matériau
+    const productType = parsed.productTypes[0];
+    const fullNames = PRODUCT_TYPE_FULL_NAMES[productType] || [];
+
+    // Construire les conditions pour rechercher le nom du matériau dans le nom du panneau
+    const nameConditions = fullNames.map(() => {
+      const condition = `unaccent(lower(p.name)) ILIKE '%' || unaccent(lower($${paramIndex})) || '%'`;
+      paramIndex++;
+      return condition;
+    });
+
+    // Ajouter les noms au params
+    params.push(...fullNames);
+
+    // Condition: productType match OU nom contient le matériau
+    if (nameConditions.length > 0) {
+      whereParts.push(`(
+        p."productType" = $${paramIndex}
+        OR ${nameConditions.join(' OR ')}
+      )`);
+      params.push(productType);
+      paramIndex++;
+    } else {
+      whereParts.push(`p."productType" = $${paramIndex}`);
+      params.push(productType);
+      paramIndex++;
+    }
+  } else if (hasProductType) {
+    // Type de produit seul (comportement classique)
     whereParts.push(`p."productType" = ANY($${paramIndex})`);
     params.push(parsed.productTypes);
     paramIndex++;
