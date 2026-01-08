@@ -11,6 +11,8 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
+      'http://localhost:3002',
+      'http://localhost:3003',
       'https://app.cutx.ai',
       'https://cutx.ai',
       'https://cutxplateform-production.up.railway.app',

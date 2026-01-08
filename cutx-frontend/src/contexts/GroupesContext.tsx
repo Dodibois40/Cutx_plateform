@@ -138,17 +138,34 @@ function generateGroupeId(): string {
 
 // === PROVIDER ===
 
+interface InitialGroupeData {
+  panneau: PanneauGroupe;
+  lignes?: LignePrestationV3[];
+}
+
 interface GroupesProviderProps {
   children: ReactNode;
   initialLignes?: LignePrestationV3[];
+  initialGroupe?: InitialGroupeData;
 }
 
-export function GroupesProvider({ children, initialLignes = [] }: GroupesProviderProps) {
+export function GroupesProvider({ children, initialLignes = [], initialGroupe }: GroupesProviderProps) {
   // Mode: false = ancien mode (lignes plates), true = nouveau mode (groupes)
   const [modeGroupes, setModeGroupes] = useState(true);
 
-  // State principal
-  const [groupes, setGroupes] = useState<GroupePanneau[]>([]);
+  // State principal - Initialize with initialGroupe if provided
+  const [groupes, setGroupes] = useState<GroupePanneau[]>(() => {
+    if (initialGroupe) {
+      return [{
+        id: `groupe-${crypto.randomUUID()}`,
+        panneau: initialGroupe.panneau,
+        lignes: initialGroupe.lignes || [],
+        isExpanded: true,
+        createdAt: new Date(),
+      }];
+    }
+    return [];
+  });
   const [lignesNonAssignees, setLignesNonAssignees] = useState<LignePrestationV3[]>(
     initialLignes.length > 0 ? initialLignes : [creerNouvelleLigne()]
   );
@@ -157,8 +174,17 @@ export function GroupesProvider({ children, initialLignes = [] }: GroupesProvide
   // Multi-sélection
   const [selectedLigneIds, setSelectedLigneIds] = useState<Set<string>>(new Set());
 
+  // Track if initial data was provided (to skip localStorage restoration)
+  const hasInitialData = initialLignes.length > 0 || !!initialGroupe;
+
   // === RESTAURATION LOCALSTORAGE ===
   useEffect(() => {
+    // Si des données initiales ont été fournies (ex: depuis la homepage),
+    // ne pas restaurer depuis localStorage pour éviter d'écraser
+    if (hasInitialData) {
+      return;
+    }
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY_GROUPES);
       if (saved) {

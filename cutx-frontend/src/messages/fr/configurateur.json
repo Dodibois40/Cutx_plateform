@@ -158,11 +158,12 @@
     "noPanel": "Aucun panneau",
     "finishLine": "Finition",
     "addFinish": "+ Ajouter finition...",
-    "removeFinish": "Supprimer la finition"
+    "removeFinish": "Supprimer la finition",
+    "referenceRequired": "Remplissez la référence pour dupliquer"
   },
   "grainDirection": {
-    "length": "Longueur",
-    "width": "Largeur",
+    "length": "Long.",
+    "width": "Larg.",
     "label": "Sens du fil : {direction}",
     "clickToChange": "Cliquez pour changer le sens du fil"
   },

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -17,6 +18,12 @@ import { UsinagesModule } from './usinages/usinages.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    // Cache global avec TTL de 5 minutes par défaut
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 300000, // 5 minutes en millisecondes
+      max: 100, // Maximum 100 entrées en cache
     }),
     PrismaModule,
     AuthModule,

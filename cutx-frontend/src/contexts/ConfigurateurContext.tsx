@@ -60,9 +60,17 @@ export interface DevisSubmitData {
   proposedEndDateComment: string | null;
 }
 
+import type { PanneauGroupe } from '@/lib/configurateur/groupes/types';
+
+export interface InitialGroupeData {
+  panneau: PanneauGroupe;
+  lignes?: LignePrestationV3[];
+}
+
 export interface InitialData {
   referenceChantier: string;
-  lignes: LignePrestationV3[];
+  lignes?: LignePrestationV3[];
+  initialGroupe?: InitialGroupeData;
 }
 
 interface TarifsDecoupeChants {
@@ -268,11 +276,14 @@ export function ConfigurateurProvider({
   // === LOAD INITIAL DATA OR LOCALSTORAGE ===
   useEffect(() => {
     if (initialData) {
-      console.log('[ConfigurateurContext] Chargement initialData:', initialData.lignes.length, 'lignes');
+      const lignesCount = initialData.lignes?.length || 0;
+      console.log('[ConfigurateurContext] Chargement initialData:', lignesCount, 'lignes');
       setReferenceChantier(initialData.referenceChantier || '');
-      // Migration + calculs pour les lignes existantes
-      const lignesRestaurees = initialData.lignes.map(l => mettreAJourCalculsLigne(migrerLigneToV4(l)));
-      setLignes(lignesRestaurees);
+      // Migration + calculs pour les lignes existantes (si présentes)
+      if (initialData.lignes && initialData.lignes.length > 0) {
+        const lignesRestaurees = initialData.lignes.map(l => mettreAJourCalculsLigne(migrerLigneToV4(l)));
+        setLignes(lignesRestaurees);
+      }
       setIsRestored(true);
       isInitialMount.current = false;
       return;
@@ -368,16 +379,70 @@ export function ConfigurateurProvider({
     }
   }, [lignes.length]);
 
+  // Helper: génère la prochaine référence pour une duplication
+  // "table" -> "table 2" -> "table 3" etc.
+  const genererProchaineReference = useCallback((referenceBase: string, toutesLesReferences: string[]): string => {
+    // Extraire la base (sans numéro final) et trouver le prochain numéro
+    // Ex: "table 2" -> base = "table", numéro = 2
+    const match = referenceBase.match(/^(.+?)\s+(\d+)$/);
+    const base = match ? match[1] : referenceBase;
+
+    // Trouver tous les numéros existants pour cette base
+    const regex = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+(\\d+))?$`);
+    const numerosExistants: number[] = [1]; // La référence originale compte comme 1
+
+    for (const ref of toutesLesReferences) {
+      const refMatch = ref.match(regex);
+      if (refMatch) {
+        const num = refMatch[1] ? parseInt(refMatch[1], 10) : 1;
+        numerosExistants.push(num);
+      }
+    }
+
+    // Trouver le prochain numéro disponible
+    const maxNumero = Math.max(...numerosExistants);
+    return `${base} ${maxNumero + 1}`;
+  }, []);
+
   const handleCopierLigne = useCallback((id: string) => {
     const ligneSource = lignes.find(l => l.id === id);
     if (!ligneSource) return;
 
-    setModalCopie({
-      open: true,
-      ligneSource,
-      nouvelleReference: '',
-    });
-  }, [lignes]);
+    // Ne pas dupliquer si pas de référence
+    if (!ligneSource.reference?.trim()) return;
+
+    // Générer la nouvelle référence automatiquement
+    const toutesLesReferences = lignes.map(l => l.reference).filter(Boolean) as string[];
+    const nouvelleReference = genererProchaineReference(ligneSource.reference, toutesLesReferences);
+
+    // Créer une copie et assigner un nouvel ID unique EN DERNIER
+    const nouvelId = crypto.randomUUID();
+    const nouvelleLigne: LignePrestationV3 = {
+      ...mettreAJourCalculsLigne({
+        ...ligneSource,
+        reference: nouvelleReference,
+      }),
+      id: nouvelId, // Assigner l'ID EN DERNIER pour éviter tout écrasement
+    };
+
+    // Chercher la ligne finition associée
+    const ligneFinitionSource = lignes.find(l => l.typeLigne === 'finition' && l.ligneParentId === id);
+
+    if (ligneFinitionSource) {
+      // Dupliquer aussi la ligne finition avec le nouveau parent
+      const nouvelleFinition: LignePrestationV3 = {
+        ...mettreAJourCalculsLigne({
+          ...ligneFinitionSource,
+          reference: `${nouvelleReference} - Finition`,
+          ligneParentId: nouvelId,
+        }),
+        id: crypto.randomUUID(),
+      };
+      setLignes(prev => [...prev, nouvelleLigne, nouvelleFinition]);
+    } else {
+      setLignes(prev => [...prev, nouvelleLigne]);
+    }
+  }, [lignes, genererProchaineReference]);
 
   const handleConfirmerCopie = useCallback(() => {
     if (!modalCopie.ligneSource) return;

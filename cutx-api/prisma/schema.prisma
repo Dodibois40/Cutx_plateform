@@ -115,6 +115,8 @@ model Panel {
   supplierCode     String?
   supportQuality   String?
   metadata         String?
+  isSponsored      Boolean   @default(false)
+  sponsoredUntil   DateTime?
   devisLines       DevisLine[]
   catalogue        Catalogue   @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
   category         Category?   @relation(fields: [categoryId], references: [id])
@@ -127,6 +129,7 @@ model Panel {
   @@index([categoryId])
   @@index([catalogueId, isActive])
   @@index([finish])
+  @@index([isSponsored])
 }
 
 model Devis {

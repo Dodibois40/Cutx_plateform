@@ -81,10 +81,12 @@ function mapMaterialToCategorie(material: string | null | undefined): CategorieP
 
 // Transformer un panel API en PanneauCatalogue frontend
 function transformApiPanel(panel: ApiPanel): PanneauCatalogue {
-  // Créer prixM2 par épaisseur
+  // Créer prixM2 par épaisseur (uniquement si le prix existe)
   const prixM2: Record<string, number> = {};
-  for (const ep of panel.thickness) {
-    prixM2[ep.toString()] = panel.pricePerM2;
+  if (panel.pricePerM2 != null && panel.pricePerM2 > 0) {
+    for (const ep of panel.thickness) {
+      prixM2[ep.toString()] = panel.pricePerM2;
+    }
   }
 
   return {

@@ -11,11 +11,12 @@ export default getRequestConfig(async ({ requestLocale }) => {
   }
 
   // Load all namespace files
-  const [common, configurateur, dialogs, products] = await Promise.all([
+  const [common, configurateur, dialogs, products, home] = await Promise.all([
     import(`../messages/${locale}/common.json`),
     import(`../messages/${locale}/configurateur.json`),
     import(`../messages/${locale}/dialogs.json`),
     import(`../messages/${locale}/products.json`),
+    import(`../messages/${locale}/home.json`),
   ]);
 
   return {
@@ -25,6 +26,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
       configurateur: configurateur.default,
       dialogs: dialogs.default,
       products: products.default,
+      home: home.default,
     }
   };
 });

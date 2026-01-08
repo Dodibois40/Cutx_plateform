@@ -421,13 +421,13 @@ export default function LignePanneauDimensions({
           height: 28px;
           margin-left: 0.25rem;
           padding: 2px;
-          background: var(--admin-olive-bg);
-          border: 1px solid var(--admin-olive-border);
+          background: var(--admin-olive-bg, rgba(139, 154, 75, 0.15));
+          border: 1px solid var(--admin-olive-border, rgba(139, 154, 75, 0.4));
           border-radius: 5px;
           cursor: pointer;
           transition: all 0.2s;
           flex-shrink: 0;
-          color: var(--admin-olive);
+          color: var(--admin-olive, #8B9A4B);
         }
 
         .btn-fil-icon svg {
@@ -436,20 +436,20 @@ export default function LignePanneauDimensions({
         }
 
         .btn-fil-icon:hover {
-          background: var(--admin-olive);
-          border-color: var(--admin-olive);
+          background: var(--admin-olive, #8B9A4B);
+          border-color: var(--admin-olive, #8B9A4B);
           color: white;
         }
 
         .btn-fil-icon.vertical {
-          background: var(--admin-sable-bg);
-          border-color: var(--admin-sable-border);
-          color: var(--admin-sable);
+          background: var(--admin-sable-bg, rgba(196, 164, 141, 0.12));
+          border-color: var(--admin-sable-border, rgba(196, 164, 141, 0.3));
+          color: var(--admin-sable, #c4a48d);
         }
 
         .btn-fil-icon.vertical:hover {
-          background: var(--admin-sable);
-          border-color: var(--admin-sable);
+          background: var(--admin-sable, #c4a48d);
+          border-color: var(--admin-sable, #c4a48d);
           color: white;
         }
 

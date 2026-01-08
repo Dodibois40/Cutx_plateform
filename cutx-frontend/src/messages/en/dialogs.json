@@ -170,7 +170,17 @@
       "PANNEAU_DECORATIF": "Decorative panel",
       "PANNEAU_3_PLIS": "3-ply panel",
       "SOLID_SURFACE": "Solid Surface",
-      "PANNEAU_SPECIAL": "Special panel"
+      "PANNEAU_SPECIAL": "Special panel",
+      "PANNEAU_CONSTRUCTION": "Construction panel",
+      "PANNEAU_ISOLANT": "Insulation panel",
+      "CIMENT_BOIS": "Wood cement",
+      "LATTE": "Slat",
+      "PANNEAU_ALVEOLAIRE": "Honeycomb panel",
+      "ALVEOLAIRE": "Honeycomb",
+      "PVC": "PVC",
+      "SANITAIRE": "Sanitary",
+      "PORTE": "Door",
+      "COLLE": "Glue"
     }
   },
   "multilayer": {

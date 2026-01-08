@@ -58,7 +58,10 @@ export default function ConfigurateurV3(props: ConfigurateurV3Props) {
       devisId={props.devisId}
       isEditing={props.isEditing}
     >
-      <GroupesProvider>
+      <GroupesProvider
+        initialLignes={props.initialData?.lignes}
+        initialGroupe={props.initialData?.initialGroupe}
+      >
         <ConfigurateurContent />
       </GroupesProvider>
     </ConfigurateurProvider>

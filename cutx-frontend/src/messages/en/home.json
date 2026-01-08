@@ -1,0 +1,46 @@
+{
+  "search": {
+    "placeholder": "Search for a panel... (e.g., MDF 19, melamine white, oak)",
+    "button": "Search",
+    "hint": "Type the name, reference, or describe the panel you're looking for"
+  },
+  "sponsored": "Sponsored",
+  "results": {
+    "count": "{count, plural, =0 {No results} one {# result} other {# results}}",
+    "loading": "Searching...",
+    "noResults": "No panel found for \"{query}\"",
+    "tryAgain": "Try different search terms",
+    "loadMore": "Load more results"
+  },
+  "filters": {
+    "active": "Active filters",
+    "detected": "Detected",
+    "refine": "Refine search",
+    "type": "Type / Category",
+    "thickness": "Thickness",
+    "dimensions": "Dimensions",
+    "quality": "Quality",
+    "format": "Format"
+  },
+  "product": {
+    "thickness": "Th.",
+    "dimensions": "Dim.",
+    "priceM2": "Price/m²",
+    "pricePanel": "Panel",
+    "inStock": "In stock",
+    "onOrder": "On order"
+  },
+  "actions": {
+    "title": "What would you like to do?",
+    "orderPanels": "Order panels",
+    "orderPanelsDesc": "Add to cart to order",
+    "orderWithCutting": "Order with cutting",
+    "orderWithCuttingDesc": "Configure your custom cuts",
+    "comingSoon": "Coming soon",
+    "referenceTitle": "Cutting list reference",
+    "referenceDesc": "Give your cutting list a name to find it easily later",
+    "referencePlaceholder": "Kitchen base cabinet, Living room TV unit...",
+    "cancel": "Cancel",
+    "configureCutting": "Configure my cutting"
+  }
+}

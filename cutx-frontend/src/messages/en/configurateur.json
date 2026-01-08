@@ -158,11 +158,12 @@
     "noPanel": "No panel",
     "finishLine": "Finish",
     "addFinish": "+ Add finish...",
-    "removeFinish": "Remove finish"
+    "removeFinish": "Remove finish",
+    "referenceRequired": "Fill in reference to duplicate"
   },
   "grainDirection": {
-    "length": "Length",
-    "width": "Width",
+    "length": "Long.",
+    "width": "Wide",
     "label": "Grain direction: {direction}",
     "clickToChange": "Click to change grain direction"
   },

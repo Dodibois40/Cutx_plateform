@@ -170,7 +170,17 @@
       "PANNEAU_DECORATIF": "Panneau decoratif",
       "PANNEAU_3_PLIS": "Panneau 3 plis",
       "SOLID_SURFACE": "Solid Surface",
-      "PANNEAU_SPECIAL": "Panneau spécial"
+      "PANNEAU_SPECIAL": "Panneau special",
+      "PANNEAU_CONSTRUCTION": "Panneau construction",
+      "PANNEAU_ISOLANT": "Panneau isolant",
+      "CIMENT_BOIS": "Ciment bois",
+      "LATTE": "Latte",
+      "PANNEAU_ALVEOLAIRE": "Panneau alveolaire",
+      "ALVEOLAIRE": "Alveolaire",
+      "PVC": "PVC",
+      "SANITAIRE": "Sanitaire",
+      "PORTE": "Porte",
+      "COLLE": "Colle"
     }
   },
   "multilayer": {

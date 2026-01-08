@@ -1,0 +1,46 @@
+{
+  "search": {
+    "placeholder": "Rechercher un panneau... (ex: MDF 19, mélaminé blanc, chêne)",
+    "button": "Rechercher",
+    "hint": "Tapez le nom, la référence, ou décrivez le panneau que vous cherchez"
+  },
+  "sponsored": "Sponsorisé",
+  "results": {
+    "count": "{count, plural, =0 {Aucun résultat} one {# résultat} other {# résultats}}",
+    "loading": "Recherche en cours...",
+    "noResults": "Aucun panneau trouvé pour \"{query}\"",
+    "tryAgain": "Essayez d'autres termes de recherche",
+    "loadMore": "Charger plus de résultats"
+  },
+  "filters": {
+    "active": "Filtres actifs",
+    "detected": "Détecté",
+    "refine": "Affiner la recherche",
+    "type": "Type / Genre",
+    "thickness": "Épaisseur",
+    "dimensions": "Dimensions",
+    "quality": "Qualité",
+    "format": "Format"
+  },
+  "product": {
+    "thickness": "Ép.",
+    "dimensions": "Dim.",
+    "priceM2": "Prix/m²",
+    "pricePanel": "Panneau",
+    "inStock": "En stock",
+    "onOrder": "Sur commande"
+  },
+  "actions": {
+    "title": "Que souhaitez-vous faire ?",
+    "orderPanels": "Commander des panneaux",
+    "orderPanelsDesc": "Ajouter au panier pour commander",
+    "orderWithCutting": "Commander avec un débit",
+    "orderWithCuttingDesc": "Configurer vos découpes sur mesure",
+    "comingSoon": "Bientôt disponible",
+    "referenceTitle": "Référence du débit",
+    "referenceDesc": "Donnez un nom à votre liste de débit pour la retrouver facilement",
+    "referencePlaceholder": "Caisson cuisine bas, Meuble TV salon...",
+    "cancel": "Annuler",
+    "configureCutting": "Configurer mon débit"
+  }
+}

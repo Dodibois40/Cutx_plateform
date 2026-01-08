@@ -8,11 +8,13 @@
  * - Acces direct au configurateur (sans authentification)
  * - Plugin CutX SketchUp via API + redirect (?import=sessionId)
  * - Plugin CutX SketchUp via postMessage (legacy iframe)
+ * - Recherche homepage via ?panel=REFERENCE (pre-selectionne le panneau)
  * - Tests et demo
  *
  * Modes de pre-remplissage:
  * 1. URL ?import=sessionId -> Fetch API /api/cutx/import/:id
- * 2. postMessage INIT_PLUGIN -> Communication iframe directe
+ * 2. URL ?panel=REFERENCE -> Fetch panneau et cree une ligne avec ce panneau
+ * 3. postMessage INIT_PLUGIN -> Communication iframe directe
  */
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
@@ -20,8 +22,11 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/routing';
 import ConfigurateurV3 from '@/components/configurateur/ConfigurateurV3';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
+import type { PanneauGroupe } from '@/lib/configurateur/groupes/types';
+import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import { creerNouvelleLigne } from '@/lib/configurateur/constants';
 import { mettreAJourCalculsLigne } from '@/lib/configurateur/calculs';
+import { readImportedLinesFromSession } from '@/components/home/hooks/useFileImport';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
@@ -152,14 +157,18 @@ function ConfigurateurContent() {
   const searchParams = useSearchParams();
   const [projetNom, setProjetNom] = useState<string>('Nouveau projet');
   const [initialLignes, setInitialLignes] = useState<LignePrestationV3[] | undefined>(undefined);
+  const [initialGroupe, setInitialGroupe] = useState<{ panneau: PanneauGroupe } | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasReceivedData = useRef(false);
 
-  // Charger les donnees depuis l'API si ?import= est present
+  // Charger les donnees depuis l'API si ?import= ou ?panel= est present
   useEffect(() => {
     const importId = searchParams.get('import');
+    const panelRef = searchParams.get('panel');
+    const debitRef = searchParams.get('ref'); // Reference du debit depuis la homepage
 
+    // Mode 1: Import depuis SketchUp
     if (importId && !hasReceivedData.current) {
       hasReceivedData.current = true;
       setIsLoading(true);
@@ -189,6 +198,97 @@ function ConfigurateurContent() {
         .catch((err) => {
           console.error('[ConfigV3] Erreur import:', err);
           setError(err.message || 'Erreur lors du chargement des donnees');
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+
+    // Mode 2: Pre-selection panneau depuis recherche homepage
+    // Peut inclure des lignes importées via ?import=session
+    const importMode = searchParams.get('import');
+
+    if (panelRef && !hasReceivedData.current) {
+      hasReceivedData.current = true;
+      setIsLoading(true);
+      setError(null);
+
+      console.log('[ConfigV3] Chargement panneau:', panelRef);
+
+      // Lire les lignes importées depuis sessionStorage si présentes
+      let importedLines: LignePrestationV3[] | null = null;
+      if (importMode === 'session') {
+        importedLines = readImportedLinesFromSession();
+        if (importedLines) {
+          console.log('[ConfigV3] Lignes importées depuis session:', importedLines.length);
+        }
+      }
+
+      fetch(`${API_URL}/api/catalogues/panels/by-reference/${encodeURIComponent(panelRef)}`)
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.message || `Panneau "${panelRef}" non trouve`);
+          }
+          return res.json();
+        })
+        .then((data: { panel: {
+          id: string;
+          name: string;
+          reference: string;
+          manufacturerRef?: string;
+          defaultThickness?: number;
+          thickness?: number[];
+          defaultLength: number;
+          defaultWidth: number;
+          pricePerM2?: number;
+          imageUrl?: string;
+          finish?: string;
+        } }) => {
+          const panel = data.panel;
+          console.log('[ConfigV3] Panneau charge:', panel.name);
+
+          // Convertir les donnees API en PanneauCatalogue
+          const panneauCatalogue: PanneauCatalogue = {
+            id: panel.id,
+            nom: panel.name,
+            categorie: 'agglo_plaque' as const,
+            essence: null,
+            epaisseurs: panel.thickness || [panel.defaultThickness || 19],
+            prixM2: panel.thickness
+              ? Object.fromEntries(panel.thickness.map(e => [e.toString(), panel.pricePerM2 || 0]))
+              : { [String(panel.defaultThickness || 19)]: panel.pricePerM2 || 0 },
+            fournisseur: 'Catalogue',
+            disponible: true,
+            description: panel.manufacturerRef || panel.reference,
+            ordre: 0,
+            longueur: panel.defaultLength || 2800,
+            largeur: panel.defaultWidth || 2070,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            imageUrl: panel.imageUrl || undefined,
+          };
+
+          // Creer le groupe avec le panneau ET les lignes importées
+          const groupe: { panneau: PanneauGroupe; lignes?: LignePrestationV3[] } = {
+            panneau: {
+              type: 'catalogue',
+              panneau: panneauCatalogue,
+            },
+            lignes: importedLines || undefined,
+          };
+
+          // Utiliser la reference fournie par l'utilisateur ou generer un nom par defaut
+          const projectName = debitRef || `Débit - ${panel.name}`;
+          setProjetNom(projectName);
+          setInitialGroupe(groupe);
+
+          const lignesCount = importedLines?.length || 0;
+          console.log('[ConfigV3] Groupe cree avec panneau:', panel.name, '- Ref:', projectName, '- Lignes:', lignesCount);
+        })
+        .catch((err) => {
+          console.error('[ConfigV3] Erreur chargement panneau:', err);
+          setError(err.message || 'Erreur lors du chargement du panneau');
         })
         .finally(() => {
           setIsLoading(false);
@@ -271,13 +371,17 @@ function ConfigurateurContent() {
     );
   }
 
+  // Build initialData based on what we have
+  const initialData = initialLignes || initialGroupe ? {
+    referenceChantier: projetNom,
+    lignes: initialLignes,
+    initialGroupe: initialGroupe,
+  } : undefined;
+
   return (
     <ConfigurateurV3
       isClientMode={true}
-      initialData={initialLignes ? {
-        referenceChantier: projetNom,
-        lignes: initialLignes,
-      } : undefined}
+      initialData={initialData}
       onBack={handleBack}
     />
   );

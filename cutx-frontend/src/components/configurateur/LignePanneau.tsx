@@ -97,8 +97,17 @@ export default function LignePanneau({
   const [showEtatTooltip, setShowEtatTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const [isFinitionExpanded, setIsFinitionExpanded] = useState(false); // Collapsed by default, expanded when user manually creates
+  const [isReferenceShaking, setIsReferenceShaking] = useState(false);
   const etatRef = useRef<HTMLSpanElement>(null);
   const finitionRowRef = useRef<HTMLTableRowElement>(null);
+  const referenceInputRef = useRef<HTMLInputElement>(null);
+
+  // Handler pour highlight le champ référence quand on essaie de dupliquer sans ref
+  const handleHighlightReference = () => {
+    setIsReferenceShaking(true);
+    referenceInputRef.current?.focus();
+    setTimeout(() => setIsReferenceShaking(false), 600);
+  };
 
   // Helper: Check if finition has required details filled
   const isFinitionComplete = (lf: LignePrestationV3 | null): boolean => {
@@ -321,12 +330,13 @@ export default function LignePanneau({
         {/* Référence */}
         <td className="cx-col-reference cell-reference cell-group-id cell-group-end-sticky" title={t('configurateur.tooltips.reference')}>
           <input
+            ref={referenceInputRef}
             type="text"
             value={ligne.reference}
             onChange={(e) => onUpdate({ reference: e.target.value })}
             onFocus={(e) => e.target.select()}
             placeholder={t('configurateur.placeholders.reference')}
-            className="input-compact"
+            className={`input-compact ${isReferenceShaking ? 'shake-highlight' : ''}`}
           />
         </td>
 
@@ -345,8 +355,7 @@ export default function LignePanneau({
               }
             }}
             onCustomSelect={() => {
-              // TODO: Ouvrir popup import DXF
-              console.log('Open DXF import popup');
+              // DXF import not yet implemented - no-op
             }}
           />
         </td>
@@ -519,6 +528,8 @@ export default function LignePanneau({
             onCopier={onCopier}
             onSupprimer={onSupprimer}
             canDelete={canDelete}
+            canCopier={!!ligne.reference?.trim()}
+            onHighlightReference={handleHighlightReference}
           />
         </td>
       </tr>
@@ -555,6 +566,19 @@ export default function LignePanneau({
 
         .ligne-panneau.is-selected:hover {
           background: var(--cx-accent-muted);
+        }
+
+        /* Animation shake pour référence manquante */
+        @keyframes shake-highlight {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+          20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+
+        .shake-highlight {
+          animation: shake-highlight 0.5s ease-in-out;
+          border-color: var(--admin-sable) !important;
+          background: var(--admin-sable-bg) !important;
         }
 
         /* Container pour grip + état */
@@ -1178,13 +1202,13 @@ export default function LignePanneau({
           height: 28px;
           margin-left: 0.25rem;
           padding: 2px;
-          background: var(--admin-olive-bg);
-          border: 1px solid var(--admin-olive-border);
+          background: var(--admin-olive-bg, rgba(139, 154, 75, 0.15));
+          border: 1px solid var(--admin-olive-border, rgba(139, 154, 75, 0.4));
           border-radius: 5px;
           cursor: pointer;
           transition: all 0.2s;
           flex-shrink: 0;
-          color: var(--admin-olive);
+          color: var(--admin-olive, #8B9A4B);
         }
 
         .btn-fil-icon svg {
@@ -1193,20 +1217,20 @@ export default function LignePanneau({
         }
 
         .btn-fil-icon:hover {
-          background: var(--admin-olive);
-          border-color: var(--admin-olive);
+          background: var(--admin-olive, #8B9A4B);
+          border-color: var(--admin-olive, #8B9A4B);
           color: white;
         }
 
         .btn-fil-icon.vertical {
-          background: var(--admin-sable-bg);
-          border-color: var(--admin-sable-border);
-          color: var(--admin-sable);
+          background: var(--admin-sable-bg, rgba(196, 164, 141, 0.12));
+          border-color: var(--admin-sable-border, rgba(196, 164, 141, 0.3));
+          color: var(--admin-sable, #c4a48d);
         }
 
         .btn-fil-icon.vertical:hover {
-          background: var(--admin-sable);
-          border-color: var(--admin-sable);
+          background: var(--admin-sable, #c4a48d);
+          border-color: var(--admin-sable, #c4a48d);
           color: white;
         }
 
