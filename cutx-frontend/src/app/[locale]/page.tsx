@@ -80,11 +80,12 @@ export default function HomePage() {
   }, [query]);
 
   // Auto-search when typing
+  // Note: Also check query.length to prevent re-triggering when user clicks logo to go home
   useEffect(() => {
-    if (debouncedQuery.length >= 2 && !hasSearched) {
+    if (debouncedQuery.length >= 2 && query.length >= 2 && !hasSearched) {
       setHasSearched(true);
     }
-  }, [debouncedQuery, hasSearched]);
+  }, [debouncedQuery, query, hasSearched]);
 
   // Handle product click
   const handleProductClick = useCallback((product: SearchProduct) => {
@@ -172,12 +173,12 @@ export default function HomePage() {
       {/* Search section - centered or top based on state */}
       <div
         className={`w-full transition-all duration-500 ease-out relative z-10 ${
-          hasSearched ? 'py-6 border-b border-[var(--cx-border)] bg-[var(--cx-background)]/80 backdrop-blur-xl' : 'flex-1 flex items-center justify-center'
+          hasSearched ? 'py-4 border-b border-[var(--cx-border)] bg-[var(--cx-background)]/80 backdrop-blur-xl' : 'flex-1 flex items-center justify-center'
         }`}
       >
-        <div className={`w-full px-4 ${hasSearched ? 'max-w-4xl mx-auto' : ''}`}>
-          {/* Logo - only show when not searching */}
-          {!hasSearched && (
+        {/* Landing page layout (centered) */}
+        {!hasSearched && (
+          <div className="w-full px-4">
             <div className="text-center mb-10">
               <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4">
                 <span className="text-white">Cut</span>
@@ -190,41 +191,58 @@ export default function HomePage() {
                 Le moteur de recherche intelligent pour vos panneaux bois
               </p>
             </div>
-          )}
+            <div className="flex justify-center">
+              <HomeSearchBar
+                value={query}
+                onChange={setQuery}
+                onSearch={handleSearch}
+                isSearching={isLoading}
+                isCompact={false}
+                autoFocus={true}
+                onFileDrop={handleFileDrop}
+                isImporting={fileImport.isImporting}
+                importedFile={fileImport.importedFile}
+                importError={fileImport.importError}
+              />
+            </div>
+          </div>
+        )}
 
-          {/* Compact logo when searching */}
-          {hasSearched && (
-            <div className="flex items-center gap-4 mb-0">
+        {/* Search results layout (Google-style: logo left, search bar right) */}
+        {hasSearched && (
+          <div className="w-full max-w-6xl mx-auto px-4">
+            <div className="flex items-center gap-6">
+              {/* Logo - clickable to return home */}
               <button
                 onClick={() => {
                   setHasSearched(false);
                   setQuery('');
                   setActiveFilters([]);
                 }}
-                className="text-2xl font-black tracking-tighter hover:opacity-80 transition-opacity"
+                className="text-3xl font-black tracking-tighter hover:opacity-80 transition-opacity flex-shrink-0"
               >
                 <span className="text-white">Cut</span>
                 <span className="text-amber-500">X</span>
               </button>
-            </div>
-          )}
 
-          {/* Search bar */}
-          <div className={`flex justify-center ${hasSearched ? 'mt-4' : ''}`}>
-            <HomeSearchBar
-              value={query}
-              onChange={setQuery}
-              onSearch={handleSearch}
-              isSearching={isLoading}
-              isCompact={hasSearched}
-              autoFocus={!hasSearched}
-              onFileDrop={handleFileDrop}
-              isImporting={fileImport.isImporting}
-              importedFile={fileImport.importedFile}
-              importError={fileImport.importError}
-            />
+              {/* Search bar - takes remaining space */}
+              <div className="flex-1 max-w-2xl">
+                <HomeSearchBar
+                  value={query}
+                  onChange={setQuery}
+                  onSearch={handleSearch}
+                  isSearching={isLoading}
+                  isCompact={true}
+                  autoFocus={false}
+                  onFileDrop={handleFileDrop}
+                  isImporting={fileImport.isImporting}
+                  importedFile={fileImport.importedFile}
+                  importError={fileImport.importError}
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Results section */}
