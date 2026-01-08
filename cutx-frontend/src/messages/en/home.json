@@ -20,7 +20,8 @@
     "thickness": "Thickness",
     "dimensions": "Dimensions",
     "quality": "Quality",
-    "format": "Format"
+    "format": "Format",
+    "clearAll": "Clear all"
   },
   "product": {
     "thickness": "Th.",

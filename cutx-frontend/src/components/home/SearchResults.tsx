@@ -14,6 +14,12 @@ export type SortOrder = 'asc' | 'desc';
 
 const VIEW_MODE_STORAGE_KEY = 'cutx-search-view-mode';
 
+export interface ActiveFilter {
+  type: string;
+  value: string;
+  label: string;
+}
+
 interface SearchResultsProps {
   query: string;
   results: SearchProduct[];
@@ -23,8 +29,11 @@ interface SearchResultsProps {
   hasMore: boolean;
   facets: SmartSearchFacets | null;
   parsedFilters: ParsedFilters | null;
+  activeFilters?: ActiveFilter[];
   onProductClick: (product: SearchProduct) => void;
   onFilterClick: (filterType: string, value: string) => void;
+  onClearFilter?: (filterType: string, value: string) => void;
+  onClearAllFilters?: () => void;
   onLoadMore: () => void;
 }
 
@@ -37,8 +46,11 @@ export default function SearchResults({
   hasMore,
   facets,
   parsedFilters,
+  activeFilters = [],
   onProductClick,
   onFilterClick,
+  onClearFilter,
+  onClearAllFilters,
   onLoadMore,
 }: SearchResultsProps) {
   const t = useTranslations('home');
@@ -163,7 +175,10 @@ export default function SearchResults({
         <FilterChips
           facets={facets}
           parsedFilters={parsedFilters}
+          activeFilters={activeFilters}
           onFilterClick={onFilterClick}
+          onClearFilter={onClearFilter}
+          onClearAllFilters={onClearAllFilters}
           total={total}
         />
       </div>

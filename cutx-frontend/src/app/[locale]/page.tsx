@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { LocaleSwitcher } from '@/components/ui/LocaleSwitcher';
 import { useDebounce } from '@/lib/hooks/useDebounce';
@@ -14,11 +14,19 @@ import {
 import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 
+// Type for active filters
+interface ActiveFilter {
+  type: string; // 'genre', 'thickness', 'dimension'
+  value: string; // The filter value
+  label: string; // Display label (e.g., "19mm" instead of "19")
+}
+
 export default function HomePage() {
   const t = useTranslations('common');
 
   // Search state
   const [query, setQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<SearchProduct | null>(null);
   const [sponsored, setSponsored] = useState<CatalogueProduit[]>([]);
@@ -28,7 +36,19 @@ export default function HomePage() {
 
   const debouncedQuery = useDebounce(query, 300);
 
-  // Search hook with smart search
+  // Construct combined search query from base query + active filters
+  const combinedQuery = useMemo(() => {
+    if (activeFilters.length === 0) return debouncedQuery;
+
+    const filterTerms = activeFilters.map(f => {
+      if (f.type === 'thickness') return `${f.value}mm`;
+      return f.value;
+    });
+
+    return `${debouncedQuery} ${filterTerms.join(' ')}`.trim();
+  }, [debouncedQuery, activeFilters]);
+
+  // Search hook with smart search - uses combined query
   const {
     produits,
     total,
@@ -38,9 +58,9 @@ export default function HomePage() {
     parsedFilters,
     facets,
   } = useCatalogueSearch({
-    search: debouncedQuery,
+    search: combinedQuery,
     useSmartSearch: true,
-    enabled: debouncedQuery.length >= 2,
+    enabled: combinedQuery.length >= 2,
   });
 
   // Fetch sponsored when search changes
@@ -71,9 +91,32 @@ export default function HomePage() {
     setSelectedProduct(product);
   }, []);
 
-  // Handle filter click (add to query)
+  // Handle filter click - add to activeFilters (not query text)
   const handleFilterClick = useCallback((filterType: string, value: string) => {
-    setQuery((prev) => `${prev} ${value}`.trim());
+    // Create label based on filter type
+    let label = value;
+    if (filterType === 'thickness') {
+      label = `${value}mm`;
+    } else if (filterType === 'dimension') {
+      label = value.replace('x', ' × ');
+    }
+
+    // Check if this filter is already active
+    setActiveFilters(prev => {
+      const exists = prev.some(f => f.type === filterType && f.value === value);
+      if (exists) return prev; // Don't add duplicate
+      return [...prev, { type: filterType, value, label }];
+    });
+  }, []);
+
+  // Handle filter removal - remove from activeFilters
+  const handleClearFilter = useCallback((filterType: string, value: string) => {
+    setActiveFilters(prev => prev.filter(f => !(f.type === filterType && f.value === value)));
+  }, []);
+
+  // Handle clearing all filters
+  const handleClearAllFilters = useCallback(() => {
+    setActiveFilters([]);
   }, []);
 
   // Handle load more
@@ -156,6 +199,7 @@ export default function HomePage() {
                 onClick={() => {
                   setHasSearched(false);
                   setQuery('');
+                  setActiveFilters([]);
                 }}
                 className="text-2xl font-black tracking-tighter hover:opacity-80 transition-opacity"
               >
@@ -195,8 +239,11 @@ export default function HomePage() {
             hasMore={hasMore}
             facets={facets}
             parsedFilters={parsedFilters}
+            activeFilters={activeFilters}
             onProductClick={handleProductClick}
             onFilterClick={handleFilterClick}
+            onClearFilter={handleClearFilter}
+            onClearAllFilters={handleClearAllFilters}
             onLoadMore={handleLoadMore}
           />
         </main>

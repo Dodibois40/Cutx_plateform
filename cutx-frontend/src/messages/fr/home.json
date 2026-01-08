@@ -20,7 +20,8 @@
     "thickness": "Épaisseur",
     "dimensions": "Dimensions",
     "quality": "Qualité",
-    "format": "Format"
+    "format": "Format",
+    "clearAll": "Tout effacer"
   },
   "product": {
     "thickness": "Ép.",
