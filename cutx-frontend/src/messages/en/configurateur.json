@@ -253,5 +253,15 @@
     "preview": {
       "clickToView": "Click to view details"
     }
+  },
+  "thicknessMismatch": {
+    "title": "Incompatible thicknesses",
+    "subtitle": "{count} piece(s) with a different thickness",
+    "panelSelected": "Selected panel",
+    "mismatchedLines": "Non-compatible pieces",
+    "alreadyMatch": "already match",
+    "convertAll": "Convert all to {thickness}mm",
+    "keepUnassigned": "Keep as unassigned",
+    "cancel": "Cancel import"
   }
 }

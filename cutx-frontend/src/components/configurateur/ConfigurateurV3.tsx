@@ -445,7 +445,7 @@ function ConfigurateurContent() {
 
       {/* Warning si lignes non assignées (mode groupes) */}
       {modeGroupes && hasLignesNonAssignees && (
-        <div className="warning-banner">
+        <div className="warning-banner mt-[10px]">
           <AlertTriangle size={14} />
           <span>
             Certaines lignes ne sont pas assignées à un panneau. Glissez-les vers un groupe.
