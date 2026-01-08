@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { LocaleSwitcher } from '@/components/ui/LocaleSwitcher';
 import { useDebounce } from '@/lib/hooks/useDebounce';
@@ -11,23 +11,58 @@ import {
   SearchResults,
   PanelActionPopup,
 } from '@/components/home';
+import ImportWorkspace from '@/components/home/ImportWorkspace';
+import { MULTI_GROUP_CONFIG_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
 import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
+import { useSearchState } from '@/components/home/hooks/useSearchState';
+import { useRouter } from '@/i18n/routing';
 
-// Type for active filters
-interface ActiveFilter {
-  type: string; // 'genre', 'thickness', 'dimension'
-  value: string; // The filter value
-  label: string; // Display label (e.g., "19mm" instead of "19")
+// Fallback for Suspense
+function HomePageLoading() {
+  return (
+    <div className="min-h-screen bg-[var(--cx-background)] flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-6xl font-black tracking-tighter mb-4">
+          <span className="text-white">Cut</span>
+          <span className="text-amber-500">X</span>
+        </h1>
+        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+      </div>
+    </div>
+  );
 }
 
+// Main page wrapper with Suspense (required for useSearchParams)
 export default function HomePage() {
+  return (
+    <Suspense fallback={<HomePageLoading />}>
+      <HomePageContent />
+    </Suspense>
+  );
+}
+
+function HomePageContent() {
   const t = useTranslations('common');
 
-  // Search state
-  const [query, setQuery] = useState('');
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
+  // Prevent hydration mismatch - render same HTML on server and first client render
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // URL-synced search state
+  const {
+    query,
+    activeFilters,
+    hasSearched,
+    setQuery,
+    addFilter,
+    removeFilter,
+    clearAllFilters,
+    goHome,
+  } = useSearchState();
+
   const [selectedProduct, setSelectedProduct] = useState<SearchProduct | null>(null);
   const [sponsored, setSponsored] = useState<CatalogueProduit[]>([]);
 
@@ -72,52 +107,9 @@ export default function HomePage() {
     }
   }, [debouncedQuery]);
 
-  // Handle search trigger
-  const handleSearch = useCallback(() => {
-    if (query.trim().length >= 2) {
-      setHasSearched(true);
-    }
-  }, [query]);
-
-  // Auto-search when typing
-  // Note: Also check query.length to prevent re-triggering when user clicks logo to go home
-  useEffect(() => {
-    if (debouncedQuery.length >= 2 && query.length >= 2 && !hasSearched) {
-      setHasSearched(true);
-    }
-  }, [debouncedQuery, query, hasSearched]);
-
   // Handle product click
   const handleProductClick = useCallback((product: SearchProduct) => {
     setSelectedProduct(product);
-  }, []);
-
-  // Handle filter click - add to activeFilters (not query text)
-  const handleFilterClick = useCallback((filterType: string, value: string) => {
-    // Create label based on filter type
-    let label = value;
-    if (filterType === 'thickness') {
-      label = `${value}mm`;
-    } else if (filterType === 'dimension') {
-      label = value.replace('x', ' × ');
-    }
-
-    // Check if this filter is already active
-    setActiveFilters(prev => {
-      const exists = prev.some(f => f.type === filterType && f.value === value);
-      if (exists) return prev; // Don't add duplicate
-      return [...prev, { type: filterType, value, label }];
-    });
-  }, []);
-
-  // Handle filter removal - remove from activeFilters
-  const handleClearFilter = useCallback((filterType: string, value: string) => {
-    setActiveFilters(prev => prev.filter(f => !(f.type === filterType && f.value === value)));
-  }, []);
-
-  // Handle clearing all filters
-  const handleClearAllFilters = useCallback(() => {
-    setActiveFilters([]);
   }, []);
 
   // Handle load more
@@ -136,6 +128,45 @@ export default function HomePage() {
     const foundRef = await fileImport.processFile(file);
     console.log('[HomePage] Import result - ref:', foundRef, 'lines:', fileImport.importedLines.length);
   }, [fileImport]);
+
+  // Router for navigation
+  const router = useRouter();
+
+  // Handle "Configure All" button - navigate to configurateur with all files that have panels
+  const handleConfigureAll = useCallback(() => {
+    const filesToConfigure = fileImport.filesWithPanel;
+    if (filesToConfigure.length === 0) return;
+
+    // Group files by their assigned panel
+    const panelGroups = new Map<string, typeof filesToConfigure>();
+    for (const file of filesToConfigure) {
+      if (!file.assignedPanel) continue;
+      const key = file.assignedPanel.reference;
+      if (!panelGroups.has(key)) {
+        panelGroups.set(key, []);
+      }
+      panelGroups.get(key)!.push(file);
+    }
+
+    // Create group configs for each panel
+    const groupConfigs: GroupConfig[] = [];
+    for (const [, files] of panelGroups) {
+      const panel = files[0].assignedPanel!;
+      groupConfigs.push({
+        panel,
+        lines: files.flatMap(f => f.lines),
+        sourceFileNames: files.map(f => f.name),
+      });
+    }
+
+    // Save to session storage and navigate
+    sessionStorage.setItem(MULTI_GROUP_CONFIG_KEY, JSON.stringify(groupConfigs));
+
+    // Clear all files after configuring
+    fileImport.resetImport();
+
+    router.push('/configurateur?import=multi');
+  }, [fileImport, router]);
 
   // Convert CatalogueProduit to SearchProduct
   const mapToSearchProduct = (p: CatalogueProduit): SearchProduct => ({
@@ -163,9 +194,28 @@ export default function HomePage() {
   const searchProducts: SearchProduct[] = produits.map(mapToSearchProduct);
   const sponsoredProducts: SearchProduct[] = sponsored.map(mapToSearchProduct);
 
+  // Show Import Workspace when files are imported (only after mount to prevent hydration mismatch)
+  if (mounted && fileImport.totalFiles > 0) {
+    return (
+      <ImportWorkspace
+        files={fileImport.importedFiles}
+        isImporting={fileImport.isImporting}
+        importError={fileImport.importError}
+        onFileDrop={handleFileDrop}
+        onRemoveFile={fileImport.removeFile}
+        onAssignPanel={fileImport.assignPanelToFile}
+        onUnassignPanel={fileImport.unassignPanel}
+        onReset={fileImport.resetImport}
+        onConfigureAll={handleConfigureAll}
+        allFilesHavePanel={fileImport.allFilesHavePanel}
+        totalLines={fileImport.totalLines}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--cx-background)] flex flex-col relative overflow-hidden">
-      {/* Header */}
+      {/* Language switcher */}
       <header className="absolute top-0 right-0 p-4 z-10">
         <LocaleSwitcher />
       </header>
@@ -195,7 +245,7 @@ export default function HomePage() {
               <HomeSearchBar
                 value={query}
                 onChange={setQuery}
-                onSearch={handleSearch}
+                onSearch={() => {}} // Search is triggered automatically by URL sync
                 isSearching={isLoading}
                 isCompact={false}
                 autoFocus={true}
@@ -214,11 +264,7 @@ export default function HomePage() {
             <div className="flex items-center gap-6">
               {/* Logo - clickable to return home */}
               <button
-                onClick={() => {
-                  setHasSearched(false);
-                  setQuery('');
-                  setActiveFilters([]);
-                }}
+                onClick={goHome}
                 className="text-3xl font-black tracking-tighter hover:opacity-80 transition-opacity flex-shrink-0"
               >
                 <span className="text-white">Cut</span>
@@ -230,10 +276,10 @@ export default function HomePage() {
                 <HomeSearchBar
                   value={query}
                   onChange={setQuery}
-                  onSearch={handleSearch}
+                  onSearch={() => {}} // Search is triggered automatically by URL sync
                   isSearching={isLoading}
                   isCompact={true}
-                  autoFocus={false}
+                  autoFocus={true}
                   onFileDrop={handleFileDrop}
                   isImporting={fileImport.isImporting}
                   importedFile={fileImport.importedFile}
@@ -259,10 +305,11 @@ export default function HomePage() {
             parsedFilters={parsedFilters}
             activeFilters={activeFilters}
             onProductClick={handleProductClick}
-            onFilterClick={handleFilterClick}
-            onClearFilter={handleClearFilter}
-            onClearAllFilters={handleClearAllFilters}
+            onFilterClick={addFilter}
+            onClearFilter={removeFilter}
+            onClearAllFilters={clearAllFilters}
             onLoadMore={handleLoadMore}
+            isDraggable={fileImport.filesWithoutPanel.length > 0}
           />
         </main>
       )}
@@ -285,8 +332,9 @@ export default function HomePage() {
         preImportedLines={fileImport.importedLines}
         preImportError={fileImport.importError}
         onClearPreImport={fileImport.resetImport}
+        importedFiles={fileImport.filesWithoutPanel}
+        onAssignPanelToFiles={fileImport.assignPanelToFiles}
       />
-
     </div>
   );
 }
