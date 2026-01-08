@@ -28,6 +28,8 @@ import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import { creerNouvelleLigne } from '@/lib/configurateur/constants';
 import { mettreAJourCalculsLigne } from '@/lib/configurateur/calculs';
 import { readImportedLinesFromSession } from '@/components/home/hooks/useFileImport';
+import { MULTI_GROUP_CONFIG_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
+import type { InitialGroupeData } from '@/contexts/GroupesContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
@@ -159,7 +161,10 @@ function ConfigurateurContent() {
   const [projetNom, setProjetNom] = useState<string>('Nouveau projet');
   const [initialLignes, setInitialLignes] = useState<LignePrestationV3[] | undefined>(undefined);
   const [initialGroupe, setInitialGroupe] = useState<{ panneau: PanneauGroupe } | undefined>(undefined);
+  const [initialGroupes, setInitialGroupes] = useState<InitialGroupeData[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
+  // Track if multi-import data has been processed
+  const [isMultiImportReady, setIsMultiImportReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasReceivedData = useRef(false);
   const waitingForUserChoice = useRef(false);
@@ -178,8 +183,65 @@ function ConfigurateurContent() {
     const panelRef = searchParams.get('panel');
     const debitRef = searchParams.get('ref'); // Reference du debit depuis la homepage
 
+    // Mode 0: Multi-file import from homepage wizard
+    if (importId === 'multi' && !hasReceivedData.current) {
+      hasReceivedData.current = true;
+      console.log('[ConfigV3] Mode multi-fichiers detecte');
+
+      try {
+        const storedData = sessionStorage.getItem(MULTI_GROUP_CONFIG_KEY);
+        if (storedData) {
+          sessionStorage.removeItem(MULTI_GROUP_CONFIG_KEY);
+          const groupConfigs: GroupConfig[] = JSON.parse(storedData);
+          console.log('[ConfigV3] GroupConfigs charges:', groupConfigs.length, 'groupes');
+
+          if (groupConfigs.length > 0) {
+            // Convert GroupConfig[] to InitialGroupeData[]
+            const groupesData: InitialGroupeData[] = groupConfigs.map(config => {
+              // Convert SearchProduct to PanneauCatalogue
+              const panneauCatalogue: PanneauCatalogue = {
+                id: config.panel.id,
+                nom: config.panel.nom,
+                categorie: 'agglo_plaque' as const,
+                essence: null,
+                epaisseurs: config.panel.epaisseur ? [config.panel.epaisseur] : [19],
+                prixM2: config.panel.epaisseur
+                  ? { [String(config.panel.epaisseur)]: config.panel.prixAchatM2 || 0 }
+                  : { '19': config.panel.prixAchatM2 || 0 },
+                fournisseur: config.panel.fournisseur || 'Catalogue',
+                disponible: true,
+                description: config.panel.refFabricant || config.panel.reference,
+                ordre: 0,
+                longueur: typeof config.panel.longueur === 'number' ? config.panel.longueur : 2800,
+                largeur: config.panel.largeur || 2070,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                imageUrl: config.panel.imageUrl || undefined,
+              };
+
+              return {
+                panneau: { type: 'catalogue' as const, panneau: panneauCatalogue },
+                lignes: config.lines,
+              };
+            });
+
+            setInitialGroupes(groupesData);
+            setProjetNom(`Import multi-fichiers (${groupConfigs.reduce((sum, c) => sum + c.lines.length, 0)} pièces)`);
+            console.log('[ConfigV3] Groupes crees:', groupesData.length);
+          }
+        }
+        // Mark multi-import as ready (data processed)
+        setIsMultiImportReady(true);
+      } catch (err) {
+        console.error('[ConfigV3] Erreur lecture multi-import:', err);
+        setError('Erreur lors du chargement des fichiers importés');
+        setIsMultiImportReady(true);
+      }
+      return; // Skip other import modes
+    }
+
     // Mode 1: Import depuis SketchUp (ignore "session" qui est géré différemment)
-    if (importId && importId !== 'session' && !hasReceivedData.current) {
+    if (importId && importId !== 'session' && importId !== 'multi' && !hasReceivedData.current) {
       hasReceivedData.current = true;
       setIsLoading(true);
       setError(null);
@@ -456,6 +518,19 @@ function ConfigurateurContent() {
     router.push('/');
   }, [router]);
 
+  // Afficher le loader pendant le chargement multi-import
+  const isMultiImportMode = searchParams.get('import') === 'multi';
+  if (isMultiImportMode && !isMultiImportReady) {
+    return (
+      <div className="min-h-screen bg-[#0F0E0D] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500 mx-auto mb-4"></div>
+          <p className="text-white text-lg">Chargement des fichiers importés...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Afficher le loader pendant le chargement (sauf si on attend le choix utilisateur)
   if (isLoading && !thicknessMismatchInfo) {
     return (
@@ -503,10 +578,11 @@ function ConfigurateurContent() {
   }
 
   // Build initialData based on what we have
-  const initialData = initialLignes || initialGroupe ? {
+  const initialData = initialLignes || initialGroupe || initialGroupes ? {
     referenceChantier: projetNom,
     lignes: initialLignes,
     initialGroupe: initialGroupe,
+    initialGroupes: initialGroupes,
   } : undefined;
 
   return (

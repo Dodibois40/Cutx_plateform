@@ -71,6 +71,7 @@ export interface InitialData {
   referenceChantier: string;
   lignes?: LignePrestationV3[];
   initialGroupe?: InitialGroupeData;
+  initialGroupes?: InitialGroupeData[];
 }
 
 interface TarifsDecoupeChants {

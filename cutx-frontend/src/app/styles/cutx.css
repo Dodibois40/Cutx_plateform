@@ -7,16 +7,16 @@
 /* === THEME SYSTEM (Linear-inspired: 3 core variables) === */
 :root {
   /* CORE THEME (only 3 base colors needed) */
-  --cx-base: #0C0C0B;           /* Background base */
+  --cx-base: #141413;           /* Background base - dark charcoal */
   --cx-accent: #8B9A4B;         /* Primary accent (olive) */
   --cx-contrast: 0.92;          /* Contrast level (0-1) */
 
   /* GENERATED SURFACES (from base) */
-  --cx-surface-0: #0C0C0B;      /* Deepest */
-  --cx-surface-1: #111110;      /* Elevated */
-  --cx-surface-2: #161615;      /* Cards */
-  --cx-surface-3: #1C1C1A;      /* Hover states */
-  --cx-surface-4: #232321;      /* Active/pressed */
+  --cx-surface-0: #141413;      /* Deepest - dark charcoal */
+  --cx-surface-1: #1A1A19;      /* Elevated */
+  --cx-surface-2: #1F1F1E;      /* Cards */
+  --cx-surface-3: #252524;      /* Hover states */
+  --cx-surface-4: #2B2B29;      /* Active/pressed */
 
   /* GENERATED BORDERS (from base) */
   --cx-border-subtle: rgba(255, 255, 255, 0.06);
@@ -1308,4 +1308,176 @@ body {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--admin-ardoise);
+}
+
+/* ============================================
+   DRAG & DROP ANIMATION SYSTEM
+   For multi-file import feature
+   ============================================ */
+
+/* Pulsing border for unassigned file cards */
+@keyframes drop-zone-pulse {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+  50% {
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 15px 2px rgba(255, 255, 255, 0.08);
+  }
+}
+
+.drop-zone-awaiting {
+  animation: drop-zone-pulse 2.5s ease-in-out infinite;
+}
+
+/* Rising panel ghost animation */
+@keyframes panel-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  15% {
+    opacity: 0.6;
+    transform: translateY(10px) scale(0.9);
+  }
+  85% {
+    opacity: 0.6;
+    transform: translateY(-25px) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-35px) scale(0.8);
+  }
+}
+
+/* Floating arrow animation */
+@keyframes float-up {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+/* Drag hint container animation */
+@keyframes drag-hint-glow {
+  0%, 100% {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.drag-hint-animated {
+  animation: drag-hint-glow 3s ease-in-out infinite;
+}
+
+/* Ghost panel for visual indication */
+.ghost-panel {
+  animation: panel-rise 2.5s ease-in-out infinite;
+}
+
+.ghost-panel:nth-child(2) {
+  animation-delay: 0.8s;
+}
+
+.ghost-panel:nth-child(3) {
+  animation-delay: 1.6s;
+}
+
+/* Floating arrow */
+.float-up-arrow {
+  animation: float-up 1.5s ease-in-out infinite;
+}
+
+/* Hand cursor drag animation */
+@keyframes hand-drag {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(3px, -3px);
+  }
+  50% {
+    transform: translate(0, -20px);
+  }
+  75% {
+    transform: translate(-3px, -25px);
+  }
+}
+
+.hand-drag-anim {
+  animation: hand-drag 2.5s ease-in-out infinite;
+}
+
+/* ============================================
+   IMPORT WORKSPACE STYLES
+   Split-screen layout for multi-file import
+   ============================================ */
+
+/* Selected file card - subtle glow */
+@keyframes workspace-file-selected-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(251, 191, 36, 0.15);
+  }
+}
+
+.workspace-file-selected {
+  animation: workspace-file-selected-pulse 2s ease-in-out infinite;
+}
+
+/* Waiting file card - subtle attention */
+@keyframes workspace-file-waiting {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.workspace-file-waiting {
+  animation: workspace-file-waiting 3s ease-in-out infinite;
+}
+
+/* Draggable panel hover effect */
+.workspace-panel-drag {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.workspace-panel-drag:hover {
+  transform: translateX(4px);
+  box-shadow: -4px 0 20px rgba(251, 191, 36, 0.1);
+}
+
+/* Split screen divider */
+.workspace-divider {
+  position: relative;
+}
+
+.workspace-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 60%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.1) 20%,
+    rgba(255, 255, 255, 0.1) 80%,
+    transparent
+  );
 }
