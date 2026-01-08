@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Loader2, LayoutGrid, Columns2, List, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Loader2, LayoutGrid, Columns2, List, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import ProductCard from './ProductCard';
 import FilterChips from './FilterChips';
 import SponsoredRow from './SponsoredRow';
 import type { SearchProduct, SmartSearchFacets, ParsedFilters } from './types';
+import type { ClaudeRecommendation } from '@/lib/services/ai-assistant-api';
 
 export type ViewMode = 'detail' | 'grid' | 'list';
 export type SortField = 'nom' | 'epaisseur' | 'prix' | 'dimensions' | null;
@@ -36,6 +37,14 @@ interface SearchResultsProps {
   onClearAllFilters?: () => void;
   onLoadMore: () => void;
   isDraggable?: boolean;
+  // AI Integration
+  aiMode?: boolean;
+  aiResponse?: string;
+  aiIsStreaming?: boolean;
+  aiRecap?: ClaudeRecommendation | null;
+  aiError?: string | null;
+  onAISendMessage?: (message: string) => void;
+  onAIValidate?: () => void;
 }
 
 export default function SearchResults({
@@ -54,11 +63,36 @@ export default function SearchResults({
   onClearAllFilters,
   onLoadMore,
   isDraggable = false,
+  // AI props
+  aiMode = false,
+  aiResponse = '',
+  aiIsStreaming = false,
+  aiRecap = null,
+  aiError = null,
+  onAISendMessage,
+  onAIValidate,
 }: SearchResultsProps) {
   const t = useTranslations('home');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [aiInput, setAiInput] = useState('');
+  const aiResponseRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll AI response
+  useEffect(() => {
+    if (aiIsStreaming && aiResponseRef.current) {
+      aiResponseRef.current.scrollTop = aiResponseRef.current.scrollHeight;
+    }
+  }, [aiResponse, aiIsStreaming]);
+
+  // Handle AI message send
+  const handleAISend = () => {
+    if (aiInput.trim() && onAISendMessage) {
+      onAISendMessage(aiInput.trim());
+      setAiInput('');
+    }
+  };
 
   // Load view mode from localStorage on mount
   useEffect(() => {
@@ -153,8 +187,8 @@ export default function SearchResults({
     );
   }
 
-  // Show no results
-  if (!isLoading && results.length === 0 && query.length >= 2) {
+  // Show no results (only if not in AI mode)
+  if (!aiMode && !isLoading && results.length === 0 && query.length >= 2) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-xl text-[var(--cx-text-muted)] mb-2">
@@ -163,6 +197,158 @@ export default function SearchResults({
         <p className="text-sm text-[var(--cx-text-muted)]">
           {t('results.tryAgain')}
         </p>
+      </div>
+    );
+  }
+
+  // AI Mode - show conversation instead of products
+  if (aiMode) {
+    return (
+      <div className="w-full max-w-3xl mx-auto px-4 py-6">
+        {/* AI Response area */}
+        <div className="bg-[var(--cx-surface-1)] border border-[var(--cx-border)] rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-[var(--cx-border)] bg-amber-500/5">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-sm font-medium text-amber-500">
+                Assistant CutX
+              </span>
+              {aiIsStreaming && (
+                <span className="text-xs text-[var(--cx-text-muted)]">
+                  en train de répondre...
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Response content */}
+          <div
+            ref={aiResponseRef}
+            className="p-4 max-h-[400px] overflow-y-auto"
+          >
+            {aiResponse ? (
+              <div className="prose prose-invert prose-amber max-w-none">
+                <div className="text-[var(--cx-text)] whitespace-pre-wrap leading-relaxed">
+                  {aiResponse}
+                  {aiIsStreaming && (
+                    <span className="inline-block w-2 h-4 ml-1 bg-amber-500 animate-pulse" />
+                  )}
+                </div>
+              </div>
+            ) : aiIsStreaming ? (
+              <div className="flex items-center gap-3 text-[var(--cx-text-muted)]">
+                <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
+                <span>L&apos;assistant analyse votre demande...</span>
+              </div>
+            ) : (
+              <p className="text-[var(--cx-text-muted)]">
+                Décrivez votre projet ou posez une question sur les panneaux...
+              </p>
+            )}
+          </div>
+
+          {/* Error message */}
+          {aiError && (
+            <div className="px-4 py-3 bg-red-500/10 border-t border-red-500/20">
+              <div className="flex items-center gap-2 text-red-400 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                <span>{aiError}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Recap card - when recommendation is available */}
+          {aiRecap?.recommendation && (
+            <div className="p-4 border-t border-[var(--cx-border)] bg-[var(--cx-surface-2)]">
+              <h3 className="text-sm font-semibold text-amber-500 mb-3">
+                Récapitulatif de votre projet
+              </h3>
+
+              {/* Recap text */}
+              {aiRecap.recap && (
+                <p className="text-sm text-[var(--cx-text)] mb-4">{aiRecap.recap}</p>
+              )}
+
+              {/* Panels */}
+              {aiRecap.recommendation.panels.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs text-[var(--cx-text-muted)] mb-2">Panneaux recommandés</p>
+                  <div className="space-y-1">
+                    {aiRecap.recommendation.panels.map((panel, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between px-3 py-2 bg-[var(--cx-surface-1)] rounded-lg text-sm"
+                      >
+                        <span className="text-[var(--cx-text)]">
+                          {panel.productType} {panel.criteria.thickness ? `${panel.criteria.thickness}mm` : ''} - {panel.role}
+                        </span>
+                        <span className="text-[var(--cx-text-muted)]">
+                          {panel.quantity}x
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Cuts/Debits */}
+              {aiRecap.recommendation.debits.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs text-[var(--cx-text-muted)] mb-2">Débits prévus</p>
+                  <div className="flex flex-wrap gap-2">
+                    {aiRecap.recommendation.debits.slice(0, 6).map((debit, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-1 bg-[var(--cx-surface-1)] rounded text-xs text-[var(--cx-text-muted)]"
+                      >
+                        {debit.largeur}×{debit.longueur} ({debit.quantity}x)
+                      </span>
+                    ))}
+                    {aiRecap.recommendation.debits.length > 6 && (
+                      <span className="px-2 py-1 text-xs text-[var(--cx-text-muted)]">
+                        +{aiRecap.recommendation.debits.length - 6} autres
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Validate button */}
+              <button
+                onClick={onAIValidate}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg transition-colors"
+              >
+                <CheckCircle className="w-5 h-5" />
+                Valider et configurer
+              </button>
+            </div>
+          )}
+
+          {/* Input for follow-up */}
+          {!aiRecap && (
+            <div className="p-3 border-t border-[var(--cx-border)]">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAISend()}
+                  placeholder="Précisez votre demande..."
+                  disabled={aiIsStreaming}
+                  className="flex-1 px-3 py-2 bg-[var(--cx-surface-2)] border border-[var(--cx-border)] rounded-lg text-[var(--cx-text)] placeholder:text-[var(--cx-text-muted)]/50 focus:outline-none focus:border-amber-500/50 disabled:opacity-50"
+                />
+                <button
+                  onClick={handleAISend}
+                  disabled={aiIsStreaming || !aiInput.trim()}
+                  className="p-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

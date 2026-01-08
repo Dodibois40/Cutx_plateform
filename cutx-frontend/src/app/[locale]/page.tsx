@@ -11,6 +11,7 @@ import {
   SearchResults,
   PanelActionPopup,
 } from '@/components/home';
+import { useIntegratedAI } from '@/components/home/AIAssistant/hooks/useIntegratedAI';
 import ImportWorkspace from '@/components/home/ImportWorkspace';
 import { MULTI_GROUP_CONFIG_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
 import type { SearchProduct } from '@/components/home/types';
@@ -70,6 +71,9 @@ function HomePageContent() {
   const fileImport = useFileImport();
 
   const debouncedQuery = useDebounce(query, 300);
+
+  // Integrated AI - automatically detects if query needs AI
+  const integratedAI = useIntegratedAI(debouncedQuery);
 
   // Construct combined search query from base query + active filters
   const combinedQuery = useMemo(() => {
@@ -299,7 +303,7 @@ function HomePageContent() {
             results={searchProducts}
             sponsored={sponsoredProducts}
             total={total}
-            isLoading={isLoading}
+            isLoading={isLoading && !integratedAI.isActive}
             hasMore={hasMore}
             facets={facets}
             parsedFilters={parsedFilters}
@@ -310,6 +314,14 @@ function HomePageContent() {
             onClearAllFilters={clearAllFilters}
             onLoadMore={handleLoadMore}
             isDraggable={fileImport.filesWithoutPanel.length > 0}
+            // AI Integration
+            aiMode={integratedAI.isActive}
+            aiResponse={integratedAI.response}
+            aiIsStreaming={integratedAI.isStreaming}
+            aiRecap={integratedAI.recap}
+            aiError={integratedAI.error}
+            onAISendMessage={integratedAI.sendMessage}
+            onAIValidate={integratedAI.validateAndRedirect}
           />
         </main>
       )}

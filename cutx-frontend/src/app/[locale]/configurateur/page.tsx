@@ -240,8 +240,37 @@ function ConfigurateurContent() {
       return; // Skip other import modes
     }
 
+    // Mode AI: Import from AI Assistant
+    if (importId === 'ai' && !hasReceivedData.current) {
+      hasReceivedData.current = true;
+      console.log('[ConfigV3] Mode AI Assistant detecte');
+
+      try {
+        const AI_GROUPES_KEY = 'AI_GENERATED_GROUPES';
+        const storedData = sessionStorage.getItem(AI_GROUPES_KEY);
+        if (storedData) {
+          sessionStorage.removeItem(AI_GROUPES_KEY);
+          const groupesData: InitialGroupeData[] = JSON.parse(storedData);
+          console.log('[ConfigV3] Groupes AI charges:', groupesData.length, 'groupes');
+
+          if (groupesData.length > 0) {
+            setInitialGroupes(groupesData);
+            const totalPieces = groupesData.reduce((sum, g) => sum + (g.lignes?.length || 0), 0);
+            setProjetNom(`Projet IA (${totalPieces} pièces)`);
+            console.log('[ConfigV3] Groupes AI crees:', groupesData.length);
+          }
+        }
+        setIsMultiImportReady(true);
+      } catch (err) {
+        console.error('[ConfigV3] Erreur lecture AI import:', err);
+        setError('Erreur lors du chargement de la configuration IA');
+        setIsMultiImportReady(true);
+      }
+      return; // Skip other import modes
+    }
+
     // Mode 1: Import depuis SketchUp (ignore "session" qui est géré différemment)
-    if (importId && importId !== 'session' && importId !== 'multi' && !hasReceivedData.current) {
+    if (importId && importId !== 'session' && importId !== 'multi' && importId !== 'ai' && !hasReceivedData.current) {
       hasReceivedData.current = true;
       setIsLoading(true);
       setError(null);

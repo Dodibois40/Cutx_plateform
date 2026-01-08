@@ -61,6 +61,7 @@ export default function ConfigurateurV3(props: ConfigurateurV3Props) {
       <GroupesProvider
         initialLignes={props.initialData?.lignes}
         initialGroupe={props.initialData?.initialGroupe}
+        initialGroupes={props.initialData?.initialGroupes}
       >
         <ConfigurateurContent />
       </GroupesProvider>
