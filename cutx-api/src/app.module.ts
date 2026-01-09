@@ -13,7 +13,6 @@ import { DevisModule } from './devis/devis.module';
 import { MulticoucheTemplatesModule } from './multicouche-templates/multicouche-templates.module';
 import { CaissonsModule } from './caissons/caissons.module';
 import { UsinagesModule } from './usinages/usinages.module';
-import { AIAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   imports: [
@@ -36,7 +35,6 @@ import { AIAssistantModule } from './ai-assistant/ai-assistant.module';
     MulticoucheTemplatesModule,
     CaissonsModule,
     UsinagesModule,
-    AIAssistantModule,
   ],
   controllers: [AppController],
   providers: [AppService],
