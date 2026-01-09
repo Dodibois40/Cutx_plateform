@@ -45,14 +45,30 @@ async function generateIcons() {
         ctx.fill();
       }
 
-      // Text "CutX"
-      ctx.fillStyle = '#ffffff';
+      // Text "CutX" - "Cut" en blanc, "X" en amber/jaune
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
       const fontSize = maskable ? size * 0.25 : size * 0.3;
-      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-      ctx.fillText('CutX', size / 2, size / 2);
+      ctx.font = `900 ${fontSize}px Arial, sans-serif`; // font-weight 900 = black
+
+      // Mesurer les parties du texte
+      const cutWidth = ctx.measureText('Cut').width;
+      const xWidth = ctx.measureText('X').width;
+      const totalWidth = cutWidth + xWidth;
+
+      // Position de départ pour centrer
+      const startX = (size - totalWidth) / 2;
+      const centerY = size / 2;
+
+      // Dessiner "Cut" en blanc
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.fillText('Cut', startX, centerY);
+
+      // Dessiner "X" en amber (#f59e0b)
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('X', startX + cutWidth, centerY);
 
       // Save
       const buffer = canvas.toBuffer('image/png');
