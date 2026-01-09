@@ -20,6 +20,8 @@ export interface FilesPanelProps {
   // File drop for adding more files
   onFileDrop?: (file: File) => void;
   isImporting?: boolean;
+  // Panel search trigger (for auto-detected panel)
+  onSearchPanel?: (query: string) => void;
 }
 
 // Workspace file card props (larger, with drop zone)

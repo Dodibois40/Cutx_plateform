@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, ChevronDown, ChevronRight, FileSpreadsheet, FileCode, X, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { Upload, ChevronDown, ChevronRight, FileSpreadsheet, FileCode, X, Check, ArrowRight, Loader2, Search } from 'lucide-react';
 import Image from 'next/image';
 import type { FilesPanelProps } from './types';
 import type { SearchProduct } from '../types';
@@ -22,6 +22,7 @@ export default function FilesPanel({
   onAssignPanel,
   onFileDrop,
   isImporting = false,
+  onSearchPanel,
 }: FilesPanelProps) {
   // Track which files are expanded (multiple can be expanded)
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
@@ -137,6 +138,7 @@ export default function FilesPanel({
                     onRemove={() => onRemoveFile(file.id)}
                     onUnassign={() => onUnassignPanel(file.id)}
                     onDrop={(panel) => onAssignPanel(file.id, panel)}
+                    onSearchPanel={onSearchPanel}
                   />
                 ))}
               </div>
@@ -163,6 +165,7 @@ export default function FilesPanel({
                     onRemove={() => onRemoveFile(file.id)}
                     onUnassign={() => onUnassignPanel(file.id)}
                     onDrop={(panel) => onAssignPanel(file.id, panel)}
+                    onSearchPanel={onSearchPanel}
                   />
                 ))}
               </div>
@@ -193,6 +196,7 @@ interface AccordionFileCardProps {
   onRemove: () => void;
   onUnassign: () => void;
   onDrop: (panel: SearchProduct) => void;
+  onSearchPanel?: (query: string) => void;
 }
 
 function AccordionFileCard({
@@ -202,6 +206,7 @@ function AccordionFileCard({
   onRemove,
   onUnassign,
   onDrop,
+  onSearchPanel,
 }: AccordionFileCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -359,6 +364,30 @@ function AccordionFileCard({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Detected panel - clickable to search */}
+          {!hasPanel && file.detection?.panelSearchQuery && onSearchPanel && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSearchPanel(file.detection!.panelSearchQuery!);
+              }}
+              className="w-full p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Search className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-blue-400">Panneau détecté</p>
+                  <p className="text-xs font-medium text-[var(--cx-text)] truncate">
+                    {file.detection.panelSearchLabel}
+                  </p>
+                </div>
+                <span className="text-[10px] text-blue-400 flex-shrink-0">
+                  Rechercher
+                </span>
+              </div>
+            </button>
           )}
 
           {/* Reference if found */}

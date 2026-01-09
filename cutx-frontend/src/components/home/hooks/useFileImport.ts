@@ -48,6 +48,9 @@ export interface DetectionSummary {
   materialHint: string | null; // Detected material name
   uniqueDimensions: number; // Number of unique L×l combinations
   totalQuantity: number; // Sum of all quantities
+  // Auto-detected panel search
+  panelSearchQuery: string | null; // Query to search for the panel
+  panelSearchLabel: string | null; // Human-readable label for the detected panel
 }
 
 // Multi-file data structure with thickness analysis
@@ -111,12 +114,102 @@ function getFormatLabel(format: DetectedFormat): string {
 }
 
 /**
+ * Extract panel search query from filename
+ * Examples:
+ * - "FEUILLE_DEBIT_Agglo_Chene.xlsx" → "Agglo Chene"
+ * - "FEUILLE_DEBIT_Egger_H1180.xlsx" → "Egger H1180"
+ * - "Debit_MDF_Blanc_19.xlsx" → "MDF Blanc 19"
+ */
+function extractPanelFromFilename(filename: string): { query: string; label: string } | null {
+  // Remove extension
+  const baseName = filename.replace(/\.(xlsx|xls|dxf)$/i, '');
+
+  // Common patterns to remove
+  const prefixesToRemove = [
+    /^FEUILLE[_\s-]?DEBIT[_\s-]?/i,
+    /^DEBIT[_\s-]?/i,
+    /^FICHE[_\s-]?DEBIT[_\s-]?/i,
+    /^LISTE[_\s-]?DEBIT[_\s-]?/i,
+  ];
+
+  let cleaned = baseName;
+  for (const pattern of prefixesToRemove) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // If nothing left after cleaning, return null
+  if (!cleaned.trim()) return null;
+
+  // Replace underscores and hyphens with spaces
+  cleaned = cleaned.replace(/[_-]+/g, ' ').trim();
+
+  // If the result is too short or generic, skip it
+  if (cleaned.length < 3) return null;
+
+  // Extract Egger reference patterns (H1180, U999, etc.)
+  const eggerMatch = cleaned.match(/\b([HUW]\d{3,4})\b/i);
+  if (eggerMatch) {
+    // Keep the Egger ref and any brand name before it
+    const eggerRef = eggerMatch[1].toUpperCase();
+    const beforeRef = cleaned.substring(0, eggerMatch.index).trim();
+    const label = beforeRef ? `${beforeRef} ${eggerRef}` : `Egger ${eggerRef}`;
+    return { query: eggerRef, label };
+  }
+
+  // Clean up the result
+  const label = cleaned.split(/\s+/).map(word =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+
+  return { query: cleaned, label };
+}
+
+/**
+ * Build panel search query from material and/or filename
+ */
+function buildPanelSearchQuery(
+  materialHint: string | null,
+  filename: string,
+  thickness: number
+): { query: string | null; label: string | null } {
+  // Try to extract from filename first
+  const fromFilename = extractPanelFromFilename(filename);
+
+  // If we have material hint, use it (often more accurate)
+  if (materialHint) {
+    // Check if material contains Egger reference
+    const eggerMatch = materialHint.match(/\b([HUW]\d{3,4})\b/i);
+    if (eggerMatch) {
+      const eggerRef = eggerMatch[1].toUpperCase();
+      return { query: eggerRef, label: materialHint };
+    }
+
+    // Use material as query, add thickness if not already present
+    const hasThickness = /\d+\s*(mm)?/i.test(materialHint);
+    const query = hasThickness ? materialHint : `${materialHint} ${thickness}`;
+    return { query, label: materialHint };
+  }
+
+  // Fall back to filename extraction
+  if (fromFilename) {
+    // Add thickness if it looks like a material name
+    const hasThickness = /\d+/.test(fromFilename.query);
+    const query = hasThickness ? fromFilename.query : `${fromFilename.query} ${thickness}`;
+    return { query, label: fromFilename.label };
+  }
+
+  return { query: null, label: null };
+}
+
+/**
  * Analyze lines to build detection summary
  */
 function analyzeDetection(
   lines: LignePrestationV3[],
   format: DetectedFormat,
-  materialHint: string | null
+  materialHint: string | null,
+  filename: string,
+  thickness: number
 ): DetectionSummary {
   // Count pieces with edge banding
   let edgeBandingCount = 0;
@@ -140,6 +233,9 @@ function analyzeDetection(
   if (edgeBandingCount > 0) columnsDetected.push('Chants');
   if (materialHint) columnsDetected.push('Matériau');
 
+  // Build panel search query
+  const panelSearch = buildPanelSearchQuery(materialHint, filename, thickness);
+
   return {
     format,
     formatLabel: getFormatLabel(format),
@@ -150,6 +246,8 @@ function analyzeDetection(
     materialHint,
     uniqueDimensions: dimensionsSet.size,
     totalQuantity: lines.length,
+    panelSearchQuery: panelSearch.query,
+    panelSearchLabel: panelSearch.label,
   };
 }
 
@@ -440,8 +538,14 @@ export function useFileImport(): UseFileImportReturn {
         breakdown: thicknessAnalysis.thicknessBreakdown.map(t => `${t.thickness}mm: ${t.count}`),
       });
 
-      // Analyze detection
-      const detection = analyzeDetection(lines, detectedFormat, materialHint);
+      // Analyze detection (pass filename and thickness for panel search)
+      const detection = analyzeDetection(
+        lines,
+        detectedFormat,
+        materialHint,
+        file.name,
+        thicknessAnalysis.primaryThickness
+      );
       console.log('[useFileImport] Detection:', detection);
 
       // Create file data with analysis

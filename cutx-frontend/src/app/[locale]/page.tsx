@@ -372,6 +372,7 @@ function HomePageContent() {
                 onAssignPanel={fileImport.assignPanelToFile}
                 onFileDrop={handleFileDrop}
                 isImporting={fileImport.isImporting}
+                onSearchPanel={setQuery}
               />
             ) : (
               <EmptyDropZone isDragging={isDraggingOnPanel} />
