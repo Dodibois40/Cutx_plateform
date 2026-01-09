@@ -110,6 +110,7 @@ export default function HomeSearchBar({
   return (
     <div className="relative w-full max-w-2xl">
       <div
+        data-onboarding="search-bar"
         className={`relative flex items-center h-16 bg-[var(--cx-surface-1)] rounded-full overflow-hidden border transition-all duration-200 ${
           isFocused
             ? 'border-[var(--cx-border-strong)] shadow-lg shadow-black/30'
