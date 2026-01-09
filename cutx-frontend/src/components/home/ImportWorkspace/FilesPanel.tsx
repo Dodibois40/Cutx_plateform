@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, ChevronDown, ChevronRight, FileSpreadsheet, FileCode, X, Check, ArrowRight, Loader2, Search } from 'lucide-react';
+import { Upload, ChevronDown, ChevronRight, FileSpreadsheet, FileCode, X, Check, ArrowRight, Loader2, Search, Scissors } from 'lucide-react';
 import Image from 'next/image';
 import type { FilesPanelProps } from './types';
 import type { SearchProduct } from '../types';
@@ -23,6 +23,7 @@ export default function FilesPanel({
   onFileDrop,
   isImporting = false,
   onSearchPanel,
+  onSplitByThickness,
 }: FilesPanelProps) {
   // Track which files are expanded (multiple can be expanded)
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
@@ -129,17 +130,19 @@ export default function FilesPanel({
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                   En attente ({filesWithoutPanel.length})
                 </div>
-                {filesWithoutPanel.map((file) => (
-                  <AccordionFileCard
-                    key={file.id}
-                    file={file}
-                    isExpanded={expandedFileIds.has(file.id)}
-                    onToggle={() => handleToggleExpand(file.id)}
-                    onRemove={() => onRemoveFile(file.id)}
-                    onUnassign={() => onUnassignPanel(file.id)}
-                    onDrop={(panel) => onAssignPanel(file.id, panel)}
-                    onSearchPanel={onSearchPanel}
-                  />
+                {filesWithoutPanel.map((file, index) => (
+                  <div key={file.id} data-file-card={index === 0 ? 'first' : undefined}>
+                    <AccordionFileCard
+                      file={file}
+                      isExpanded={expandedFileIds.has(file.id)}
+                      onToggle={() => handleToggleExpand(file.id)}
+                      onRemove={() => onRemoveFile(file.id)}
+                      onUnassign={() => onUnassignPanel(file.id)}
+                      onDrop={(panel) => onAssignPanel(file.id, panel)}
+                      onSearchPanel={onSearchPanel}
+                      onSplitByThickness={onSplitByThickness}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -166,6 +169,7 @@ export default function FilesPanel({
                     onUnassign={() => onUnassignPanel(file.id)}
                     onDrop={(panel) => onAssignPanel(file.id, panel)}
                     onSearchPanel={onSearchPanel}
+                    onSplitByThickness={onSplitByThickness}
                   />
                 ))}
               </div>
@@ -197,6 +201,7 @@ interface AccordionFileCardProps {
   onUnassign: () => void;
   onDrop: (panel: SearchProduct) => void;
   onSearchPanel?: (query: string) => void;
+  onSplitByThickness?: (fileId: string) => void;
 }
 
 function AccordionFileCard({
@@ -207,6 +212,7 @@ function AccordionFileCard({
   onUnassign,
   onDrop,
   onSearchPanel,
+  onSplitByThickness,
 }: AccordionFileCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -364,6 +370,30 @@ function AccordionFileCard({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Split by thickness button - only for mixed thickness files that are not already split */}
+          {file.isMixedThickness && !file.isSplitChild && onSplitByThickness && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSplitByThickness(file.id);
+              }}
+              className="w-full p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Scissors className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-amber-500">Épaisseurs mixtes détectées</p>
+                  <p className="text-xs font-medium text-[var(--cx-text)]">
+                    {file.thicknessBreakdown.map(b => `${b.thickness}mm (${b.count})`).join(', ')}
+                  </p>
+                </div>
+                <span className="text-[10px] text-amber-500 flex-shrink-0">
+                  Séparer
+                </span>
+              </div>
+            </button>
           )}
 
           {/* Detected panel - clickable to search */}

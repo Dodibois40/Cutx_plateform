@@ -13,7 +13,15 @@ import {
 } from '@/components/home';
 import FilesPanel, { DropZoneVisual } from '@/components/home/ImportWorkspace/FilesPanel';
 import WorkspaceBottomBar from '@/components/home/ImportWorkspace/WorkspaceBottomBar';
+import SplitThicknessModal from '@/components/home/ImportWorkspace/SplitThicknessModal';
+import dynamic from 'next/dynamic';
 import { MULTI_GROUP_CONFIG_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
+
+// Client-only component - never rendered on server
+const OnboardingGuide = dynamic(
+  () => import('@/components/home/OnboardingGuide'),
+  { ssr: false }
+);
 import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 import { useSearchState } from '@/components/home/hooks/useSearchState';
@@ -69,9 +77,40 @@ function HomePageContent() {
   const [sponsored, setSponsored] = useState<CatalogueProduit[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [isDraggingOnPanel, setIsDraggingOnPanel] = useState(false);
+  const [splitModalFileId, setSplitModalFileId] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLaunchMessage, setShowLaunchMessage] = useState(false);
 
   // File import hook for DXF/XLSX dropped on homepage
   const fileImport = useFileImport();
+
+  // Onboarding: show on first file import, hide when user types or closes
+  const ONBOARDING_KEY = 'cutx-onboarding-seen';
+  useEffect(() => {
+    if (!mounted) return;
+    // DEBUG: Always show for positioning - remove this line for production
+    setShowOnboarding(true);
+    // PRODUCTION: Uncomment below
+    // if (fileImport.filesWithoutPanel.length > 0 && !localStorage.getItem(ONBOARDING_KEY)) {
+    //   setShowOnboarding(true);
+    // }
+  }, [mounted, fileImport.filesWithoutPanel.length]);
+
+  const handleCloseOnboarding = useCallback(() => {
+    setShowOnboarding(false);
+    localStorage.setItem(ONBOARDING_KEY, 'true');
+
+    // Reset everything after demo - goHome() resets hasSearched to false
+    goHome();
+    fileImport.resetImport();
+    setSelectedFileId(null);
+
+    // Show "Lancez-vous" message
+    setShowLaunchMessage(true);
+    setTimeout(() => {
+      setShowLaunchMessage(false);
+    }, 2000);
+  }, [fileImport, goHome]);
 
   const debouncedQuery = useDebounce(query, 300);
 
@@ -135,6 +174,20 @@ function HomePageContent() {
   const handleClosePopup = useCallback(() => {
     setSelectedProduct(null);
   }, []);
+
+  // Handle split by thickness
+  const handleOpenSplitModal = useCallback((fileId: string) => {
+    setSplitModalFileId(fileId);
+  }, []);
+
+  const handleCloseSplitModal = useCallback(() => {
+    setSplitModalFileId(null);
+  }, []);
+
+  const handleConfirmSplit = useCallback((fileId: string) => {
+    fileImport.splitFileByThickness(fileId);
+    setSplitModalFileId(null);
+  }, [fileImport]);
 
   // Handle file drop on homepage search bar or right panel
   const handleFileDrop = useCallback(async (file: File) => {
@@ -235,6 +288,9 @@ function HomePageContent() {
 
   const searchProducts: SearchProduct[] = produits.map(mapToSearchProduct);
   const sponsoredProducts: SearchProduct[] = sponsored.map(mapToSearchProduct);
+
+  // First product for onboarding demo drag animation
+  const firstSearchProduct = searchProducts.length > 0 ? searchProducts[0] : null;
 
   // Computed values
   const assignedCount = fileImport.filesWithPanel.length;
@@ -373,6 +429,7 @@ function HomePageContent() {
                 onFileDrop={handleFileDrop}
                 isImporting={fileImport.isImporting}
                 onSearchPanel={setQuery}
+                onSplitByThickness={handleOpenSplitModal}
               />
             ) : (
               <EmptyDropZone isDragging={isDraggingOnPanel} />
@@ -405,6 +462,49 @@ function HomePageContent() {
         importedFiles={fileImport.filesWithoutPanel}
         onAssignPanelToFiles={fileImport.assignPanelToFiles}
       />
+
+      {/* Split by thickness modal */}
+      <SplitThicknessModal
+        open={!!splitModalFileId}
+        file={splitModalFileId ? fileImport.importedFiles.find(f => f.id === splitModalFileId) || null : null}
+        onSplit={handleConfirmSplit}
+        onCancel={handleCloseSplitModal}
+      />
+
+      {/* Onboarding overlay - shows on first file import */}
+      {showOnboarding && (
+        <OnboardingGuide
+          onClose={handleCloseOnboarding}
+          onTypeText={setQuery}
+          onAddMockFile={fileImport.addMockFile}
+          onAssignPanel={fileImport.assignPanelToFile}
+          firstProduct={firstSearchProduct}
+        />
+      )}
+
+      {/* "Lancez-vous" message after onboarding - positioned above CutX logo */}
+      {showLaunchMessage && (
+        <div className="fixed z-50 left-[40%] top-[28%] -translate-x-1/2 pointer-events-none">
+          <div
+            className="px-6 py-3 rounded-xl bg-[#1a1a19]/90 border border-amber-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.4)] backdrop-blur-sm"
+            style={{
+              animation: 'fadeInOut 2s ease-in-out forwards',
+            }}
+          >
+            <span className="text-lg font-semibold text-white">Lancez-vous !</span>
+          </div>
+        </div>
+      )}
+
+      {/* Keyframes for launch message animation */}
+      <style jsx global>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: scale(0.9); }
+          20% { opacity: 1; transform: scale(1); }
+          80% { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(0.95); }
+        }
+      `}</style>
     </div>
   );
 }

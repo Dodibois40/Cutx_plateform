@@ -283,14 +283,15 @@ export default function SearchResults({
 
       {/* Results grid */}
       <div className={`grid ${gridClasses[viewMode]} ${viewMode === 'list' ? 'gap-1' : 'gap-4'} mb-8`}>
-        {sortedResults.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            onClick={onProductClick}
-            viewMode={viewMode}
-            isDraggable={isDraggable}
-          />
+        {sortedResults.map((product, index) => (
+          <div key={product.id} data-product-card={index === 0 ? 'first' : undefined}>
+            <ProductCard
+              product={product}
+              onClick={onProductClick}
+              viewMode={viewMode}
+              isDraggable={isDraggable}
+            />
+          </div>
         ))}
       </div>
 

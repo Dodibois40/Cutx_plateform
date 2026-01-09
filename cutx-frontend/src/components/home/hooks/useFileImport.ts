@@ -67,6 +67,10 @@ export interface ImportedFileData {
   detection: DetectionSummary;
   // Assigned panel (set when user assigns a panel to this file)
   assignedPanel?: SearchProduct;
+  // Split-related fields
+  parentFileId?: string; // ID of original file if this is a sub-file from split
+  splitThickness?: number; // The thickness this sub-file represents
+  isSplitChild?: boolean; // True if this is a result of splitting
 }
 
 export interface UseFileImportReturn {
@@ -92,6 +96,8 @@ export interface UseFileImportReturn {
   assignPanelToFile: (fileId: string, panel: SearchProduct) => void;
   assignPanelToFiles: (fileIds: string[], panel: SearchProduct) => void;
   unassignPanel: (fileId: string) => void;
+  splitFileByThickness: (fileId: string) => void;
+  addMockFile: () => string; // Returns fileId - for onboarding demo
   resetImport: () => void;
   saveToSession: () => void;
   saveMultiToSession: () => void;
@@ -464,6 +470,98 @@ export function useFileImport(): UseFileImportReturn {
     console.log('[useFileImport] Unassigned panel from file:', fileId);
   }, []);
 
+  // Add a mock file for onboarding demo - returns fileId
+  const addMockFile = useCallback((): string => {
+    const fileId = crypto.randomUUID();
+    const mockLines: LignePrestationV3[] = [
+      { ...creerNouvelleLigne(), id: crypto.randomUUID(), reference: 'Côté gauche', dimensions: { longueur: 600, largeur: 400, epaisseur: 19 } },
+      { ...creerNouvelleLigne(), id: crypto.randomUUID(), reference: 'Côté droit', dimensions: { longueur: 600, largeur: 400, epaisseur: 19 } },
+      { ...creerNouvelleLigne(), id: crypto.randomUUID(), reference: 'Dessus', dimensions: { longueur: 800, largeur: 400, epaisseur: 19 } },
+      { ...creerNouvelleLigne(), id: crypto.randomUUID(), reference: 'Fond', dimensions: { longueur: 800, largeur: 560, epaisseur: 8 } },
+    ];
+
+    const mockFile: ImportedFileData = {
+      id: fileId,
+      name: 'Meuble_Demo.xlsx',
+      lines: mockLines,
+      foundReference: 'DEMO-001',
+      thicknessBreakdown: [
+        { thickness: 19, count: 3, lines: mockLines.slice(0, 3) },
+        { thickness: 8, count: 1, lines: mockLines.slice(3) },
+      ],
+      primaryThickness: 19,
+      isMixedThickness: true,
+      detection: {
+        format: 'debit',
+        formatLabel: 'Feuille de débit',
+        columnsDetected: ['Dimensions', 'Référence'],
+        hasEdgeBanding: false,
+        edgeBandingCount: 0,
+        hasMaterial: false,
+        materialHint: null,
+        uniqueDimensions: 3,
+        totalQuantity: 4,
+        panelSearchQuery: null,
+        panelSearchLabel: null,
+      },
+    };
+
+    setImportedFiles(prev => [...prev, mockFile]);
+    console.log('[useFileImport] Added mock file for demo:', fileId);
+    return fileId;
+  }, []);
+
+  // Split a file by thickness into multiple sub-files
+  const splitFileByThickness = useCallback((fileId: string) => {
+    setImportedFiles(prev => {
+      const fileToSplit = prev.find(f => f.id === fileId);
+      if (!fileToSplit || !fileToSplit.isMixedThickness) {
+        console.warn('[splitFileByThickness] File not found or not mixed thickness');
+        return prev;
+      }
+
+      const { thicknessBreakdown, name, detection, foundReference } = fileToSplit;
+      const baseName = name.replace(/\.(xlsx|xls|dxf)$/i, '');
+      const extension = name.match(/\.(xlsx|xls|dxf)$/i)?.[0] || '';
+
+      // Create new sub-files - one per thickness
+      const newFiles: ImportedFileData[] = thicknessBreakdown.map(({ thickness, lines }) => {
+        const subFileName = `${baseName}_${thickness}mm${extension}`;
+
+        // Update detection for sub-file with specific thickness
+        const subDetection: DetectionSummary = {
+          ...detection,
+          totalQuantity: lines.length,
+          panelSearchQuery: detection.panelSearchQuery
+            ? detection.panelSearchQuery.replace(/\d+mm/, `${thickness}mm`)
+            : `${thickness}mm`,
+          panelSearchLabel: `${thickness}mm`,
+        };
+
+        return {
+          id: crypto.randomUUID(),
+          name: subFileName,
+          lines,
+          foundReference,
+          // Single thickness - no longer mixed
+          thicknessBreakdown: [{ thickness, count: lines.length, lines }],
+          primaryThickness: thickness,
+          isMixedThickness: false,
+          detection: subDetection,
+          // Track parent relationship
+          parentFileId: fileId,
+          splitThickness: thickness,
+          isSplitChild: true,
+        };
+      });
+
+      console.log('[splitFileByThickness] Split file into', newFiles.length, 'sub-files:', newFiles.map(f => f.name));
+
+      // Remove original, add sub-files
+      return [...prev.filter(f => f.id !== fileId), ...newFiles];
+    });
+  }, []);
+
   // Process and add a file
   const processFile = useCallback(async (file: File): Promise<string | null> => {
     console.log('[useFileImport] processFile called with:', file.name, 'size:', file.size);
@@ -672,6 +770,8 @@ export function useFileImport(): UseFileImportReturn {
     assignPanelToFile,
     assignPanelToFiles,
     unassignPanel,
+    splitFileByThickness,
+    addMockFile,
     resetImport,
     saveToSession,
     saveMultiToSession,

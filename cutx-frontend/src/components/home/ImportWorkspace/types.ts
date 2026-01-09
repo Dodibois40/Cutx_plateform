@@ -22,6 +22,8 @@ export interface FilesPanelProps {
   isImporting?: boolean;
   // Panel search trigger (for auto-detected panel)
   onSearchPanel?: (query: string) => void;
+  // Split by thickness trigger
+  onSplitByThickness?: (fileId: string) => void;
 }
 
 // Workspace file card props (larger, with drop zone)
