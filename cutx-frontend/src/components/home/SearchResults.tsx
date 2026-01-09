@@ -35,6 +35,7 @@ interface SearchResultsProps {
   onClearFilter?: (filterType: string, value: string) => void;
   onClearAllFilters?: () => void;
   onLoadMore: () => void;
+  isDraggable?: boolean;
 }
 
 export default function SearchResults({
@@ -52,6 +53,7 @@ export default function SearchResults({
   onClearFilter,
   onClearAllFilters,
   onLoadMore,
+  isDraggable = false,
 }: SearchResultsProps) {
   const t = useTranslations('home');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -287,6 +289,7 @@ export default function SearchResults({
             product={product}
             onClick={onProductClick}
             viewMode={viewMode}
+            isDraggable={isDraggable}
           />
         ))}
       </div>
