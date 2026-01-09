@@ -165,37 +165,71 @@ function extractPanelFromFilename(filename: string): { query: string; label: str
 }
 
 /**
+ * Check if material hint is too generic to be useful
+ */
+function isGenericMaterial(material: string): boolean {
+  const genericTerms = [
+    'melamine', 'mélamine', 'mela',
+    'agglo', 'aggloméré', 'agglomere',
+    'mdf', 'ctbh', 'ctbs',
+    'panneau', 'panel', 'plaque',
+    'bois', 'wood',
+  ];
+  const lower = material.toLowerCase().trim();
+  return genericTerms.some(term => lower === term || lower.startsWith(term + ' '));
+}
+
+/**
  * Build panel search query from material and/or filename
+ * Priority: Specific reference (Egger H1180) > Specific material > Generic material
  */
 function buildPanelSearchQuery(
   materialHint: string | null,
   filename: string,
   thickness: number
 ): { query: string | null; label: string | null } {
-  // Try to extract from filename first
+  // Extract from filename
   const fromFilename = extractPanelFromFilename(filename);
 
-  // If we have material hint, use it (often more accurate)
-  if (materialHint) {
-    // Check if material contains Egger reference
+  // Check if filename contains a specific reference (Egger, etc.)
+  const filenameHasSpecificRef = fromFilename && /\b[HUW]\d{3,4}\b/i.test(fromFilename.query);
+
+  // Check if material contains a specific reference
+  const materialHasSpecificRef = materialHint && /\b[HUW]\d{3,4}\b/i.test(materialHint);
+
+  // Priority 1: Specific reference from filename (H1180, U999, etc.)
+  if (filenameHasSpecificRef && fromFilename) {
+    return { query: fromFilename.query, label: fromFilename.label };
+  }
+
+  // Priority 2: Specific reference from material
+  if (materialHasSpecificRef && materialHint) {
     const eggerMatch = materialHint.match(/\b([HUW]\d{3,4})\b/i);
     if (eggerMatch) {
       const eggerRef = eggerMatch[1].toUpperCase();
       return { query: eggerRef, label: materialHint };
     }
+  }
 
-    // Use material as query, add thickness if not already present
+  // Priority 3: Non-generic material hint
+  if (materialHint && !isGenericMaterial(materialHint)) {
     const hasThickness = /\d+\s*(mm)?/i.test(materialHint);
     const query = hasThickness ? materialHint : `${materialHint} ${thickness}`;
     return { query, label: materialHint };
   }
 
-  // Fall back to filename extraction
+  // Priority 4: Filename extraction (even if generic, better than nothing)
   if (fromFilename) {
-    // Add thickness if it looks like a material name
     const hasThickness = /\d+/.test(fromFilename.query);
     const query = hasThickness ? fromFilename.query : `${fromFilename.query} ${thickness}`;
     return { query, label: fromFilename.label };
+  }
+
+  // Priority 5: Generic material as last resort
+  if (materialHint) {
+    const hasThickness = /\d+\s*(mm)?/i.test(materialHint);
+    const query = hasThickness ? materialHint : `${materialHint} ${thickness}`;
+    return { query, label: materialHint };
   }
 
   return { query: null, label: null };
