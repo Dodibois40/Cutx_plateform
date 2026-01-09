@@ -182,11 +182,15 @@ function isGenericMaterial(material: string): boolean {
 /**
  * Build panel search query from material and/or filename
  * Priority: Specific reference (Egger H1180) > Specific material > Generic material
+ *
+ * For DXF files: Only suggest panel search if filename contains a specific reference (Egger, etc.)
+ * DXF filenames are typically project names, not panel references.
  */
 function buildPanelSearchQuery(
   materialHint: string | null,
   filename: string,
-  thickness: number
+  thickness: number,
+  format: DetectedFormat
 ): { query: string | null; label: string | null } {
   // Extract from filename
   const fromFilename = extractPanelFromFilename(filename);
@@ -196,6 +200,21 @@ function buildPanelSearchQuery(
 
   // Check if material contains a specific reference
   const materialHasSpecificRef = materialHint && /\b[HUW]\d{3,4}\b/i.test(materialHint);
+
+  // For DXF files: Be more restrictive - only use specific references
+  // DXF filenames are typically project names (e.g., "Nouveaux meubles", "Cuisine Jean")
+  if (format === 'dxf') {
+    // Only suggest panel if we have a specific Egger reference in filename
+    if (filenameHasSpecificRef && fromFilename) {
+      const query = `${fromFilename.query} ${thickness}`;
+      const label = `${fromFilename.label} ${thickness}mm`;
+      return { query, label };
+    }
+    // DXF files don't have material info, so no panel suggestion
+    return { query: null, label: null };
+  }
+
+  // For Excel files: Full priority logic
 
   // Priority 1: Specific reference from filename (H1180, U999, etc.)
   if (filenameHasSpecificRef && fromFilename) {
@@ -272,8 +291,8 @@ function analyzeDetection(
   if (edgeBandingCount > 0) columnsDetected.push('Chants');
   if (materialHint) columnsDetected.push('Matériau');
 
-  // Build panel search query
-  const panelSearch = buildPanelSearchQuery(materialHint, filename, thickness);
+  // Build panel search query (pass format to handle DXF differently)
+  const panelSearch = buildPanelSearchQuery(materialHint, filename, thickness, format);
 
   return {
     format,
