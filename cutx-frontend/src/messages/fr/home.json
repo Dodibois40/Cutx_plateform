@@ -1,8 +1,8 @@
 {
   "search": {
-    "placeholder": "Rechercher un panneau... (ex: MDF 19, mélaminé blanc, chêne)",
+    "placeholder": "agglo chêne 19, mélaminé anthracite U963...",
     "button": "Rechercher",
-    "hint": "Tapez le nom, la référence, ou décrivez le panneau que vous cherchez"
+    "hint": "Cherchez par nom, référence ou description"
   },
   "sponsored": "Sponsorisé",
   "results": {

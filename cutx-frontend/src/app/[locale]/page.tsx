@@ -271,7 +271,7 @@ function HomePageContent() {
                     {t('home.subtitle')}
                   </p>
                   <p className="text-sm text-[var(--cx-text-muted)]">
-                    Le moteur de recherche intelligent pour vos panneaux bois
+                    {t('home.description')}
                   </p>
                 </div>
                 <div className="flex justify-center">

@@ -1,8 +1,8 @@
 {
   "search": {
-    "placeholder": "Search for a panel... (e.g., MDF 19, melamine white, oak)",
+    "placeholder": "chipboard oak 19, melamine anthracite U963...",
     "button": "Search",
-    "hint": "Type the name, reference, or describe the panel you're looking for"
+    "hint": "Search by name, reference or description"
   },
   "sponsored": "Sponsored",
   "results": {
