@@ -187,10 +187,6 @@ export default function ImportWorkspace({
                     isSearching={isLoading}
                     isCompact={false}
                     autoFocus={true}
-                    onFileDrop={onFileDrop}
-                    isImporting={isImporting}
-                    importedFile={null}
-                    importError={importError}
                   />
                 </div>
               </div>
@@ -215,10 +211,6 @@ export default function ImportWorkspace({
                       isSearching={isLoading}
                       isCompact={true}
                       autoFocus={true}
-                      onFileDrop={onFileDrop}
-                      isImporting={isImporting}
-                      importedFile={null}
-                      importError={importError}
                     />
                   </div>
                 </div>
