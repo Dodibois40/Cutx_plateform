@@ -359,9 +359,9 @@ export function useFileImport(): UseFileImportReturn {
           detectedFormat = 'debit';
         }
 
-        // Extract material hint
+        // Extract material hint (Materiau is a string type)
         if (donnees.materiau) {
-          materialHint = donnees.materiau.nom || null;
+          materialHint = donnees.materiau;
         }
 
         for (const ligneImport of donnees.lignes) {
@@ -379,7 +379,7 @@ export function useFileImport(): UseFileImportReturn {
 
             if (ligneImport.materiau) {
               nouvelleLigne.materiau = ligneImport.materiau;
-              if (!materialHint) materialHint = ligneImport.materiau.nom || null;
+              if (!materialHint) materialHint = ligneImport.materiau;
             } else if (donnees.materiau) {
               nouvelleLigne.materiau = donnees.materiau;
             }
