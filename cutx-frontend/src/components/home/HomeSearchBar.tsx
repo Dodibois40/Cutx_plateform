@@ -1,11 +1,8 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { FileCode, FileSpreadsheet, Upload, CheckCircle, ImageIcon, FolderOpen, Loader2, Plus } from 'lucide-react';
+import { Search, X, Loader2, Sparkles, FileCode, FileSpreadsheet, Upload, CheckCircle, ImageIcon, FolderOpen } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import SearchInputRow from './SearchInputRow';
-import FileCard from './FileCard';
-import type { ImportedFileData } from './hooks/useFileImport';
 
 interface ImportedFileInfo {
   name: string;
@@ -24,15 +21,6 @@ interface HomeSearchBarProps {
   isImporting?: boolean;
   importedFile?: ImportedFileInfo | null;
   importError?: string | null;
-  // Multi-file support
-  importedFiles?: ImportedFileData[];
-  onRemoveFile?: (fileId: string) => void;
-  onUnassignPanel?: (fileId: string) => void;
-  // State indicators
-  someFilesHavePanel?: boolean;
-  allFilesHavePanel?: boolean;
-  // Action when ready to configure
-  onConfigureAll?: () => void;
 }
 
 export default function HomeSearchBar({
@@ -46,18 +34,13 @@ export default function HomeSearchBar({
   isImporting = false,
   importedFile,
   importError,
-  importedFiles = [],
-  onRemoveFile,
-  onUnassignPanel,
-  someFilesHavePanel = false,
-  allFilesHavePanel = false,
-  onConfigureAll,
 }: HomeSearchBarProps) {
   const t = useTranslations('home');
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const shouldMaintainFocusRef = useRef(false);
 
   useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -66,26 +49,22 @@ export default function HomeSearchBar({
   }, [autoFocus]);
 
   // Maintain focus while typing - restore focus after search results update
-  // Only refocus if user was actively focused (isFocused state) and input exists
   useEffect(() => {
-    if (isFocused && inputRef.current && document.activeElement !== inputRef.current) {
-      // Use requestAnimationFrame to ensure DOM has settled after re-render
+    if (shouldMaintainFocusRef.current && inputRef.current) {
+      // Use requestAnimationFrame to ensure DOM has settled
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
     }
-  }, [isSearching, isFocused]);
+  }, [isSearching]);
 
-  // Handle file selection from button click (supports multiple files)
+  // Handle file selection from button click
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      // Process each file
-      Array.from(files).forEach(file => {
-        onFileDrop?.(file);
-      });
+      onFileDrop?.(files[0]);
     }
-    // Reset input to allow selecting same files again
+    // Reset input to allow selecting same file again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -118,9 +97,7 @@ export default function HomeSearchBar({
     inputRef.current?.focus();
   };
 
-  // Drag & drop handlers with proper leave detection
-  const dropZoneRef = useRef<HTMLDivElement>(null);
-
+  // Drag & drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -130,13 +107,7 @@ export default function HomeSearchBar({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // Only set isDragging to false if we're actually leaving the container
-    // Check if the related target (where we're going) is outside our drop zone
-    const relatedTarget = e.relatedTarget as HTMLElement | null;
-    if (!relatedTarget || !dropZoneRef.current?.contains(relatedTarget)) {
-      setIsDragging(false);
-    }
+    setIsDragging(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -145,56 +116,53 @@ export default function HomeSearchBar({
     setIsDragging(false);
 
     const files = e.dataTransfer.files;
-    // Support DXF, XLSX, XLS, and images
-    const supportedExts = ['dxf', 'xlsx', 'xls', 'jpg', 'jpeg', 'png', 'webp', 'gif'];
-
-    // Process ALL dropped files
-    Array.from(files).forEach(file => {
+    if (files.length > 0) {
+      const file = files[0];
       const ext = file.name.split('.').pop()?.toLowerCase();
+      // Support DXF, XLSX, XLS, and images
+      const supportedExts = ['dxf', 'xlsx', 'xls', 'jpg', 'jpeg', 'png', 'webp', 'gif'];
       if (ext && supportedExts.includes(ext)) {
         onFileDrop?.(file);
       }
-    });
-  };
-
-  // Focus handlers for SearchInputRow
-  const handleFocus = useCallback(() => {
-    setIsFocused(true);
-  }, []);
-
-  const handleBlur = useCallback((e: React.FocusEvent) => {
-    // Only mark as blurred if focus is moving outside the search bar container
-    // This prevents losing focus when clicking inside the search bar (e.g., clear button)
-    const relatedTarget = e.relatedTarget as HTMLElement | null;
-    const currentTarget = e.currentTarget as HTMLElement;
-
-    // Check if the new focus target is within the parent container
-    if (relatedTarget && currentTarget.parentElement?.contains(relatedTarget)) {
-      // Focus is moving within the search bar, keep isFocused true
-      return;
     }
-
-    setIsFocused(false);
-  }, []);
+  };
 
   // Compact mode (after search)
   if (isCompact) {
     return (
       <div className="relative w-full max-w-2xl">
         <div
-          className={`relative w-full bg-[var(--cx-surface-1)] rounded-full overflow-hidden border transition-all duration-200 ${isFocused ? 'border-[var(--cx-border-strong)] shadow-lg shadow-black/30' : 'border-[var(--cx-border)] shadow-md shadow-black/20'}`}
+          className={`relative flex items-center w-full h-12 bg-[var(--cx-surface-1)] rounded-full overflow-hidden border transition-all duration-200 ${isFocused ? 'border-[var(--cx-border-strong)] shadow-lg shadow-black/30' : 'border-[var(--cx-border)] shadow-md shadow-black/20'}`}
         >
-          <SearchInputRow
+          <div className="flex items-center justify-center w-12">
+            {isSearching ? (
+              <Loader2 className="w-5 h-5 text-[var(--cx-text-muted)] animate-spin" />
+            ) : (
+              <Search className="w-5 h-5 text-[var(--cx-text-muted)]" />
+            )}
+          </div>
+          <input
             ref={inputRef}
+            type="text"
             value={value}
-            onChange={onChange}
+            onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onClear={handleClear}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            isSearching={isSearching}
-            size="compact"
+            onFocus={() => { setIsFocused(true); shouldMaintainFocusRef.current = true; }}
+            onBlur={() => { setIsFocused(false); setTimeout(() => { shouldMaintainFocusRef.current = false; }, 100); }}
+            placeholder={t('search.placeholder')}
+            className="flex-1 bg-transparent border-none outline-none text-[var(--cx-text)] placeholder:text-[var(--cx-text-muted)] text-base"
+            autoComplete="off"
+            spellCheck={false}
           />
+          {value && (
+            <button
+              onClick={handleClear}
+              className="flex items-center justify-center w-10 h-10 text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] rounded-full transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <Sparkles className="mr-4 w-5 h-5 text-[var(--cx-text-muted)]" />
         </div>
       </div>
     );
@@ -204,7 +172,6 @@ export default function HomeSearchBar({
   return (
     <div className="relative w-full max-w-3xl">
       <div
-        ref={dropZoneRef}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -220,107 +187,82 @@ export default function HomeSearchBar({
           }
         `}
       >
-        {/* Drag overlay - captures drop anywhere in the box */}
-        {isDragging && (
-          <div className="absolute inset-0 z-50 bg-amber-500/5" />
-        )}
-
         {/* Search row */}
-        <SearchInputRow
-          ref={inputRef}
-          value={value}
-          onChange={onChange}
-          onKeyDown={handleKeyDown}
-          onClear={handleClear}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          isSearching={isSearching}
-          size="full"
-        />
+        <div className="flex items-center h-20 px-6">
+          <div className="flex items-center justify-center w-10">
+            {isSearching ? (
+              <Loader2 className="w-5 h-5 text-[var(--cx-text-muted)] animate-spin" />
+            ) : (
+              <Search className="w-5 h-5 text-[var(--cx-text-muted)]" />
+            )}
+          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => { setIsFocused(true); shouldMaintainFocusRef.current = true; }}
+            onBlur={() => { setIsFocused(false); setTimeout(() => { shouldMaintainFocusRef.current = false; }, 100); }}
+            placeholder={t('search.placeholder')}
+            className="flex-1 bg-transparent border-none outline-none text-[var(--cx-text)] placeholder:text-[var(--cx-text-muted)] text-lg"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {value && (
+            <button
+              onClick={handleClear}
+              className="flex items-center justify-center w-10 h-10 text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] rounded-full transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <Sparkles className="w-6 h-6 text-[var(--cx-text-muted)]" />
+        </div>
 
         {/* Separator */}
         <div className="mx-6 border-t border-[var(--cx-border)]" />
 
-        {/* Hidden file input - supports multiple files */}
+        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
           accept=".dxf,.xlsx,.xls,.jpg,.jpeg,.png,.webp,.gif"
           onChange={handleFileInputChange}
           className="hidden"
-          aria-label="Sélectionner des fichiers à importer"
-          multiple
         />
 
-        {/* Drop zone / Files display */}
-        <div
-          role="region"
-          aria-label="Zone de dépôt de fichiers"
-          className={`px-6 py-4 transition-colors ${isDragging ? 'bg-amber-500/5' : ''}`}
-        >
+        {/* Drop zone hint */}
+        <div className={`flex items-center justify-center gap-6 h-28 px-6 transition-colors ${isDragging ? 'bg-amber-500/5' : importedFile ? 'bg-green-500/5' : ''}`}>
           {isImporting ? (
-            <div className="flex items-center justify-center gap-4 h-20 text-amber-500">
+            <div className="flex items-center gap-4 text-amber-500">
               <Loader2 className="w-8 h-8 animate-spin" />
               <span className="text-lg font-medium">Import en cours...</span>
             </div>
           ) : isDragging ? (
-            <div className="flex items-center justify-center gap-4 h-20 text-amber-500">
+            <div className="flex items-center gap-4 text-amber-500">
               <Upload className="w-8 h-8 animate-bounce" />
-              <span className="text-lg font-medium">Déposez vos fichiers ici</span>
+              <span className="text-lg font-medium">Déposez votre fichier ici</span>
             </div>
-          ) : importedFiles.length > 0 ? (
-            /* Files imported - show cards */
-            <div className="space-y-3">
-              {/* File cards */}
-              <div className="flex flex-wrap gap-3">
-                {importedFiles.map((file) => (
-                  <FileCard
-                    key={file.id}
-                    file={file}
-                    onRemove={(id) => onRemoveFile?.(id)}
-                    onUnassignPanel={onUnassignPanel}
-                  />
-                ))}
-
-                {/* Add more button */}
-                <button
-                  onClick={handleImportClick}
-                  className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[var(--cx-border)] hover:border-amber-500/50 rounded-xl text-[var(--cx-text-muted)] hover:text-amber-500 transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="text-sm font-medium">Ajouter</span>
-                </button>
+          ) : importedFile ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3 text-green-500">
+                <CheckCircle className="w-6 h-6" />
+                <span className="text-base font-medium">{importedFile.name}</span>
               </div>
-
-              {/* Hint or Configure button */}
-              {allFilesHavePanel ? (
-                <button
-                  onClick={onConfigureAll}
-                  className="w-full px-4 py-3 bg-green-500 hover:bg-green-400 text-black font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  Configurer la découpe ({importedFiles.length} fichier{importedFiles.length > 1 ? 's' : ''})
-                </button>
-              ) : someFilesHavePanel ? (
-                <p className="text-center text-xs text-amber-500/80">
-                  Certains fichiers n&apos;ont pas de panneau assigné. Recherchez et assignez un panneau à chaque fichier.
-                </p>
-              ) : (
-                <p className="text-center text-xs text-[var(--cx-text-muted)]/60">
-                  Recherchez votre panneau ci-dessus pour affecter ces fichiers
-                </p>
-              )}
+              <span className="text-sm text-green-400/80">
+                {importedFile.linesCount} pièce{importedFile.linesCount > 1 ? 's' : ''} importée{importedFile.linesCount > 1 ? 's' : ''} — Recherchez votre panneau ci-dessus
+              </span>
             </div>
           ) : importError ? (
-            <div className="flex flex-col items-center justify-center gap-2 h-20">
+            <div className="flex flex-col items-center gap-2">
               <span className="text-sm text-red-400">{importError}</span>
               <span className="text-xs text-[var(--cx-text-muted)]/60">
                 Glissez un autre fichier pour réessayer
               </span>
             </div>
           ) : (
-            /* Empty state */
-            <div className="flex flex-col items-center justify-center gap-3 h-20">
+            <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 text-[var(--cx-text-muted)]">
                   <FileCode className="w-5 h-5" />
@@ -337,15 +279,14 @@ export default function HomeSearchBar({
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-[var(--cx-text-muted)]/60">
-                  Glissez vos fichiers ici
+                  Glissez un fichier ici
                 </span>
                 <span className="text-[var(--cx-text-muted)]/40">ou</span>
                 <button
                   onClick={handleImportClick}
-                  aria-label="Parcourir et sélectionner des fichiers à importer"
                   className="flex items-center gap-2 px-4 py-2 bg-[var(--cx-surface-2)] hover:bg-[var(--cx-surface-3)] border border-[var(--cx-border)] hover:border-[var(--cx-border-strong)] rounded-lg text-sm text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] transition-colors"
                 >
-                  <FolderOpen className="w-4 h-4" aria-hidden="true" />
+                  <FolderOpen className="w-4 h-4" />
                   Parcourir
                 </button>
               </div>
@@ -363,12 +304,11 @@ export default function HomeSearchBar({
 
       {/* Examples */}
       {!value && (
-        <div className="mt-6 flex flex-wrap justify-center gap-2" role="group" aria-label="Exemples de recherche">
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
           {['MDF 19mm', 'mélaminé blanc', 'chêne massif', 'OSB 18'].map((example) => (
             <button
               key={example}
               onClick={() => onChange(example)}
-              aria-label={`Rechercher ${example}`}
               className="px-4 py-2 text-sm text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] border border-[var(--cx-border)] hover:border-[var(--cx-border-strong)] rounded-full transition-colors"
             >
               {example}

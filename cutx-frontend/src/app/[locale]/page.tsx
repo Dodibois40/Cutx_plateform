@@ -11,13 +11,14 @@ import {
   SearchResults,
   PanelActionPopup,
 } from '@/components/home';
-import { useIntegratedAI } from '@/components/home/AIAssistant/hooks/useIntegratedAI';
-import ImportWorkspace from '@/components/home/ImportWorkspace';
+import FilesPanel, { DropZoneVisual } from '@/components/home/ImportWorkspace/FilesPanel';
+import WorkspaceBottomBar from '@/components/home/ImportWorkspace/WorkspaceBottomBar';
 import { MULTI_GROUP_CONFIG_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
 import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 import { useSearchState } from '@/components/home/hooks/useSearchState';
 import { useRouter } from '@/i18n/routing';
+import { Upload } from 'lucide-react';
 
 // Fallback for Suspense
 function HomePageLoading() {
@@ -66,14 +67,13 @@ function HomePageContent() {
 
   const [selectedProduct, setSelectedProduct] = useState<SearchProduct | null>(null);
   const [sponsored, setSponsored] = useState<CatalogueProduit[]>([]);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [isDraggingOnPanel, setIsDraggingOnPanel] = useState(false);
 
   // File import hook for DXF/XLSX dropped on homepage
   const fileImport = useFileImport();
 
   const debouncedQuery = useDebounce(query, 300);
-
-  // Integrated AI - automatically detects if query needs AI
-  const integratedAI = useIntegratedAI(debouncedQuery);
 
   // Construct combined search query from base query + active filters
   const combinedQuery = useMemo(() => {
@@ -111,6 +111,16 @@ function HomePageContent() {
     }
   }, [debouncedQuery]);
 
+  // Auto-select first unassigned file
+  useEffect(() => {
+    if (!selectedFileId && fileImport.importedFiles.length > 0) {
+      const firstUnassigned = fileImport.importedFiles.find(f => !f.assignedPanel);
+      if (firstUnassigned) {
+        setSelectedFileId(firstUnassigned.id);
+      }
+    }
+  }, [fileImport.importedFiles, selectedFileId]);
+
   // Handle product click
   const handleProductClick = useCallback((product: SearchProduct) => {
     setSelectedProduct(product);
@@ -126,12 +136,40 @@ function HomePageContent() {
     setSelectedProduct(null);
   }, []);
 
-  // Handle file drop on homepage search bar
+  // Handle file drop on homepage search bar or right panel
   const handleFileDrop = useCallback(async (file: File) => {
     console.log('[HomePage] File dropped:', file.name);
-    const foundRef = await fileImport.processFile(file);
-    console.log('[HomePage] Import result - ref:', foundRef, 'lines:', fileImport.importedLines.length);
+    await fileImport.processFile(file);
   }, [fileImport]);
+
+  // Handle drop on right panel (from drag event)
+  const handlePanelDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOnPanel(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      const supportedExts = ['dxf', 'xlsx', 'xls'];
+      if (ext && supportedExts.includes(ext)) {
+        handleFileDrop(file);
+      }
+    }
+  }, [handleFileDrop]);
+
+  const handlePanelDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOnPanel(true);
+  }, []);
+
+  const handlePanelDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOnPanel(false);
+  }, []);
 
   // Router for navigation
   const router = useRouter();
@@ -198,142 +236,161 @@ function HomePageContent() {
   const searchProducts: SearchProduct[] = produits.map(mapToSearchProduct);
   const sponsoredProducts: SearchProduct[] = sponsored.map(mapToSearchProduct);
 
-  // Show Import Workspace when files are imported (only after mount to prevent hydration mismatch)
-  if (mounted && fileImport.totalFiles > 0) {
-    return (
-      <ImportWorkspace
-        files={fileImport.importedFiles}
-        isImporting={fileImport.isImporting}
-        importError={fileImport.importError}
-        onFileDrop={handleFileDrop}
-        onRemoveFile={fileImport.removeFile}
-        onAssignPanel={fileImport.assignPanelToFile}
-        onUnassignPanel={fileImport.unassignPanel}
-        onReset={fileImport.resetImport}
-        onConfigureAll={handleConfigureAll}
-        allFilesHavePanel={fileImport.allFilesHavePanel}
-        totalLines={fileImport.totalLines}
-      />
-    );
-  }
+  // Computed values
+  const assignedCount = fileImport.filesWithPanel.length;
+  const hasFiles = mounted && fileImport.totalFiles > 0;
 
   return (
-    <div className="min-h-screen bg-[var(--cx-background)] flex flex-col relative overflow-hidden">
+    <div className="fixed inset-0 bg-[var(--cx-background)] flex flex-col">
       {/* Language switcher */}
-      <header className="absolute top-0 right-0 p-4 z-10">
+      <header className="absolute top-0 right-0 p-4 z-20">
         <LocaleSwitcher />
       </header>
 
-      {/* Search section - centered or top based on state */}
-      <div
-        className={`w-full transition-all duration-500 ease-out relative z-10 ${
-          hasSearched ? 'py-4 border-b border-[var(--cx-border)] bg-[var(--cx-background)]/80 backdrop-blur-xl' : 'flex-1 flex items-center justify-center'
-        }`}
-      >
-        {/* Landing page layout (centered) */}
-        {!hasSearched && (
-          <div className="w-full px-4">
-            <div className="text-center mb-10">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4">
-                <span className="text-white">Cut</span>
-                <span className="text-amber-500">X</span>
-              </h1>
-              <p className="text-xl md:text-2xl font-medium text-[var(--cx-text-muted)] mb-2">
-                {t('home.subtitle')}
-              </p>
-              <p className="text-sm text-[var(--cx-text-muted)]">
-                Le moteur de recherche intelligent pour vos panneaux bois
-              </p>
-            </div>
-            <div className="flex justify-center">
-              <HomeSearchBar
-                value={query}
-                onChange={setQuery}
-                onSearch={() => {}} // Search is triggered automatically by URL sync
-                isSearching={isLoading}
-                isCompact={false}
-                autoFocus={true}
-                onFileDrop={handleFileDrop}
-                isImporting={fileImport.isImporting}
-                importedFile={fileImport.importedFile}
-                importError={fileImport.importError}
+      {/* Main content - permanent 80/20 split */}
+      <main className="flex-1 flex min-h-0">
+        {/* Left panel - Search (80%) */}
+        <div className="w-[80%] flex flex-col min-h-0 relative">
+          {/* Search section - centered or top based on state */}
+          <div
+            className={`w-full transition-all duration-500 ease-out relative z-10 ${
+              hasSearched
+                ? 'flex-shrink-0 py-4 border-b border-[var(--cx-border)] bg-[var(--cx-background)]/80 backdrop-blur-xl'
+                : 'flex-1 flex items-center justify-center'
+            }`}
+          >
+            {/* Landing page layout (centered) */}
+            {!hasSearched && (
+              <div className="w-full px-4">
+                <div className="text-center mb-10">
+                  <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4">
+                    <span className="text-white">Cut</span>
+                    <span className="text-amber-500">X</span>
+                  </h1>
+                  <p className="text-xl md:text-2xl font-medium text-[var(--cx-text-muted)] mb-2">
+                    {t('home.subtitle')}
+                  </p>
+                  <p className="text-sm text-[var(--cx-text-muted)]">
+                    Le moteur de recherche intelligent pour vos panneaux bois
+                  </p>
+                </div>
+                <div className="flex justify-center">
+                  <HomeSearchBar
+                    value={query}
+                    onChange={setQuery}
+                    onSearch={() => {}}
+                    isSearching={isLoading}
+                    isCompact={false}
+                    autoFocus={true}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Search results layout (Google-style: logo left, search bar right) */}
+            {hasSearched && (
+              <div className="w-full max-w-5xl mx-auto px-4">
+                <div className="flex items-center gap-6">
+                  {/* Logo - clickable to return home */}
+                  <button
+                    onClick={goHome}
+                    className="text-3xl font-black tracking-tighter hover:opacity-80 transition-opacity flex-shrink-0"
+                  >
+                    <span className="text-white">Cut</span>
+                    <span className="text-amber-500">X</span>
+                  </button>
+
+                  {/* Search bar - takes remaining space */}
+                  <div className="flex-1 max-w-2xl">
+                    <HomeSearchBar
+                      value={query}
+                      onChange={setQuery}
+                      onSearch={() => {}}
+                      isSearching={isLoading}
+                      isCompact={true}
+                      autoFocus={true}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Results section */}
+          {hasSearched && (
+            <div className="flex-1 overflow-y-auto relative z-10">
+              <SearchResults
+                query={debouncedQuery}
+                results={searchProducts}
+                sponsored={sponsoredProducts}
+                total={total}
+                isLoading={isLoading}
+                hasMore={hasMore}
+                facets={facets}
+                parsedFilters={parsedFilters}
+                activeFilters={activeFilters}
+                onProductClick={handleProductClick}
+                onFilterClick={addFilter}
+                onClearFilter={removeFilter}
+                onClearAllFilters={clearAllFilters}
+                onLoadMore={handleLoadMore}
+                isDraggable={hasFiles}
               />
             </div>
+          )}
+
+          {/* Footer - only show when not searching */}
+          {!hasSearched && (
+            <footer className="py-8 text-center relative z-10">
+              <p className="text-[var(--cx-text-muted)]/50 text-sm">
+                &copy; {new Date().getFullYear()} CutX — Tous droits réservés
+              </p>
+            </footer>
+          )}
+        </div>
+
+        {/* Right panel - Files (20%) - Always visible */}
+        <div
+          className={`w-[20%] flex flex-col min-h-0 border-l transition-colors duration-200 ${
+            isDraggingOnPanel
+              ? 'border-amber-500 bg-amber-500/5'
+              : 'border-[var(--cx-border)] bg-[var(--cx-surface-1)]/30'
+          }`}
+          onDragOver={handlePanelDragOver}
+          onDragLeave={handlePanelDragLeave}
+          onDrop={handlePanelDrop}
+        >
+          {/* Files content */}
+          <div className="flex-1 min-h-0">
+            {hasFiles ? (
+              <FilesPanel
+                files={fileImport.importedFiles}
+                selectedFileId={selectedFileId}
+                onSelectFile={setSelectedFileId}
+                onRemoveFile={fileImport.removeFile}
+                onUnassignPanel={fileImport.unassignPanel}
+                onAssignPanel={fileImport.assignPanelToFile}
+                onFileDrop={handleFileDrop}
+                isImporting={fileImport.isImporting}
+              />
+            ) : (
+              <EmptyDropZone isDragging={isDraggingOnPanel} />
+            )}
           </div>
-        )}
 
-        {/* Search results layout (Google-style: logo left, search bar right) */}
-        {hasSearched && (
-          <div className="w-full max-w-6xl mx-auto px-4">
-            <div className="flex items-center gap-6">
-              {/* Logo - clickable to return home */}
-              <button
-                onClick={goHome}
-                className="text-3xl font-black tracking-tighter hover:opacity-80 transition-opacity flex-shrink-0"
-              >
-                <span className="text-white">Cut</span>
-                <span className="text-amber-500">X</span>
-              </button>
-
-              {/* Search bar - takes remaining space */}
-              <div className="flex-1 max-w-2xl">
-                <HomeSearchBar
-                  value={query}
-                  onChange={setQuery}
-                  onSearch={() => {}} // Search is triggered automatically by URL sync
-                  isSearching={isLoading}
-                  isCompact={true}
-                  autoFocus={true}
-                  onFileDrop={handleFileDrop}
-                  isImporting={fileImport.isImporting}
-                  importedFile={fileImport.importedFile}
-                  importError={fileImport.importError}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Results section */}
-      {hasSearched && (
-        <main className="flex-1 relative z-10">
-          <SearchResults
-            query={debouncedQuery}
-            results={searchProducts}
-            sponsored={sponsoredProducts}
-            total={total}
-            isLoading={isLoading && !integratedAI.isActive}
-            hasMore={hasMore}
-            facets={facets}
-            parsedFilters={parsedFilters}
-            activeFilters={activeFilters}
-            onProductClick={handleProductClick}
-            onFilterClick={addFilter}
-            onClearFilter={removeFilter}
-            onClearAllFilters={clearAllFilters}
-            onLoadMore={handleLoadMore}
-            isDraggable={fileImport.filesWithoutPanel.length > 0}
-            // AI Integration
-            aiMode={integratedAI.isActive}
-            aiResponse={integratedAI.response}
-            aiIsStreaming={integratedAI.isStreaming}
-            aiRecap={integratedAI.recap}
-            aiError={integratedAI.error}
-            onAISendMessage={integratedAI.sendMessage}
-            onAIValidate={integratedAI.validateAndRedirect}
-          />
-        </main>
-      )}
-
-      {/* Footer - only show when not searching */}
-      {!hasSearched && (
-        <footer className="py-8 text-center relative z-10">
-          <p className="text-[var(--cx-text-muted)]/50 text-sm">
-            &copy; {new Date().getFullYear()} CutX — Tous droits réservés
-          </p>
-        </footer>
-      )}
+          {/* Bottom bar - inside right panel */}
+          {hasFiles && (
+            <WorkspaceBottomBar
+              totalFiles={fileImport.totalFiles}
+              assignedFiles={assignedCount}
+              totalPieces={fileImport.totalLines}
+              allAssigned={fileImport.allFilesHavePanel}
+              onConfigureAll={handleConfigureAll}
+              onReset={fileImport.resetImport}
+            />
+          )}
+        </div>
+      </main>
 
       {/* Panel action popup */}
       <PanelActionPopup
@@ -347,6 +404,26 @@ function HomePageContent() {
         importedFiles={fileImport.filesWithoutPanel}
         onAssignPanelToFiles={fileImport.assignPanelToFiles}
       />
+    </div>
+  );
+}
+
+// Empty state drop zone for right panel - uses shared DropZoneVisual for consistency
+function EmptyDropZone({ isDragging }: { isDragging: boolean }) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex-shrink-0 p-4 border-b border-[var(--cx-border)]">
+        <div className="flex items-center gap-3">
+          <Upload className="w-5 h-5 text-amber-500/70" />
+          <h2 className="text-base font-semibold text-[var(--cx-text)]">Fichiers</h2>
+        </div>
+      </div>
+
+      {/* Drop zone content - same visual as AddMoreFilesZone in FilesPanel */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        <DropZoneVisual isDragging={isDragging} />
+      </div>
     </div>
   );
 }

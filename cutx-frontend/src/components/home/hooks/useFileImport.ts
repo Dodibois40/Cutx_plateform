@@ -34,6 +34,22 @@ export interface ThicknessBreakdown {
   lines: LignePrestationV3[];
 }
 
+// Detected file format
+export type DetectedFormat = 'bouney' | 'ideabois' | 'debit' | 'dxf' | 'inconnu';
+
+// Detection summary for display
+export interface DetectionSummary {
+  format: DetectedFormat;
+  formatLabel: string; // Human-readable label
+  columnsDetected: string[]; // e.g., ['Longueur', 'Largeur', 'Quantité', 'Chants']
+  hasEdgeBanding: boolean;
+  edgeBandingCount: number; // Number of pieces with at least one edge
+  hasMaterial: boolean;
+  materialHint: string | null; // Detected material name
+  uniqueDimensions: number; // Number of unique L×l combinations
+  totalQuantity: number; // Sum of all quantities
+}
+
 // Multi-file data structure with thickness analysis
 export interface ImportedFileData {
   id: string;
@@ -44,6 +60,8 @@ export interface ImportedFileData {
   thicknessBreakdown: ThicknessBreakdown[];
   primaryThickness: number; // Most frequent thickness
   isMixedThickness: boolean; // True if multiple thicknesses
+  // Detection info
+  detection: DetectionSummary;
   // Assigned panel (set when user assigns a panel to this file)
   assignedPanel?: SearchProduct;
 }
@@ -78,6 +96,62 @@ export interface UseFileImportReturn {
 }
 
 // === HELPER FUNCTIONS ===
+
+/**
+ * Get human-readable format label
+ */
+function getFormatLabel(format: DetectedFormat): string {
+  switch (format) {
+    case 'bouney': return 'Bouney';
+    case 'ideabois': return 'IDEA Bois';
+    case 'debit': return 'Feuille de débit';
+    case 'dxf': return 'DXF (CAO)';
+    default: return 'Format inconnu';
+  }
+}
+
+/**
+ * Analyze lines to build detection summary
+ */
+function analyzeDetection(
+  lines: LignePrestationV3[],
+  format: DetectedFormat,
+  materialHint: string | null
+): DetectionSummary {
+  // Count pieces with edge banding
+  let edgeBandingCount = 0;
+  const dimensionsSet = new Set<string>();
+
+  for (const line of lines) {
+    // Check if has any edge banding
+    const chants = line.chants || {};
+    const hasChant = chants.A || chants.B || chants.C || chants.D;
+    if (hasChant) edgeBandingCount++;
+
+    // Track unique dimensions
+    if (line.dimensions?.longueur && line.dimensions?.largeur) {
+      dimensionsSet.add(`${line.dimensions.longueur}×${line.dimensions.largeur}`);
+    }
+  }
+
+  // Determine what columns were detected
+  const columnsDetected: string[] = ['Dimensions'];
+  if (lines.some(l => l.reference)) columnsDetected.push('Référence');
+  if (edgeBandingCount > 0) columnsDetected.push('Chants');
+  if (materialHint) columnsDetected.push('Matériau');
+
+  return {
+    format,
+    formatLabel: getFormatLabel(format),
+    columnsDetected,
+    hasEdgeBanding: edgeBandingCount > 0,
+    edgeBandingCount,
+    hasMaterial: !!materialHint,
+    materialHint,
+    uniqueDimensions: dimensionsSet.size,
+    totalQuantity: lines.length,
+  };
+}
 
 /**
  * Analyze thickness distribution in a set of lines
@@ -120,33 +194,34 @@ const PENDING_FILES_KEY = 'cutx_pending_import_files';
 export function useFileImport(): UseFileImportReturn {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importedFiles, setImportedFiles] = useState<ImportedFileData[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Initialize from sessionStorage to restore files after navigation
-  const [importedFiles, setImportedFiles] = useState<ImportedFileData[]>(() => {
-    if (typeof window === 'undefined') return [];
+  // Restore from sessionStorage ONLY after hydration (client-side only)
+  useEffect(() => {
+    setIsHydrated(true);
     try {
       const stored = sessionStorage.getItem(PENDING_FILES_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as ImportedFileData[];
         console.log('[useFileImport] Restored', parsed.length, 'files from sessionStorage');
-        return parsed;
+        setImportedFiles(parsed);
       }
     } catch (e) {
       console.error('[useFileImport] Error restoring files:', e);
     }
-    return [];
-  });
+  }, []);
 
-  // Persist to sessionStorage whenever importedFiles changes
+  // Persist to sessionStorage whenever importedFiles changes (only after hydration)
   useEffect(() => {
+    if (!isHydrated) return; // Skip during SSR/initial render
     if (importedFiles.length > 0) {
       sessionStorage.setItem(PENDING_FILES_KEY, JSON.stringify(importedFiles));
       console.log('[useFileImport] Saved', importedFiles.length, 'files to sessionStorage');
     } else {
       sessionStorage.removeItem(PENDING_FILES_KEY);
-      console.log('[useFileImport] Cleared sessionStorage (no files)');
     }
-  }, [importedFiles]);
+  }, [importedFiles, isHydrated]);
 
   // Computed values
   const totalLines = useMemo(
@@ -239,6 +314,8 @@ export function useFileImport(): UseFileImportReturn {
     setIsImporting(true);
     setImportError(null);
     let foundReference: string | null = null;
+    let detectedFormat: DetectedFormat = 'inconnu';
+    let materialHint: string | null = null;
 
     try {
       // Validate file size
@@ -269,6 +346,24 @@ export function useFileImport(): UseFileImportReturn {
         const { donnees } = result;
         foundReference = donnees.referenceChantier || null;
 
+        // Detect format from file name patterns or content
+        const fileName = file.name.toLowerCase();
+        if (fileName.includes('bouney')) {
+          detectedFormat = 'bouney';
+        } else if (fileName.includes('idea') || fileName.includes('fiche')) {
+          detectedFormat = 'ideabois';
+        } else if (fileName.includes('debit')) {
+          detectedFormat = 'debit';
+        } else {
+          // Default to debit if we got data
+          detectedFormat = 'debit';
+        }
+
+        // Extract material hint
+        if (donnees.materiau) {
+          materialHint = donnees.materiau.nom || null;
+        }
+
         for (const ligneImport of donnees.lignes) {
           for (let i = 1; i <= ligneImport.quantite; i++) {
             const suffixe = ligneImport.quantite > 1 ? ` (${i}/${ligneImport.quantite})` : '';
@@ -284,6 +379,7 @@ export function useFileImport(): UseFileImportReturn {
 
             if (ligneImport.materiau) {
               nouvelleLigne.materiau = ligneImport.materiau;
+              if (!materialHint) materialHint = ligneImport.materiau.nom || null;
             } else if (donnees.materiau) {
               nouvelleLigne.materiau = donnees.materiau;
             }
@@ -294,6 +390,7 @@ export function useFileImport(): UseFileImportReturn {
 
       } else if (extension === 'dxf') {
         console.log('[useFileImport] Parsing DXF file...');
+        detectedFormat = 'dxf';
         const result = await parseDxfFile(file);
         console.log('[useFileImport] DXF result:', result.success, result.erreur, result.donnees?.panels?.length);
         if (!result.success || !result.donnees) {
@@ -343,6 +440,10 @@ export function useFileImport(): UseFileImportReturn {
         breakdown: thicknessAnalysis.thicknessBreakdown.map(t => `${t.thickness}mm: ${t.count}`),
       });
 
+      // Analyze detection
+      const detection = analyzeDetection(lines, detectedFormat, materialHint);
+      console.log('[useFileImport] Detection:', detection);
+
       // Create file data with analysis
       const fileData: ImportedFileData = {
         id: crypto.randomUUID(),
@@ -350,6 +451,7 @@ export function useFileImport(): UseFileImportReturn {
         lines,
         foundReference,
         ...thicknessAnalysis,
+        detection,
       };
 
       // Add to list (append, don't replace)

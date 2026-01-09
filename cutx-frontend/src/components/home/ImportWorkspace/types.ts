@@ -17,6 +17,9 @@ export interface FilesPanelProps {
   onRemoveFile: (fileId: string) => void;
   onUnassignPanel: (fileId: string) => void;
   onAssignPanel: (fileId: string, panel: SearchProduct) => void;
+  // File drop for adding more files
+  onFileDrop?: (file: File) => void;
+  isImporting?: boolean;
 }
 
 // Workspace file card props (larger, with drop zone)
