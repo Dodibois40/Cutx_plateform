@@ -199,7 +199,10 @@ function buildPanelSearchQuery(
 
   // Priority 1: Specific reference from filename (H1180, U999, etc.)
   if (filenameHasSpecificRef && fromFilename) {
-    return { query: fromFilename.query, label: fromFilename.label };
+    // Include thickness for better filtering
+    const query = `${fromFilename.query} ${thickness}`;
+    const label = `${fromFilename.label} ${thickness}mm`;
+    return { query, label };
   }
 
   // Priority 2: Specific reference from material
@@ -207,7 +210,9 @@ function buildPanelSearchQuery(
     const eggerMatch = materialHint.match(/\b([HUW]\d{3,4})\b/i);
     if (eggerMatch) {
       const eggerRef = eggerMatch[1].toUpperCase();
-      return { query: eggerRef, label: materialHint };
+      // Include thickness for better filtering
+      const query = `${eggerRef} ${thickness}`;
+      return { query, label: `${materialHint} ${thickness}mm` };
     }
   }
 
