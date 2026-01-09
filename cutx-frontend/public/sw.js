@@ -1,9 +1,9 @@
 // CutX Service Worker
-// Version: 1.0.0
+// Version: 1.0.1
 
-const CACHE_NAME = 'cutx-cache-v1';
-const STATIC_CACHE_NAME = 'cutx-static-v1';
-const API_CACHE_NAME = 'cutx-api-v1';
+const CACHE_NAME = 'cutx-cache-v2';
+const STATIC_CACHE_NAME = 'cutx-static-v2';
+const API_CACHE_NAME = 'cutx-api-v2';
 
 // Assets statiques à pré-cacher
 const STATIC_ASSETS = [
