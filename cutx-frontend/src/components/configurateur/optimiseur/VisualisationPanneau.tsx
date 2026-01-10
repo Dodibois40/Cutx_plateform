@@ -28,7 +28,7 @@ export default function VisualisationPanneau({
 }: VisualisationPanneauProps) {
   // Ref pour mesurer le container
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 450 });
 
   // Observer la taille du container
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function VisualisationPanneau({
   const chantStroke = 4;
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 400 }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 350 }}>
     <svg
       viewBox={`0 0 ${width} ${height}`}
       width="100%"
