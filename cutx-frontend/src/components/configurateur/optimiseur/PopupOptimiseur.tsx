@@ -83,7 +83,8 @@ export default function PopupOptimiseur({
   const [showFallbackNotice, setShowFallbackNotice] = useState(false);
 
   // Options d'optimisation
-  const [splitStrategy, setSplitStrategy] = useState<SplitStrategy>('shorter_leftover');
+  // Par défaut: Horizontal (vertical_first) pour découpe manuelle
+  const [splitStrategy, setSplitStrategy] = useState<SplitStrategy>('vertical_first');
   const [showOptions, setShowOptions] = useState(false);
 
   // Ref pour annuler les requêtes API en cours
@@ -519,10 +520,32 @@ export default function PopupOptimiseur({
                     <span>Optimisation</span>
                   </div>
                   <div className="strategy-chips">
+                    {/* Groupe 1: Découpe manuelle (guillotine) */}
+                    <button
+                      className={`strategy-chip ${splitStrategy === 'vertical_first' ? 'active' : ''}`}
+                      onClick={() => setSplitStrategy('vertical_first')}
+                      title="Coupes horizontales traversantes - idéal pour découpe manuelle"
+                    >
+                      <span className="cut-icon horizontal">━</span>
+                      <span>Horizontal</span>
+                    </button>
+                    <button
+                      className={`strategy-chip ${splitStrategy === 'horizontal_first' ? 'active' : ''}`}
+                      onClick={() => setSplitStrategy('horizontal_first')}
+                      title="Coupes verticales traversantes - idéal pour découpe manuelle"
+                    >
+                      <span className="cut-icon vertical">┃</span>
+                      <span>Vertical</span>
+                    </button>
+
+                    {/* Séparateur visuel */}
+                    <div className="strategy-separator" />
+
+                    {/* Groupe 2: Optimisation automatique (CNC) */}
                     <button
                       className={`strategy-chip ${splitStrategy === 'shorter_leftover' ? 'active' : ''}`}
                       onClick={() => setSplitStrategy('shorter_leftover')}
-                      title="Minimiser les chutes, efficacité maximale"
+                      title="Minimiser les chutes - pour CNC"
                     >
                       <Zap size={14} />
                       <span>Efficacité max</span>
@@ -530,26 +553,10 @@ export default function PopupOptimiseur({
                     <button
                       className={`strategy-chip ${splitStrategy === 'longer_leftover' ? 'active' : ''}`}
                       onClick={() => setSplitStrategy('longer_leftover')}
-                      title="Maximiser les grandes chutes réutilisables"
+                      title="Maximiser les grandes chutes réutilisables - pour CNC"
                     >
                       <Maximize2 size={14} />
                       <span>Grandes chutes</span>
-                    </button>
-                    <button
-                      className={`strategy-chip ${splitStrategy === 'horizontal_first' ? 'active' : ''}`}
-                      onClick={() => setSplitStrategy('horizontal_first')}
-                      title="Coupes horizontales d'abord"
-                    >
-                      <span className="cut-icon horizontal">━</span>
-                      <span>Horizontal</span>
-                    </button>
-                    <button
-                      className={`strategy-chip ${splitStrategy === 'vertical_first' ? 'active' : ''}`}
-                      onClick={() => setSplitStrategy('vertical_first')}
-                      title="Coupes verticales d'abord"
-                    >
-                      <span className="cut-icon vertical">┃</span>
-                      <span>Vertical</span>
                     </button>
                   </div>
                 </div>
@@ -922,6 +929,13 @@ export default function PopupOptimiseur({
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.5rem;
+          }
+
+          .strategy-separator {
+            grid-column: 1 / -1;
+            height: 1px;
+            background: var(--admin-border-subtle);
+            margin: 0.25rem 0;
           }
 
           .strategy-chip {

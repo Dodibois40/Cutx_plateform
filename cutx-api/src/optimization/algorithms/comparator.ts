@@ -102,6 +102,10 @@ const ALL_CONFIGS = [...GUILLOTINE_CONFIGS, ...SHELF_CONFIGS, ...MAXRECTS_CONFIG
 
 /**
  * Compare tous les algorithmes et retourne le meilleur resultat
+ *
+ * IMPORTANT: Si splitStrategy est 'horizontal_first' ou 'vertical_first',
+ * seul l'algorithme Guillotine est utilisé car MaxRects et Shelf
+ * ne respectent pas la contrainte de coupe guillotine.
  */
 export function comparAlgorithms(
   pieces: CuttingPiece[],
@@ -115,8 +119,26 @@ export function comparAlgorithms(
   // Calculer l'aire du panneau
   const sheetArea = sheet.dimensions.length * sheet.dimensions.width;
 
+  // IMPORTANT: Certaines strategies necessitent l'algorithme Guillotine
+  // car MaxRects et Shelf ignorent le splitStrategy
+  //
+  // - horizontal_first / vertical_first : contrainte de coupe traversante
+  // - longer_leftover : optimise les grandes chutes (Guillotine respecte cette strategie)
+  // - shorter_leftover / min_area : tous les algorithmes peuvent etre utilises
+  const requiresGuillotine =
+    params.splitStrategy === 'horizontal_first' ||
+    params.splitStrategy === 'vertical_first' ||
+    params.splitStrategy === 'longer_leftover';
+
+  const effectiveConfigs = requiresGuillotine
+    ? configs.filter(c => c.algorithm === 'guillotine')
+    : configs;
+
+  // Si aucune config Guillotine disponible, utiliser les configs par defaut
+  const finalConfigs = effectiveConfigs.length > 0 ? effectiveConfigs : GUILLOTINE_CONFIGS;
+
   // Executer chaque configuration
-  for (const config of configs) {
+  for (const config of finalConfigs) {
     const result = runAlgorithm(pieces, sheet, params, config, sheetArea);
     results.push(result);
   }
@@ -265,6 +287,9 @@ function sortPiecesForAlgorithm(
 
 /**
  * Optimisation rapide: teste seulement les meilleures configurations
+ *
+ * Note: Si splitStrategy est horizontal_first ou vertical_first,
+ * seules les configurations Guillotine seront utilisées (filtrage dans comparAlgorithms)
  */
 export function quickOptimize(
   pieces: CuttingPiece[],
@@ -272,9 +297,12 @@ export function quickOptimize(
   params: OptimizationParams = DEFAULT_OPTIMIZATION_PARAMS,
 ): ComparisonResult {
   // Configurations optimales pour la plupart des cas
+  // Note: comparAlgorithms filtrera automatiquement si horizontal/vertical_first
   const quickConfigs: AlgorithmConfig[] = [
-    { algorithm: 'maxrects', heuristic: 'bssf', sortStrategy: 'area_desc' },
     { algorithm: 'guillotine', heuristic: 'best_area_fit', sortStrategy: 'area_desc' },
+    { algorithm: 'guillotine', heuristic: 'best_short_side_fit', sortStrategy: 'area_desc' },
+    { algorithm: 'guillotine', heuristic: 'bottom_left', sortStrategy: 'max_side_desc' },
+    { algorithm: 'maxrects', heuristic: 'bssf', sortStrategy: 'area_desc' },
     { algorithm: 'shelf', heuristic: 'best_fit', sortStrategy: 'height_desc' },
   ];
 

@@ -367,6 +367,10 @@ function calculateStats(
 /**
  * Execute plusieurs iterations avec differentes strategies
  * et garde le meilleur resultat
+ *
+ * IMPORTANT: Si l'utilisateur a specifié horizontal_first ou vertical_first,
+ * on respecte cette contrainte et on ne varie que les autres parametres
+ * car ces modes correspondent a des contraintes physiques de decoupe
  */
 export async function optimizeWithIterations(
   pieces: CuttingPiece[],
@@ -378,32 +382,68 @@ export async function optimizeWithIterations(
     ...params,
   };
 
+  // Verifier si l'utilisateur a demande un mode qui necessite Guillotine
+  // - horizontal_first / vertical_first : contrainte de coupe traversante
+  // - longer_leftover : optimise les grandes chutes (doit utiliser Guillotine)
+  const requiresGuillotine =
+    fullParams.splitStrategy === 'horizontal_first' ||
+    fullParams.splitStrategy === 'vertical_first' ||
+    fullParams.splitStrategy === 'longer_leftover';
+
+  // Strategies a tester
+  // Si mode guillotine requis, on garde le splitStrategy de l'utilisateur
+  // et on varie seulement sorting et placement
   const strategies: Array<{
     sorting: string;
     placement: string;
     split: string;
-  }> = [
-    {
-      sorting: 'area_desc',
-      placement: 'best_area_fit',
-      split: 'shorter_leftover',
-    },
-    {
-      sorting: 'area_desc',
-      placement: 'best_short_side_fit',
-      split: 'shorter_leftover',
-    },
-    {
-      sorting: 'max_side_desc',
-      placement: 'best_area_fit',
-      split: 'longer_leftover',
-    },
-    {
-      sorting: 'perimeter_desc',
-      placement: 'bottom_left',
-      split: 'min_area',
-    },
-  ];
+  }> = requiresGuillotine
+    ? [
+        // Mode guillotine: garder le split de l'utilisateur, varier le reste
+        {
+          sorting: 'area_desc',
+          placement: 'best_area_fit',
+          split: fullParams.splitStrategy,
+        },
+        {
+          sorting: 'area_desc',
+          placement: 'best_short_side_fit',
+          split: fullParams.splitStrategy,
+        },
+        {
+          sorting: 'max_side_desc',
+          placement: 'bottom_left',
+          split: fullParams.splitStrategy,
+        },
+        {
+          sorting: 'perimeter_desc',
+          placement: 'best_area_fit',
+          split: fullParams.splitStrategy,
+        },
+      ]
+    : [
+        // Mode normal: essayer differentes strategies de split
+        {
+          sorting: 'area_desc',
+          placement: 'best_area_fit',
+          split: 'shorter_leftover',
+        },
+        {
+          sorting: 'area_desc',
+          placement: 'best_short_side_fit',
+          split: 'shorter_leftover',
+        },
+        {
+          sorting: 'max_side_desc',
+          placement: 'best_area_fit',
+          split: 'longer_leftover',
+        },
+        {
+          sorting: 'perimeter_desc',
+          placement: 'bottom_left',
+          split: 'min_area',
+        },
+      ];
 
   let bestResult: OptimizeResult | null = null;
 
