@@ -24,6 +24,11 @@ export interface FilesPanelProps {
   onSearchPanel?: (query: string) => void;
   // Split by thickness trigger
   onSplitByThickness?: (fileId: string) => void;
+  // Edge banding (chant) - search, suggestion click, drop, and clear
+  onSearchChant?: (file: ImportedFileData) => void;
+  onSearchSuggestedChant?: (file: ImportedFileData) => void;
+  onAssignChant?: (fileId: string, chant: SearchProduct) => void;
+  onClearChant?: (fileId: string) => void;
 }
 
 // Workspace file card props (larger, with drop zone)

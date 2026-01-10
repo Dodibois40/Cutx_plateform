@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, ChevronDown, ChevronRight, FileSpreadsheet, FileCode, X, Check, ArrowRight, Loader2, Search, Scissors } from 'lucide-react';
+import { Upload, ChevronDown, ChevronRight, FileSpreadsheet, FileCode, X, Check, ArrowRight, Loader2, Search, Scissors, Plus } from 'lucide-react';
 import Image from 'next/image';
 import type { FilesPanelProps } from './types';
 import type { SearchProduct } from '../types';
@@ -24,7 +24,14 @@ export default function FilesPanel({
   isImporting = false,
   onSearchPanel,
   onSplitByThickness,
-}: FilesPanelProps) {
+  onSearchChant,
+  onSearchSuggestedChant,
+  onAssignChant,
+  onClearChant,
+}: FilesPanelProps & {
+  onSearchSuggestedChant?: (file: ImportedFileData) => void;
+  onAssignChant?: (fileId: string, chant: SearchProduct) => void;
+}) {
   // Track which files are expanded (multiple can be expanded)
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(new Set());
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -149,6 +156,10 @@ export default function FilesPanel({
                   onDrop={(panel) => onAssignPanel(file.id, panel)}
                   onSearchPanel={onSearchPanel}
                   onSplitByThickness={onSplitByThickness}
+                  onSearchChant={onSearchChant}
+                  onSearchSuggestedChant={onSearchSuggestedChant}
+                  onDropChant={onAssignChant ? (chant) => onAssignChant(file.id, chant) : undefined}
+                  onClearChant={onClearChant}
                   isCompact={files.length > 10 && !expandedFileIds.has(file.id)}
                 />
               </div>
@@ -183,6 +194,10 @@ interface AccordionFileCardProps {
   onDrop: (panel: SearchProduct) => void;
   onSearchPanel?: (query: string) => void;
   onSplitByThickness?: (fileId: string) => void;
+  onSearchChant?: (file: ImportedFileData) => void;
+  onSearchSuggestedChant?: (file: ImportedFileData) => void;
+  onDropChant?: (chant: SearchProduct) => void;
+  onClearChant?: (fileId: string) => void;
   isCompact?: boolean;
 }
 
@@ -195,9 +210,14 @@ function AccordionFileCard({
   onDrop,
   onSearchPanel,
   onSplitByThickness,
+  onSearchChant,
+  onSearchSuggestedChant,
+  onDropChant,
+  onClearChant,
   isCompact = false,
 }: AccordionFileCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isChantDragOver, setIsChantDragOver] = useState(false);
 
   const hasPanel = !!file.assignedPanel;
   const isDxf = file.name.toLowerCase().endsWith('.dxf');
@@ -409,6 +429,46 @@ function AccordionFileCard({
             </button>
           )}
 
+          {/* Edge banding (Chant) section - with drop zone and suggestion */}
+          {(file.detection?.hasEdgeBanding || file.detection?.edgeBandingCount > 0 || file.assignedChant) && (
+            <ChantDropZone
+              file={file}
+              isDragOver={isChantDragOver}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.dataTransfer.types.includes('application/json')) {
+                  setIsChantDragOver(true);
+                }
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsChantDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsChantDragOver(false);
+                try {
+                  const data = e.dataTransfer.getData('application/json');
+                  if (data) {
+                    const product = JSON.parse(data) as SearchProduct;
+                    // Only accept edge banding products
+                    if (product.productType === 'BANDE_DE_CHANT') {
+                      onDropChant?.(product);
+                    }
+                  }
+                } catch (err) {
+                  console.error('Failed to parse dropped chant:', err);
+                }
+              }}
+              onSearchChant={onSearchChant ? () => onSearchChant(file) : undefined}
+              onSearchSuggestedChant={onSearchSuggestedChant ? () => onSearchSuggestedChant(file) : undefined}
+              onClearChant={onClearChant ? () => onClearChant(file.id) : undefined}
+            />
+          )}
+
           {/* Reference if found */}
           {file.foundReference && (
             <div className="text-[10px] text-[var(--cx-text-muted)]">
@@ -551,6 +611,136 @@ function AddMoreFilesZone({ isDragging, isImporting, onDragOver, onDragLeave, on
       className="mt-6 py-4"
     >
       <DropZoneVisual isDragging={isDragging} isImporting={isImporting} compact />
+    </div>
+  );
+}
+
+// Chant (Edge Banding) Drop Zone with suggestion
+interface ChantDropZoneProps {
+  file: ImportedFileData;
+  isDragOver: boolean;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+  onSearchChant?: () => void;
+  onSearchSuggestedChant?: () => void;
+  onClearChant?: () => void;
+}
+
+function ChantDropZone({
+  file,
+  isDragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onSearchChant,
+  onSearchSuggestedChant,
+  onClearChant,
+}: ChantDropZoneProps) {
+  const hasChant = !!file.assignedChant;
+  const hasPanel = !!file.assignedPanel;
+  const suggestedRef = hasPanel && file.assignedPanel?.refFabricant;
+
+  // If chant is assigned - show with remove option
+  if (hasChant && file.assignedChant) {
+    return (
+      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+        <div className="flex items-center gap-2">
+          {file.assignedChant.imageUrl && (
+            <div className="relative w-8 h-8 rounded overflow-hidden flex-shrink-0">
+              <Image
+                src={file.assignedChant.imageUrl}
+                alt=""
+                fill
+                className="object-cover"
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-amber-400">Bande de chant</p>
+            <p className="text-xs font-medium text-[var(--cx-text)] truncate">
+              {file.assignedChant.nom}
+            </p>
+            {file.assignedChant.epaisseur && (
+              <p className="text-[10px] text-[var(--cx-text-muted)]">
+                {file.assignedChant.epaisseur}mm
+              </p>
+            )}
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClearChant?.();
+            }}
+            className="flex-shrink-0 p-1 text-[var(--cx-text-muted)] hover:text-red-400 transition-colors"
+            title="Supprimer le chant"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No chant assigned - show drop zone with suggestion
+  return (
+    <div
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={`p-2 rounded-lg border border-dashed transition-all ${
+        isDragOver
+          ? 'bg-amber-500/20 border-amber-500'
+          : 'bg-white/5 border-[var(--cx-border)] hover:border-amber-500/30'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${
+          isDragOver ? 'bg-amber-500/20' : 'bg-white/5'
+        }`}>
+          <Plus className={`w-4 h-4 ${isDragOver ? 'text-amber-400' : 'text-[var(--cx-text-muted)]'}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          {isDragOver ? (
+            <p className="text-xs text-amber-400 font-medium">
+              Déposez le chant ici
+            </p>
+          ) : suggestedRef ? (
+            // Panel has a manufacturer ref - show suggestion
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSearchSuggestedChant?.();
+              }}
+              className="text-left w-full group"
+            >
+              <p className="text-[10px] text-amber-400">Chant suggéré</p>
+              <p className="text-xs text-[var(--cx-text)] group-hover:text-amber-400 transition-colors truncate">
+                {suggestedRef}
+                <ArrowRight className="w-3 h-3 inline ml-1 opacity-50 group-hover:opacity-100" />
+              </p>
+            </button>
+          ) : (
+            // No suggestion - show add button
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSearchChant?.();
+              }}
+              className="text-left w-full"
+            >
+              <p className="text-xs text-[var(--cx-text-muted)] hover:text-amber-400 transition-colors">
+                + Ajouter bande de chant
+              </p>
+            </button>
+          )}
+        </div>
+      </div>
+      {!isDragOver && (
+        <p className="text-[9px] text-[var(--cx-text-muted)]/50 mt-1 ml-10">
+          Glissez un chant depuis la bibliothèque
+        </p>
+      )}
     </div>
   );
 }

@@ -39,6 +39,8 @@ export interface GroupConfig {
   panel: SearchProduct;
   lines: LignePrestationV3[];
   sourceFileNames: string[];
+  // Optional edge banding (chant) to apply to lines
+  chant?: SearchProduct;
 }
 
 export const MULTI_GROUP_CONFIG_KEY = 'cutx_multi_group_config';

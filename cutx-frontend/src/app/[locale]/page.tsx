@@ -80,6 +80,8 @@ function HomePageContent() {
   const [splitModalFileId, setSplitModalFileId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLaunchMessage, setShowLaunchMessage] = useState(false);
+  // Chant (edge banding) search mode - tracks which file we're searching chant for
+  const [searchingChantForFileId, setSearchingChantForFileId] = useState<string | null>(null);
 
   // File import hook for DXF/XLSX dropped on homepage
   const fileImport = useFileImport();
@@ -158,10 +160,50 @@ function HomePageContent() {
     }
   }, [fileImport.importedFiles, selectedFileId]);
 
-  // Handle product click
+  // Handle product click - in chant search mode, assign chant directly
   const handleProductClick = useCallback((product: SearchProduct) => {
-    setSelectedProduct(product);
-  }, []);
+    if (searchingChantForFileId) {
+      // In chant search mode - assign chant and exit mode
+      fileImport.assignChantToFile(searchingChantForFileId, product);
+      setSearchingChantForFileId(null);
+      // Don't clear search - user might want to continue browsing
+    } else {
+      // Normal mode - open product popup
+      setSelectedProduct(product);
+    }
+  }, [searchingChantForFileId, fileImport]);
+
+  // Handle chant search - triggered from FilesPanel "Ajouter bande de chant" button
+  const handleSearchChant = useCallback((file: import('@/components/home/hooks/useFileImport').ImportedFileData) => {
+    setSearchingChantForFileId(file.id);
+    // Set search query to detected chant name or "chant" keyword
+    const searchTerm = file.detection?.detectedChantNames?.[0] || 'chant';
+    setQuery(searchTerm);
+  }, [setQuery]);
+
+  // Handle clear chant - triggered from FilesPanel
+  const handleClearChant = useCallback((fileId: string) => {
+    fileImport.clearChantFromFile(fileId);
+  }, [fileImport]);
+
+  // Handle chant suggestion click - search for matching chants with the manufacturer ref
+  // User clicks on "Chant suggéré: H1180" → opens search filtered to edge bandings
+  const handleSearchSuggestedChant = useCallback((file: import('@/components/home/hooks/useFileImport').ImportedFileData) => {
+    const manufacturerRef = file.assignedPanel?.refFabricant;
+    if (!manufacturerRef) return;
+
+    // Enter chant search mode for this file
+    setSearchingChantForFileId(file.id);
+    // Search for chants matching the panel's manufacturer ref
+    setQuery(`chant ${manufacturerRef}`);
+    console.log(`[ChantSuggestion] Searching for chant matching: ${manufacturerRef}`);
+  }, [setQuery]);
+
+  // Cancel chant search mode when user clears search or goes home
+  const handleGoHome = useCallback(() => {
+    setSearchingChantForFileId(null);
+    goHome();
+  }, [goHome]);
 
   // Handle load more
   const handleLoadMore = useCallback(() => {
@@ -252,10 +294,13 @@ function HomePageContent() {
     const groupConfigs: GroupConfig[] = [];
     for (const [, files] of panelGroups) {
       const panel = files[0].assignedPanel!;
+      // Use first file's chant if available (all files in group typically share the same chant)
+      const chant = files.find(f => f.assignedChant)?.assignedChant;
       groupConfigs.push({
         panel,
         lines: files.flatMap(f => f.lines),
         sourceFileNames: files.map(f => f.name),
+        chant,
       });
     }
 
@@ -353,7 +398,7 @@ function HomePageContent() {
                 <div className="flex items-center gap-6">
                   {/* Logo - clickable to return home */}
                   <button
-                    onClick={goHome}
+                    onClick={handleGoHome}
                     className="text-3xl font-black tracking-tighter hover:opacity-80 transition-opacity flex-shrink-0"
                   >
                     <span className="text-white">Cut</span>
@@ -370,6 +415,20 @@ function HomePageContent() {
                       isCompact={true}
                       autoFocus={true}
                     />
+                    {/* Chant search mode indicator */}
+                    {searchingChantForFileId && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full">
+                          Sélectionnez une bande de chant
+                        </span>
+                        <button
+                          onClick={() => setSearchingChantForFileId(null)}
+                          className="text-xs text-[var(--cx-text-muted)] hover:text-amber-400 transition-colors"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -434,6 +493,10 @@ function HomePageContent() {
                 isImporting={fileImport.isImporting}
                 onSearchPanel={setQuery}
                 onSplitByThickness={handleOpenSplitModal}
+                onSearchChant={handleSearchChant}
+                onSearchSuggestedChant={handleSearchSuggestedChant}
+                onAssignChant={fileImport.assignChantToFile}
+                onClearChant={handleClearChant}
               />
             ) : (
               <EmptyDropZone isDragging={isDraggingOnPanel} />

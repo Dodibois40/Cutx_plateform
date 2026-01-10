@@ -51,6 +51,8 @@ export interface DetectionSummary {
   // Auto-detected panel search
   panelSearchQuery: string | null; // Query to search for the panel
   panelSearchLabel: string | null; // Human-readable label for the detected panel
+  // Detected edge banding names from file (e.g., "U999", "H1180 ST37", "ABS Blanc")
+  detectedChantNames: string[];
 }
 
 // Multi-file data structure with thickness analysis
@@ -67,6 +69,8 @@ export interface ImportedFileData {
   detection: DetectionSummary;
   // Assigned panel (set when user assigns a panel to this file)
   assignedPanel?: SearchProduct;
+  // Assigned edge banding (optional - set when user assigns a chant to this file)
+  assignedChant?: SearchProduct;
   // Split-related fields
   parentFileId?: string; // ID of original file if this is a sub-file from split
   splitThickness?: number; // The thickness this sub-file represents
@@ -96,6 +100,9 @@ export interface UseFileImportReturn {
   assignPanelToFile: (fileId: string, panel: SearchProduct) => void;
   assignPanelToFiles: (fileIds: string[], panel: SearchProduct) => void;
   unassignPanel: (fileId: string) => void;
+  // Edge banding (chant) assignment
+  assignChantToFile: (fileId: string, chant: SearchProduct) => void;
+  clearChantFromFile: (fileId: string) => void;
   splitFileByThickness: (fileId: string) => void;
   addMockFile: () => string; // Returns fileId - for onboarding demo
   resetImport: () => void;
@@ -312,6 +319,8 @@ function analyzeDetection(
     totalQuantity: lines.length,
     panelSearchQuery: panelSearch.query,
     panelSearchLabel: panelSearch.label,
+    // Edge banding names will be extracted in Phase 2 from Excel columns
+    detectedChantNames: [],
   };
 }
 
@@ -470,6 +479,22 @@ export function useFileImport(): UseFileImportReturn {
     console.log('[useFileImport] Unassigned panel from file:', fileId);
   }, []);
 
+  // Assign edge banding (chant) to a specific file
+  const assignChantToFile = useCallback((fileId: string, chant: SearchProduct) => {
+    setImportedFiles(prev => prev.map(f =>
+      f.id === fileId ? { ...f, assignedChant: chant } : f
+    ));
+    console.log('[useFileImport] Assigned chant to file:', fileId, chant.nom);
+  }, []);
+
+  // Remove edge banding assignment from a file
+  const clearChantFromFile = useCallback((fileId: string) => {
+    setImportedFiles(prev => prev.map(f =>
+      f.id === fileId ? { ...f, assignedChant: undefined } : f
+    ));
+    console.log('[useFileImport] Cleared chant from file:', fileId);
+  }, []);
+
   // Add a mock file for onboarding demo - returns fileId
   const addMockFile = useCallback((): string => {
     const fileId = crypto.randomUUID();
@@ -503,6 +528,7 @@ export function useFileImport(): UseFileImportReturn {
         totalQuantity: 4,
         panelSearchQuery: null,
         panelSearchLabel: null,
+        detectedChantNames: [],
       },
     };
 
@@ -773,6 +799,8 @@ export function useFileImport(): UseFileImportReturn {
     assignPanelToFile,
     assignPanelToFiles,
     unassignPanel,
+    assignChantToFile,
+    clearChantFromFile,
     splitFileByThickness,
     addMockFile,
     resetImport,

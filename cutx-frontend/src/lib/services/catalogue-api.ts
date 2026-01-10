@@ -437,6 +437,60 @@ export async function smartSearch(
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MATCHING CHANT (EDGE BANDING) - Auto-detect matching edge banding
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Find a matching edge banding (chant) for a panel based on manufacturerRef
+ *
+ * When user assigns a panel like "Egger H1180", this function searches for
+ * a matching edge banding with the same manufacturer reference (e.g., "ABS H1180").
+ *
+ * @param manufacturerRef - The manufacturer reference (e.g., "H1180", "U999")
+ * @param thickness - Optional: preferred edge banding thickness (e.g., 0.8, 1, 2)
+ * @returns The best matching edge banding product, or null if not found
+ */
+export async function findMatchingChant(
+  manufacturerRef: string,
+  thickness?: number
+): Promise<CatalogueProduit | null> {
+  if (!manufacturerRef || manufacturerRef.trim() === '') {
+    return null;
+  }
+
+  try {
+    // Search for edge banding with the same manufacturer reference
+    const result = await smartSearch(manufacturerRef, {
+      limit: 10,
+    });
+
+    // Filter to only edge banding products
+    const chants = result.produits.filter(p => p.productType === 'BANDE_DE_CHANT');
+
+    if (chants.length === 0) {
+      console.log(`[findMatchingChant] No chant found for ref: ${manufacturerRef}`);
+      return null;
+    }
+
+    // If thickness preference, try to match it
+    if (thickness) {
+      const matchingThickness = chants.find(c => c.epaisseur === thickness);
+      if (matchingThickness) {
+        console.log(`[findMatchingChant] Found matching chant with thickness ${thickness}:`, matchingThickness.nom);
+        return matchingThickness;
+      }
+    }
+
+    // Return the first match (usually the most relevant based on search ranking)
+    console.log(`[findMatchingChant] Found matching chant:`, chants[0].nom);
+    return chants[0];
+  } catch (error) {
+    console.error('[findMatchingChant] Error searching for matching chant:', error);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // FONCTIONS ADMIN (protégées - nécessitent authentification)
 // ═══════════════════════════════════════════════════════════════
 

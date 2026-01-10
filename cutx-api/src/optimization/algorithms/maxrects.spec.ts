@@ -428,18 +428,21 @@ describe('MaxRects Algorithm - Free Spaces', () => {
     expect(result.freeRects.length).toBeGreaterThan(0);
   });
 
-  test('should filter small free rectangles', () => {
+  test('should return all free rectangles for visual display', () => {
     const sheet = createSheet(2800, 2070);
     const pieces = [{ piece: createPiece('p1', 2700, 2000), originalIndex: 0 }];
 
     const params = createParams({ minOffcutLength: 300, minOffcutWidth: 100 });
     const result = maxRectsPlacement(wrapPieces(pieces), sheet, params);
 
-    // Les chutes trop petites ne devraient pas etre dans freeSpaces
+    // NOTE: maxrects retourne TOUTES les chutes (même petites) pour l'affichage visuel
+    // Le filtrage des chutes "réutilisables" se fait dans multi-sheet-optimizer
+    expect(result.freeSpaces.length).toBeGreaterThan(0);
+
+    // Vérifier que les espaces libres ont bien des dimensions
     for (const space of result.freeSpaces) {
-      expect(
-        space.dimensions.length >= 300 && space.dimensions.width >= 100,
-      ).toBe(true);
+      expect(space.dimensions.length).toBeGreaterThan(0);
+      expect(space.dimensions.width).toBeGreaterThan(0);
     }
   });
 });
