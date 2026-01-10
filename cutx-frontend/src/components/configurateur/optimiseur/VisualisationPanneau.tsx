@@ -28,7 +28,7 @@ export default function VisualisationPanneau({
 }: VisualisationPanneauProps) {
   // Ref pour mesurer le container
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ width: 800, height: 450 });
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
 
   // Observer la taille du container
   useEffect(() => {
