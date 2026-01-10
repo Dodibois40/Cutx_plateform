@@ -13,6 +13,8 @@ import { DevisModule } from './devis/devis.module';
 import { MulticoucheTemplatesModule } from './multicouche-templates/multicouche-templates.module';
 import { CaissonsModule } from './caissons/caissons.module';
 import { UsinagesModule } from './usinages/usinages.module';
+import { OptimizationModule } from './optimization/optimization.module';
+import { PanelsReviewModule } from './panels-review/panels-review.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { UsinagesModule } from './usinages/usinages.module';
     MulticoucheTemplatesModule,
     CaissonsModule,
     UsinagesModule,
+    OptimizationModule,
+    PanelsReviewModule,
   ],
   controllers: [AppController],
   providers: [AppService],

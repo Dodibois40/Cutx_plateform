@@ -83,7 +83,7 @@ model Category {
 }
 
 model Panel {
-  id               String      @id @default(cuid())
+  id               String            @id @default(cuid())
   reference        String
   name             String
   description      String?
@@ -96,17 +96,17 @@ model Panel {
   finish           String?
   colorCode        String?
   imageUrl         String?
-  isActive         Boolean     @default(true)
+  isActive         Boolean           @default(true)
   catalogueId      String
   categoryId       String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   stockStatus      String?
   certification    String?
   colorChoice      String?
   decor            String?
   defaultThickness Float?
-  isVariableLength Boolean     @default(false)
+  isVariableLength Boolean           @default(false)
   manufacturerRef  String?
   pricePerMl       Float?
   pricePerUnit     Float?
@@ -115,11 +115,33 @@ model Panel {
   supplierCode     String?
   supportQuality   String?
   metadata         String?
-  isSponsored      Boolean   @default(false)
+  isSponsored      Boolean           @default(false)
   sponsoredUntil   DateTime?
+  reviewStatus     PanelReviewStatus @default(NON_VERIFIE)
+  reviewedAt       DateTime?
+  reviewedBy       String?
+  coreColor        CoreColor?
+  coreType         CoreType?
+  decorCategory    DecorCategory?
+  decorCode        String?
+  decorName        String?
+  decorSubCategory String?
+  finishCode       String?
+  finishName       String?
+  grainDirection   GrainDirection?
+  isHydrofuge      Boolean           @default(false)
+  isIgnifuge       Boolean           @default(false)
+  isPreglued       Boolean           @default(false)
+  isSynchronized   Boolean           @default(false)
+  isFullRoll       Boolean           @default(false)  // Vente en rouleau complet (pas au mètre)
+  lamellaType      LamellaType?
+  manufacturer     String?
+  panelSubType     ProductSubType?
+  panelType        ProductType?
+  productCategory  ProductCategory?
   devisLines       DevisLine[]
-  catalogue        Catalogue   @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
-  category         Category?   @relation(fields: [categoryId], references: [id])
+  catalogue        Catalogue         @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  category         Category?         @relation(fields: [categoryId], references: [id])
 
   @@unique([catalogueId, reference])
   @@index([catalogueId])
@@ -130,6 +152,11 @@ model Panel {
   @@index([catalogueId, isActive])
   @@index([finish])
   @@index([isSponsored])
+  @@index([reviewStatus])
+  @@index([decorCode])
+  @@index([decorCategory])
+  @@index([panelType])
+  @@index([manufacturer])
 }
 
 model Devis {
@@ -244,6 +271,193 @@ model CutxImportSession {
   @@index([createdAt])
 }
 
+model Fitting {
+  id              String             @id @default(cuid())
+  reference       String             @unique
+  name            String
+  brand           FittingBrand
+  category        FittingCategory
+  drillingPattern String?
+  mountingData    String?
+  specifications  String?
+  minThickness    Float?
+  maxThickness    Float?
+  angle           Int?
+  length          Float?
+  priceHT         Float
+  priceUnit       String             @default("piece")
+  imageUrl        String?
+  documentUrl     String?
+  cadFileUrl      String?
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  cabinetFittings CabinetFitting[]
+  accessories     FittingAccessory[]
+
+  @@index([brand])
+  @@index([category])
+  @@index([isActive])
+}
+
+model FittingAccessory {
+  id         String   @id @default(cuid())
+  reference  String
+  name       String
+  priceHT    Float
+  quantity   Int      @default(1)
+  isRequired Boolean  @default(true)
+  fittingId  String
+  createdAt  DateTime @default(now())
+  fitting    Fitting  @relation(fields: [fittingId], references: [id], onDelete: Cascade)
+
+  @@index([fittingId])
+}
+
+model CabinetTemplate {
+  id                        String      @id @default(cuid())
+  name                      String
+  description               String?
+  type                      CabinetType
+  source                    String      @default("custom")
+  defaultWidth              Int
+  defaultHeight             Int
+  defaultDepth              Int
+  minWidth                  Int         @default(100)
+  maxWidth                  Int         @default(1200)
+  minHeight                 Int         @default(200)
+  maxHeight                 Int         @default(2800)
+  minDepth                  Int         @default(100)
+  maxDepth                  Int         @default(800)
+  defaultStructureThickness Float       @default(19)
+  defaultBackThickness      Float       @default(8)
+  defaultDoorThickness      Float       @default(19)
+  defaultBackType           BackType    @default(APPLIQUE)
+  defaultDoorType           DoorType    @default(APPLIQUE)
+  imageUrl                  String?
+  isActive                  Boolean     @default(true)
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
+  cabinets                  Cabinet[]
+
+  @@index([type])
+  @@index([isActive])
+}
+
+model Cabinet {
+  id                 String            @id @default(cuid())
+  name               String
+  templateId         String?
+  width              Int
+  height             Int
+  depth              Int
+  structureThickness Float
+  backThickness      Float
+  doorThickness      Float?
+  backType           BackType
+  doorType           DoorType?
+  hasDoor            Boolean           @default(true)
+  doorGap            Float             @default(1.5)
+  hingePosition      String?
+  hingeCount         Int?
+  totalPanelsHT      Float             @default(0)
+  totalEdgingHT      Float             @default(0)
+  totalFittingsHT    Float             @default(0)
+  totalDrillingHT    Float             @default(0)
+  totalHT            Float             @default(0)
+  devisId            String?
+  userId             String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  template           CabinetTemplate?  @relation(fields: [templateId], references: [id])
+  drillings          CabinetDrilling[]
+  fittings           CabinetFitting[]
+  panels             CabinetPanel[]
+
+  @@index([templateId])
+  @@index([userId])
+}
+
+model CabinetPanel {
+  id             String            @id @default(cuid())
+  cabinetId      String
+  type           PanelType
+  name           String
+  shortName      String?
+  length         Float
+  width          Float
+  thickness      Float
+  surfaceM2      Float
+  surfaceCharged Float
+  edgeA          Boolean           @default(false)
+  edgeB          Boolean           @default(false)
+  edgeC          Boolean           @default(false)
+  edgeD          Boolean           @default(false)
+  edgeMeters     Float             @default(0)
+  panelId        String?
+  createdAt      DateTime          @default(now())
+  drillings      CabinetDrilling[]
+  cabinet        Cabinet           @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+
+  @@index([cabinetId])
+  @@index([type])
+}
+
+model CabinetDrilling {
+  id          String         @id @default(cuid())
+  cabinetId   String
+  panelId     String
+  x           Float
+  y           Float
+  diameter    Float
+  depth       Float
+  type        DrillingType   @default(BLIND)
+  source      DrillingSource @default(SYSTEM32)
+  fittingId   String?
+  fittingName String?
+  cabinet     Cabinet        @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+  panel       CabinetPanel   @relation(fields: [panelId], references: [id], onDelete: Cascade)
+
+  @@index([cabinetId])
+  @@index([panelId])
+}
+
+model CabinetFitting {
+  id          String  @id @default(cuid())
+  cabinetId   String
+  fittingId   String
+  quantity    Int
+  position    String?
+  unitPriceHT Float
+  totalHT     Float
+  cabinet     Cabinet @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+  fitting     Fitting @relation(fields: [fittingId], references: [id])
+
+  @@index([cabinetId])
+  @@index([fittingId])
+}
+
+model UsinageTemplate {
+  id           String             @id @default(cuid())
+  nom          String
+  slug         String             @unique
+  description  String?
+  iconSvg      String
+  configSchema String
+  technicalSvg String?
+  pricingType  UsinagePricingType
+  priceHT      Float
+  category     UsinageCategory?
+  sortOrder    Int                @default(0)
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([isActive])
+  @@index([category])
+  @@index([sortOrder])
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -274,262 +488,6 @@ enum OrderStatus {
   CANCELLED
 }
 
-// ============================================
-// QUINCAILLERIE & CAISSONS
-// ============================================
-
-// Catalogue de quincaillerie (ferrures)
-model Fitting {
-  id              String             @id @default(cuid())
-  reference       String             @unique
-  name            String
-  brand           FittingBrand
-  category        FittingCategory
-
-  // Donnees techniques
-  drillingPattern String?            // JSON: pattern de percage
-  mountingData    String?            // JSON: donnees installation
-  specifications  String?            // JSON: specs techniques
-
-  // Compatibilite panneaux
-  minThickness    Float?             // Epaisseur min panneau (mm)
-  maxThickness    Float?             // Epaisseur max panneau (mm)
-
-  // Dimensions
-  angle           Int?               // Angle ouverture (charnieres)
-  length          Float?             // Longueur (coulisses)
-
-  // Prix
-  priceHT         Float
-  priceUnit       String             @default("piece")
-
-  // Media
-  imageUrl        String?
-  documentUrl     String?            // Fiche technique PDF
-  cadFileUrl      String?            // Fichier CAD/DXF
-
-  // Relations
-  accessories     FittingAccessory[]
-  cabinetFittings CabinetFitting[]
-
-  isActive        Boolean            @default(true)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  @@index([brand])
-  @@index([category])
-  @@index([isActive])
-}
-
-// Accessoires lies a une ferrure (embase, cache, vis...)
-model FittingAccessory {
-  id          String   @id @default(cuid())
-  reference   String
-  name        String
-  priceHT     Float
-  quantity    Int      @default(1)  // Quantite par ferrure principale
-  isRequired  Boolean  @default(true)
-
-  fittingId   String
-  fitting     Fitting  @relation(fields: [fittingId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime @default(now())
-
-  @@index([fittingId])
-}
-
-// Template de caisson (modeles predefinis)
-model CabinetTemplate {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  type        CabinetType
-  source      String      @default("custom")  // blum, hettich, custom
-
-  // Dimensions par defaut (mm)
-  defaultWidth    Int
-  defaultHeight   Int
-  defaultDepth    Int
-
-  // Contraintes dimensions (mm)
-  minWidth    Int         @default(100)
-  maxWidth    Int         @default(1200)
-  minHeight   Int         @default(200)
-  maxHeight   Int         @default(2800)
-  minDepth    Int         @default(100)
-  maxDepth    Int         @default(800)
-
-  // Epaisseurs par defaut (mm)
-  defaultStructureThickness Float   @default(19)
-  defaultBackThickness      Float   @default(8)
-  defaultDoorThickness      Float   @default(19)
-
-  // Configuration par defaut
-  defaultBackType   BackType    @default(APPLIQUE)
-  defaultDoorType   DoorType    @default(APPLIQUE)
-
-  imageUrl    String?
-
-  // Relations
-  cabinets    Cabinet[]
-
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  @@index([type])
-  @@index([isActive])
-}
-
-// Caisson configure
-model Cabinet {
-  id          String          @id @default(cuid())
-  name        String
-
-  // Template source (optionnel)
-  templateId  String?
-  template    CabinetTemplate? @relation(fields: [templateId], references: [id])
-
-  // Dimensions (mm)
-  width       Int
-  height      Int
-  depth       Int
-
-  // Epaisseurs (mm)
-  structureThickness Float
-  backThickness      Float
-  doorThickness      Float?
-
-  // Configuration
-  backType    BackType
-  doorType    DoorType?
-  hasDoor     Boolean         @default(true)
-  doorGap     Float           @default(1.5)  // Jeu facade (mm)
-
-  // Charnieres
-  hingePosition String?       // gauche, droite
-  hingeCount    Int?
-
-  // Panneaux generes
-  panels      CabinetPanel[]
-
-  // Quincaillerie
-  fittings    CabinetFitting[]
-
-  // Percages calcules
-  drillings   CabinetDrilling[]
-
-  // Prix calcules
-  totalPanelsHT    Float       @default(0)
-  totalEdgingHT    Float       @default(0)
-  totalFittingsHT  Float       @default(0)
-  totalDrillingHT  Float       @default(0)
-  totalHT          Float       @default(0)
-
-  // Lien vers devis (optionnel)
-  devisId     String?
-  userId      String?
-
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  @@index([templateId])
-  @@index([userId])
-}
-
-// Panneau d'un caisson
-model CabinetPanel {
-  id          String   @id @default(cuid())
-
-  cabinetId   String
-  cabinet     Cabinet  @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
-
-  // Type et nom
-  type        PanelType
-  name        String          // "Cote gauche", "Panneau superieur"...
-  shortName   String?         // "CG", "PS"...
-
-  // Dimensions (mm)
-  length      Float
-  width       Float
-  thickness   Float
-
-  // Surface
-  surfaceM2       Float
-  surfaceCharged  Float       // Avec minimum 0.25m2
-
-  // Chants (true = chant applique)
-  edgeA       Boolean         @default(false)  // Longueur cote 1
-  edgeB       Boolean         @default(false)  // Largeur cote 1
-  edgeC       Boolean         @default(false)  // Longueur cote 2
-  edgeD       Boolean         @default(false)  // Largeur cote 2
-  edgeMeters  Float           @default(0)      // Total metres lineaires
-
-  // Percages sur ce panneau
-  drillings   CabinetDrilling[]
-
-  // Reference panneau catalogue (optionnel)
-  panelId     String?
-
-  createdAt   DateTime        @default(now())
-
-  @@index([cabinetId])
-  @@index([type])
-}
-
-// Percage sur un panneau de caisson
-model CabinetDrilling {
-  id          String        @id @default(cuid())
-
-  cabinetId   String
-  cabinet     Cabinet       @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
-
-  panelId     String
-  panel       CabinetPanel  @relation(fields: [panelId], references: [id], onDelete: Cascade)
-
-  // Position sur le panneau (mm depuis coin bas-gauche)
-  x           Float
-  y           Float
-
-  // Caracteristiques du trou
-  diameter    Float         // mm
-  depth       Float         // mm
-  type        DrillingType  @default(BLIND)
-
-  // Origine du percage
-  source      DrillingSource @default(SYSTEM32)
-
-  // Lie a une ferrure (optionnel)
-  fittingId   String?
-  fittingName String?
-
-  @@index([cabinetId])
-  @@index([panelId])
-}
-
-// Ferrure utilisee dans un caisson
-model CabinetFitting {
-  id          String   @id @default(cuid())
-
-  cabinetId   String
-  cabinet     Cabinet  @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
-
-  fittingId   String
-  fitting     Fitting  @relation(fields: [fittingId], references: [id])
-
-  quantity    Int
-  position    String?       // gauche, droite, haut, bas
-
-  // Prix (copie au moment de l'ajout)
-  unitPriceHT Float
-  totalHT     Float
-
-  @@index([cabinetId])
-  @@index([fittingId])
-}
-
-// === ENUMS QUINCAILLERIE ===
-
 enum FittingBrand {
   BLUM
   HETTICH
@@ -540,116 +498,155 @@ enum FittingBrand {
 }
 
 enum FittingCategory {
-  HINGE              // Charnieres
-  DRAWER_RUNNER      // Coulisses tiroirs
-  SHELF_SUPPORT      // Supports etageres
-  CONNECTOR          // Connecteurs (excentrique, tourillon)
-  LIFT_SYSTEM        // Relevables (AVENTOS)
-  DAMPER             // Amortisseurs
-  SLIDE              // Glissieres
+  HINGE
+  DRAWER_RUNNER
+  SHELF_SUPPORT
+  CONNECTOR
+  LIFT_SYSTEM
+  DAMPER
+  SLIDE
 }
 
 enum CabinetType {
-  BASE               // Bas cuisine
-  WALL               // Haut mural
-  TALL               // Colonne
-  DRAWER             // Tiroirs
-  CORNER             // Angle
-  CUSTOM             // Libre
+  BASE
+  WALL
+  TALL
+  DRAWER
+  CORNER
+  CUSTOM
 }
 
 enum BackType {
-  APPLIQUE           // Fond en applique (visse derriere)
-  GROOVE             // Fond dans rainure
-  REBATE             // Fond en feuillure
+  APPLIQUE
+  GROOVE
+  REBATE
 }
 
 enum DoorType {
-  APPLIQUE           // Facade recouvre les cotes
-  INSET              // Facade entre les cotes
+  APPLIQUE
+  INSET
 }
 
 enum PanelType {
-  LEFT_SIDE          // Cote gauche
-  RIGHT_SIDE         // Cote droit
-  TOP                // Dessus
-  BOTTOM             // Dessous
-  BACK               // Fond
-  DOOR               // Porte/Facade
-  SHELF              // Etagere
-  DRAWER_FRONT       // Face tiroir
+  LEFT_SIDE
+  RIGHT_SIDE
+  TOP
+  BOTTOM
+  BACK
+  DOOR
+  SHELF
+  DRAWER_FRONT
 }
 
 enum DrillingType {
-  BLIND              // Borgne (ne traverse pas)
-  THROUGH            // Traversant
+  BLIND
+  THROUGH
 }
 
 enum DrillingSource {
-  SYSTEM32           // Percage System 32 (etageres)
-  HINGE              // Percage charniere
-  CONNECTOR          // Percage connecteur
-  DRAWER_RUNNER      // Percage coulisse
-  CUSTOM             // Percage manuel/custom
-}
-
-// ============================================
-// USINAGES (Module Usinage)
-// ============================================
-
-// Template d'usinage configurable par l'admin
-model UsinageTemplate {
-  id              String              @id @default(cuid())
-
-  // Identification
-  nom             String              // Ex: "Rainure traversante"
-  slug            String              @unique // Ex: "rainure-traversante"
-  description     String?             @db.Text // Explication/aide
-
-  // Icone SVG (code complet inline)
-  iconSvg         String              @db.Text
-
-  // Schema de configuration (parametres requis)
-  // JSON: [{ key: "longueur", label: "Longueur", unit: "mm", required: true, min: 0, max: 5000 }, ...]
-  configSchema    String              @db.Text
-
-  // SVG technique pour dessin cote (optionnel)
-  // JSON: { viewBox: "0 0 200 200", elements: [...], dimensions: [...] }
-  technicalSvg    String?             @db.Text
-
-  // Tarification
-  pricingType     UsinagePricingType
-  priceHT         Float               // Prix de base
-
-  // Categorie pour organisation
-  category        UsinageCategory?
-
-  // Ordre d'affichage
-  sortOrder       Int                 @default(0)
-
-  // Active/Inactive
-  isActive        Boolean             @default(true)
-
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-
-  @@index([isActive])
-  @@index([category])
-  @@index([sortOrder])
+  SYSTEM32
+  HINGE
+  CONNECTOR
+  DRAWER_RUNNER
+  CUSTOM
 }
 
 enum UsinagePricingType {
-  PER_UNIT        // Par unite
-  PER_METER       // Par metre lineaire
-  PER_M2          // Par metre carre
-  FIXED           // Prix fixe
+  PER_UNIT
+  PER_METER
+  PER_M2
+  FIXED
 }
 
 enum UsinageCategory {
-  RAINURE         // Rainures
-  PERCAGE         // Percages
-  USINAGE_CN      // Usinages CNC
-  DEFONCEUSE      // Defonceuse
-  PASSE_MAIN      // Passe-main
-  AUTRE           // Autres
+  RAINURE
+  PERCAGE
+  USINAGE_CN
+  DEFONCEUSE
+  PASSE_MAIN
+  AUTRE
+}
+
+enum PanelReviewStatus {
+  NON_VERIFIE
+  VERIFIE
+  A_CORRIGER
+}
+
+enum ProductCategory {
+  PANNEAU
+  ACCESSOIRE
+}
+
+enum ProductType {
+  MELAMINE
+  STRATIFIE
+  COMPACT
+  PLACAGE
+  AGGLO_BRUT
+  MDF
+  CONTREPLAQUE
+  OSB
+  MASSIF
+  CHANT
+  SOLID_SURFACE
+}
+
+enum ProductSubType {
+  HPL
+  CPL
+  CHANT_ABS
+  CHANT_PVC
+  CHANT_MELAMINE
+  CHANT_BOIS
+  MDF_BRUT
+  MDF_LAQUE
+  MDF_PLAQUE
+  MASSIF_BOIS
+  MASSIF_3_PLIS
+  LAMELLE_COLLE
+  SS_ACRYLIQUE
+  SS_POLYESTER
+  SS_QUARTZ
+}
+
+enum DecorCategory {
+  UNIS
+  BOIS
+  PIERRE
+  BETON
+  METAL
+  TEXTILE
+  FANTAISIE
+  SANS_DECOR
+}
+
+enum GrainDirection {
+  LENGTH
+  WIDTH
+  NONE
+}
+
+enum CoreType {
+  P2
+  P3
+  MDF_STD
+  MDF_H
+  MDF_FR
+  CONTREPLAQUE
+  AUCUN
+}
+
+enum CoreColor {
+  WHITE
+  GRAY
+  YELLOW
+  BROWN
+  BLACK
+  STANDARD
+}
+
+enum LamellaType {
+  ABOUTE       // Lamelles aboutées (finger-jointed) - moins cher
+  NON_ABOUTE   // Lamelles continues (solid) - plus noble
 }
