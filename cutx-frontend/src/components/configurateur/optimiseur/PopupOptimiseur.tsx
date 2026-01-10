@@ -559,6 +559,7 @@ export default function PopupOptimiseur({
                   // TODO: Récupérer les infos du chant depuis le catalogue
                   chantNom={t('matchingEdge')}
                   chantDimensions={t('edgeDimensions')}
+                  onBackToConfig={onClose}
                 />
               </div>
 
@@ -973,7 +974,7 @@ export default function PopupOptimiseur({
             background: var(--admin-bg-tertiary);
             border-radius: 12px;
             padding: 1rem;
-            height: 700px;
+            height: 720px;
           }
 
           .visualization-area :global(svg) {

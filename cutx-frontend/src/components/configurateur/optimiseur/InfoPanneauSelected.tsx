@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Package } from 'lucide-react';
+import { Package, ArrowLeft } from 'lucide-react';
 import type { PanneauOptimise } from '@/lib/configurateur/optimiseur/types';
 
 interface InfoPanneauSelectedProps {
@@ -10,6 +10,7 @@ interface InfoPanneauSelectedProps {
   chantDimensions?: string; // Dimensions du chant (ex: "23 x EP 0.8")
   thumbnailUrl?: string;    // URL de l'image du panneau
   thumbnailColor?: string;  // Couleur de fallback si pas d'image
+  onBackToConfig?: () => void; // Callback pour revenir au configurateur
 }
 
 export default function InfoPanneauSelected({
@@ -18,6 +19,7 @@ export default function InfoPanneauSelected({
   chantDimensions,
   thumbnailUrl,
   thumbnailColor = '#8b4513', // Marron par défaut
+  onBackToConfig,
 }: InfoPanneauSelectedProps) {
   const t = useTranslations('dialogs.optimizer');
 
@@ -38,23 +40,36 @@ export default function InfoPanneauSelected({
         </span>
       </div>
 
-      {/* Thumbnail / Couleur */}
-      <div className="thumbnail-container">
-        {thumbnailUrl ? (
-          <img
-            src={thumbnailUrl}
-            alt={panneau.panneauNom}
-            className="thumbnail-img"
-          />
-        ) : (
-          <div
-            className="thumbnail-color"
-            style={{ backgroundColor: thumbnailColor }}
-          >
-            <Package size={24} className="thumbnail-icon" />
-          </div>
-        )}
-      </div>
+      {/* Thumbnail / Couleur - Cliquable pour revenir au configurateur */}
+      <button
+        className={`thumbnail-button ${onBackToConfig ? 'clickable' : ''}`}
+        onClick={onBackToConfig}
+        disabled={!onBackToConfig}
+        title={onBackToConfig ? 'Retour au configurateur' : undefined}
+      >
+        <div className="thumbnail-wrapper">
+          {thumbnailUrl ? (
+            <img
+              src={thumbnailUrl}
+              alt={panneau.panneauNom}
+              className="thumbnail-img"
+            />
+          ) : (
+            <div
+              className="thumbnail-color"
+              style={{ backgroundColor: thumbnailColor }}
+            >
+              <Package size={24} className="thumbnail-icon" />
+            </div>
+          )}
+          {onBackToConfig && (
+            <div className="thumbnail-overlay">
+              <ArrowLeft size={20} />
+              <span>Retour</span>
+            </div>
+          )}
+        </div>
+      </button>
 
       {/* Chant sélectionné */}
       {chantNom && (
@@ -140,9 +155,23 @@ export default function InfoPanneauSelected({
           letter-spacing: 0.02em;
         }
 
-        .thumbnail-container {
+        .thumbnail-button {
           display: flex;
           justify-content: center;
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: default;
+        }
+
+        .thumbnail-button.clickable {
+          cursor: pointer;
+        }
+
+        .thumbnail-wrapper {
+          position: relative;
+          width: 80px;
+          height: 80px;
         }
 
         .thumbnail-img {
@@ -151,6 +180,7 @@ export default function InfoPanneauSelected({
           object-fit: cover;
           border-radius: 8px;
           border: 2px solid var(--admin-border-default);
+          transition: all 0.2s ease;
         }
 
         .thumbnail-color {
@@ -161,10 +191,39 @@ export default function InfoPanneauSelected({
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.2s ease;
         }
 
         .thumbnail-color :global(.thumbnail-icon) {
           color: rgba(255, 255, 255, 0.5);
+        }
+
+        .thumbnail-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(139, 157, 81, 0.9);
+          border-radius: 8px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.25rem;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+          color: white;
+          font-size: 0.6875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .thumbnail-button.clickable:hover .thumbnail-overlay {
+          opacity: 1;
+        }
+
+        .thumbnail-button.clickable:hover .thumbnail-img,
+        .thumbnail-button.clickable:hover .thumbnail-color {
+          border-color: var(--admin-olive);
         }
 
         .chant-section {
