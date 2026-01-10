@@ -973,8 +973,9 @@ export default function PopupOptimiseur({
             background: var(--admin-bg-tertiary);
             border-radius: 12px;
             padding: 1rem;
-            min-height: 500px;
-            height: 100%;
+            min-height: 400px;
+            height: auto;
+            max-height: calc(100vh - 250px);
           }
 
           .visualization-area :global(svg) {
