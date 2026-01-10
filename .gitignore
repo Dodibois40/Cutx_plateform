@@ -47,3 +47,11 @@ _archive/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Ignore problematic files
+de4dot/
+nul
+dnSpy/
+dnSpy.zip
+de4dot.zip
+MaxPattern.dll

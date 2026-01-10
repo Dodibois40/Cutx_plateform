@@ -15,6 +15,19 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+
+// Type for uploaded file (from @types/multer)
+type MulterFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer: Buffer;
+};
 import { PanelsReviewService } from './panels-review.service';
 import { UpdatePanelDto, MarkCorrectionDto } from './dto';
 import { ClerkAuthGuard } from '../common/guards/clerk-auth.guard';
@@ -242,7 +255,7 @@ export class PanelsReviewController {
   async uploadImage(
     @CurrentUser() clerkUser: ClerkUser,
     @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: MulterFile,
   ) {
     await this.checkAdmin(clerkUser);
 
