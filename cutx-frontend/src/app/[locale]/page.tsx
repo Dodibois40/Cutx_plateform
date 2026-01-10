@@ -88,12 +88,10 @@ function HomePageContent() {
   const ONBOARDING_KEY = 'cutx-onboarding-seen';
   useEffect(() => {
     if (!mounted) return;
-    // DEBUG: Always show for positioning - remove this line for production
-    setShowOnboarding(true);
-    // PRODUCTION: Uncomment below
-    // if (fileImport.filesWithoutPanel.length > 0 && !localStorage.getItem(ONBOARDING_KEY)) {
-    //   setShowOnboarding(true);
-    // }
+    // Show onboarding only if user has files without panel AND hasn't seen the demo yet
+    if (fileImport.filesWithoutPanel.length > 0 && !localStorage.getItem(ONBOARDING_KEY)) {
+      setShowOnboarding(true);
+    }
   }, [mounted, fileImport.filesWithoutPanel.length]);
 
   const handleCloseOnboarding = useCallback(() => {
@@ -495,16 +493,6 @@ function HomePageContent() {
           </div>
         </div>
       )}
-
-      {/* Keyframes for launch message animation */}
-      <style jsx global>{`
-        @keyframes fadeInOut {
-          0% { opacity: 0; transform: scale(0.9); }
-          20% { opacity: 1; transform: scale(1); }
-          80% { opacity: 1; transform: scale(1); }
-          100% { opacity: 0; transform: scale(0.95); }
-        }
-      `}</style>
     </div>
   );
 }
