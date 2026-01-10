@@ -59,12 +59,16 @@ export default function FilesPanel({
     setIsDraggingFile(false);
 
     const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles.length > 0 && onFileDrop) {
-      const file = droppedFiles[0];
-      const ext = file.name.split('.').pop()?.toLowerCase();
-      const supportedExts = ['dxf', 'xlsx', 'xls'];
-      if (ext && supportedExts.includes(ext)) {
-        onFileDrop(file);
+    const supportedExts = ['dxf', 'xlsx', 'xls'];
+
+    // Process ALL dropped files, not just the first one
+    if (onFileDrop) {
+      for (let i = 0; i < droppedFiles.length; i++) {
+        const file = droppedFiles[i];
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (ext && supportedExts.includes(ext)) {
+          onFileDrop(file);
+        }
       }
     }
   }, [onFileDrop]);

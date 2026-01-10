@@ -41,17 +41,21 @@ export default function FileDropZone({
     onDragStateChange(false);
 
     const files = e.dataTransfer.files;
-    console.log('[FileDropZone] Drop event - files:', files.length, files[0]?.name);
-    if (files.length > 0) {
-      console.log('[FileDropZone] Calling onFileSelect with:', files[0].name);
-      onFileSelect(files[0]);
+    console.log('[FileDropZone] Drop event - files:', files.length);
+    // Process ALL dropped files
+    for (let i = 0; i < files.length; i++) {
+      console.log('[FileDropZone] Calling onFileSelect with:', files[i].name);
+      onFileSelect(files[i]);
     }
   }, [onFileSelect, onDragStateChange]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files.length > 0) {
-      onFileSelect(files[0]);
+    // Process ALL selected files
+    if (files) {
+      for (let i = 0; i < files.length; i++) {
+        onFileSelect(files[i]);
+      }
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -64,11 +68,12 @@ export default function FileDropZone({
 
   return (
     <div className="space-y-2">
-      {/* Hidden file input */}
+      {/* Hidden file input - multiple files allowed */}
       <input
         ref={fileInputRef}
         type="file"
         accept=".xlsx,.xls,.dxf"
+        multiple
         onChange={handleFileInput}
         className="hidden"
       />

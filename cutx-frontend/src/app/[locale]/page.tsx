@@ -242,17 +242,19 @@ function HomePageContent() {
     await fileImport.processFile(file);
   }, [fileImport]);
 
-  // Handle drop on right panel (from drag event)
+  // Handle drop on right panel (from drag event) - supports multiple files
   const handlePanelDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOnPanel(false);
 
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
+    const supportedExts = ['dxf', 'xlsx', 'xls'];
+
+    // Process ALL dropped files, not just the first one
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const ext = file.name.split('.').pop()?.toLowerCase();
-      const supportedExts = ['dxf', 'xlsx', 'xls'];
       if (ext && supportedExts.includes(ext)) {
         handleFileDrop(file);
       }
