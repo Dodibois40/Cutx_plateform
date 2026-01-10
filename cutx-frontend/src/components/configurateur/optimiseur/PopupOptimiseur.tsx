@@ -443,24 +443,6 @@ export default function PopupOptimiseur({
           )}
 
           <div className="header-actions">
-            {/* Sélecteur de stratégie d'optimisation */}
-            {!hasNoPanneaux && (
-              <div className="optimization-select">
-                <Settings2 size={14} className="select-icon" />
-                <select
-                  value={splitStrategy}
-                  onChange={(e) => setSplitStrategy(e.target.value as SplitStrategy)}
-                  className="strategy-select"
-                  title="Stratégie d'optimisation"
-                >
-                  <option value="shorter_leftover">Efficacité max</option>
-                  <option value="longer_leftover">Grandes chutes</option>
-                  <option value="horizontal_first">Coupes horizontales</option>
-                  <option value="vertical_first">Coupes verticales</option>
-                </select>
-              </div>
-            )}
-
             {/* Boutons export (placeholders) */}
             {!hasNoPanneaux && (
               <>
@@ -528,8 +510,50 @@ export default function PopupOptimiseur({
           ) : panneauOptimise ? (
             // Affichage normal
             <div className="content-grid">
-              {/* Sidebar gauche - Info panneau */}
+              {/* Sidebar gauche - Stratégie + Info panneau */}
               <div className="sidebar-left">
+                {/* Sélecteur de stratégie d'optimisation */}
+                <div className="strategy-selector">
+                  <div className="strategy-header">
+                    <Settings2 size={14} />
+                    <span>Optimisation</span>
+                  </div>
+                  <div className="strategy-chips">
+                    <button
+                      className={`strategy-chip ${splitStrategy === 'shorter_leftover' ? 'active' : ''}`}
+                      onClick={() => setSplitStrategy('shorter_leftover')}
+                      title="Minimiser les chutes, efficacité maximale"
+                    >
+                      <Zap size={14} />
+                      <span>Efficacité max</span>
+                    </button>
+                    <button
+                      className={`strategy-chip ${splitStrategy === 'longer_leftover' ? 'active' : ''}`}
+                      onClick={() => setSplitStrategy('longer_leftover')}
+                      title="Maximiser les grandes chutes réutilisables"
+                    >
+                      <Maximize2 size={14} />
+                      <span>Grandes chutes</span>
+                    </button>
+                    <button
+                      className={`strategy-chip ${splitStrategy === 'horizontal_first' ? 'active' : ''}`}
+                      onClick={() => setSplitStrategy('horizontal_first')}
+                      title="Coupes horizontales d'abord"
+                    >
+                      <span className="cut-icon horizontal">━</span>
+                      <span>Horizontal</span>
+                    </button>
+                    <button
+                      className={`strategy-chip ${splitStrategy === 'vertical_first' ? 'active' : ''}`}
+                      onClick={() => setSplitStrategy('vertical_first')}
+                      title="Coupes verticales d'abord"
+                    >
+                      <span className="cut-icon vertical">┃</span>
+                      <span>Vertical</span>
+                    </button>
+                  </div>
+                </div>
+
                 <InfoPanneauSelected
                   panneau={panneauOptimise}
                   // TODO: Récupérer les infos du chant depuis le catalogue
@@ -740,40 +764,6 @@ export default function PopupOptimiseur({
             gap: 0.5rem;
           }
 
-          .optimization-select {
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.25rem 0.5rem;
-            background: var(--admin-bg-tertiary);
-            border: 1px solid var(--admin-border-default);
-            border-radius: 6px;
-          }
-
-          .optimization-select .select-icon {
-            color: var(--admin-text-muted);
-          }
-
-          .strategy-select {
-            background: transparent;
-            border: none;
-            color: var(--admin-text-secondary);
-            font-size: 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            outline: none;
-            padding-right: 0.5rem;
-          }
-
-          .strategy-select:hover {
-            color: var(--admin-olive);
-          }
-
-          .strategy-select option {
-            background: var(--admin-bg-primary);
-            color: var(--admin-text-primary);
-          }
-
           .btn-export {
             display: flex;
             align-items: center;
@@ -904,6 +894,76 @@ export default function PopupOptimiseur({
           .sidebar-right {
             overflow-y: auto;
             max-height: 100%;
+          }
+
+          /* Strategy Selector */
+          .strategy-selector {
+            background: var(--admin-bg-elevated);
+            border: 1px solid var(--admin-border-subtle);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+          }
+
+          .strategy-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--admin-text-muted);
+            margin-bottom: 0.75rem;
+          }
+
+          .strategy-chips {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+          }
+
+          .strategy-chip {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            padding: 0.625rem 0.5rem;
+            background: var(--admin-bg-tertiary);
+            border: 1px solid var(--admin-border-default);
+            border-radius: 8px;
+            color: var(--admin-text-secondary);
+            font-size: 0.6875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .strategy-chip:hover {
+            background: var(--admin-bg-secondary);
+            border-color: var(--admin-border-strong);
+            color: var(--admin-text-primary);
+          }
+
+          .strategy-chip.active {
+            background: var(--admin-olive-bg);
+            border-color: var(--admin-olive);
+            color: var(--admin-olive);
+            box-shadow: 0 0 0 1px var(--admin-olive);
+          }
+
+          .strategy-chip .cut-icon {
+            font-size: 1rem;
+            line-height: 1;
+            font-weight: 700;
+          }
+
+          .strategy-chip .cut-icon.horizontal {
+            transform: scaleX(1.2);
+          }
+
+          .strategy-chip .cut-icon.vertical {
+            transform: scaleY(1.2);
           }
 
           .visualization-area {
