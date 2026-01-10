@@ -25,16 +25,18 @@ export default function SplitThicknessModal({
   const sortedBreakdown = [...thicknessBreakdown].sort((a, b) => b.count - a.count);
 
   const handleSplit = () => {
+    console.log('[SplitThicknessModal] handleSplit called, file.id:', file.id);
     onSplit(file.id);
+    console.log('[SplitThicknessModal] onSplit called');
   };
 
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onCancel} />
+      <div className="fixed inset-0 bg-black/60 z-[60]" onClick={onCancel} />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 pointer-events-none">
         <div
           className="relative w-full max-w-md bg-[#1c1b1a] border border-neutral-700 rounded-lg shadow-xl pointer-events-auto"
           onClick={(e) => e.stopPropagation()}

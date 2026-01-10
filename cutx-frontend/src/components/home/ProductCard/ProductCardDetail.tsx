@@ -61,14 +61,13 @@ export default function ProductCardDetail({ product, onClick, isSponsored = fals
       onDragStart={handleDragStart}
       className={`group relative w-full text-left bg-[var(--cx-surface-1)]/50 backdrop-blur-sm border border-[var(--cx-border)] rounded-2xl overflow-hidden transition-all duration-300 hover:bg-[var(--cx-surface-1)] hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/5 focus:outline-none focus:border-amber-500 cursor-pointer ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      {/* Drag indicator when draggable */}
-      {isDraggable && (
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-700/90 rounded text-neutral-300 text-xs font-medium border border-neutral-600">
-          <GripVertical className="w-4 h-4" />
-          <span>Glisser</span>
-        </div>
-      )}
       <div className="flex gap-6 p-6">
+        {/* Drag grip - before image when draggable */}
+        {isDraggable && (
+          <div className="flex-shrink-0 flex items-center justify-center w-6 text-neutral-500 hover:text-neutral-300 transition-colors self-center">
+            <GripVertical className="w-6 h-6" />
+          </div>
+        )}
         <ProductImage imageUrl={imageUrl} alt={nom} size="lg" isSponsored={isSponsored} />
 
         <div className="flex-1 min-w-0 flex flex-col">

@@ -513,14 +513,17 @@ export function useFileImport(): UseFileImportReturn {
 
   // Split a file by thickness into multiple sub-files
   const splitFileByThickness = useCallback((fileId: string) => {
+    console.log('[splitFileByThickness] Called with fileId:', fileId);
     setImportedFiles(prev => {
       const fileToSplit = prev.find(f => f.id === fileId);
+      console.log('[splitFileByThickness] Found file:', fileToSplit?.name, 'isMixed:', fileToSplit?.isMixedThickness);
       if (!fileToSplit || !fileToSplit.isMixedThickness) {
         console.warn('[splitFileByThickness] File not found or not mixed thickness');
         return prev;
       }
 
       const { thicknessBreakdown, name, detection, foundReference } = fileToSplit;
+      console.log('[splitFileByThickness] Splitting:', name, 'into', thicknessBreakdown.length, 'parts');
       const baseName = name.replace(/\.(xlsx|xls|dxf)$/i, '');
       const extension = name.match(/\.(xlsx|xls|dxf)$/i)?.[0] || '';
 

@@ -183,7 +183,14 @@ function HomePageContent() {
   }, []);
 
   const handleConfirmSplit = useCallback((fileId: string) => {
-    fileImport.splitFileByThickness(fileId);
+    console.log('[HomePage] handleConfirmSplit called, fileId:', fileId);
+    console.log('[HomePage] fileImport.splitFileByThickness type:', typeof fileImport.splitFileByThickness);
+    if (typeof fileImport.splitFileByThickness === 'function') {
+      fileImport.splitFileByThickness(fileId);
+    } else {
+      console.error('[HomePage] splitFileByThickness is not a function!', fileImport);
+    }
+    console.log('[HomePage] splitFileByThickness called');
     setSplitModalFileId(null);
   }, [fileImport]);
 
@@ -296,15 +303,14 @@ function HomePageContent() {
 
   return (
     <div className="fixed inset-0 bg-[var(--cx-background)] flex flex-col">
-      {/* Language switcher */}
-      <header className="absolute top-0 right-0 p-4 z-20">
-        <LocaleSwitcher />
-      </header>
-
-      {/* Main content - permanent 80/20 split */}
+      {/* Main content - permanent 75/25 split */}
       <main className="flex-1 flex min-h-0">
-        {/* Left panel - Search (80%) */}
-        <div className="w-[80%] flex flex-col min-h-0 relative">
+        {/* Left panel - Search (75%) */}
+        <div className="w-[75%] flex flex-col min-h-0 relative">
+          {/* Language switcher - inside left panel, top right */}
+          <div className="absolute top-4 right-4 z-20">
+            <LocaleSwitcher />
+          </div>
           {/* Search section - centered or top based on state */}
           <div
             className={`w-full transition-all duration-500 ease-out relative z-10 ${
@@ -403,9 +409,9 @@ function HomePageContent() {
           )}
         </div>
 
-        {/* Right panel - Files (20%) - Always visible */}
+        {/* Right panel - Files (25%) - Always visible */}
         <div
-          className={`w-[20%] flex flex-col min-h-0 border-l transition-colors duration-200 ${
+          className={`w-[25%] flex flex-col min-h-0 border-l transition-colors duration-200 ${
             isDraggingOnPanel
               ? 'border-amber-500 bg-amber-500/5'
               : 'border-[var(--cx-border)] bg-[var(--cx-surface-1)]/30'

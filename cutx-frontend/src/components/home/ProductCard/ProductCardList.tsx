@@ -53,13 +53,14 @@ export default function ProductCardList({ product, onClick, isDraggable = false 
       onDragStart={handleDragStart}
       className={`group relative w-full text-left bg-[var(--cx-surface-1)]/30 border border-[var(--cx-border)] rounded-lg overflow-hidden transition-all duration-200 hover:bg-[var(--cx-surface-1)] hover:border-amber-500/50 focus:outline-none focus:border-amber-500 cursor-pointer ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      {/* Drag indicator when draggable */}
-      {isDraggable && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 px-1.5 py-0.5 bg-neutral-700/90 rounded text-neutral-300 text-[9px] font-medium border border-neutral-600">
-          <GripVertical className="w-3 h-3" />
-        </div>
-      )}
       <div className="flex items-center gap-3 px-3 py-2">
+        {/* Drag grip - only shown when draggable */}
+        {isDraggable && (
+          <div className="flex-shrink-0 flex items-center justify-center w-5 text-neutral-500 hover:text-neutral-300 transition-colors">
+            <GripVertical className="w-4 h-4" />
+          </div>
+        )}
+
         <ProductImage imageUrl={imageUrl} alt={nom} size="sm" />
 
         <div className="w-16 flex-shrink-0">

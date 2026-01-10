@@ -332,7 +332,7 @@ export default function OnboardingGuide({
           className="fixed z-50"
           style={{
             top: filesPanelPosition.top,
-            right: '24%', // Position in the main content area (left 80%), not inside files panel
+            right: '29%', // Position in the main content area (left 75%), not inside files panel (25%)
           }}
         >
           <div className="relative">

@@ -99,8 +99,8 @@ export default function FilesPanel({
     onSelectFile(fileId);
   };
 
-  const filesWithoutPanel = files.filter(f => !f.assignedPanel);
-  const filesWithPanel = files.filter(f => f.assignedPanel);
+  const assignedCount = files.filter(f => f.assignedPanel).length;
+  const pendingCount = files.length - assignedCount;
 
   return (
     <div className="flex flex-col h-full">
@@ -111,79 +111,60 @@ export default function FilesPanel({
             <Upload className="w-5 h-5 text-amber-500/70" />
             <h2 className="text-base font-semibold text-[var(--cx-text)]">Fichiers</h2>
           </div>
-          <div className="text-xs text-[var(--cx-text-muted)] bg-white/5 px-2 py-1 rounded-full">
-            {filesWithPanel.length}/{files.length}
+          <div className="flex items-center gap-2">
+            {pendingCount > 0 && (
+              <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                {pendingCount} en attente
+              </span>
+            )}
+            {assignedCount > 0 && (
+              <span className="text-xs text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                {assignedCount}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Files list */}
+      {/* Files list - single column or 2-column grid when many files */}
       <div className="flex-1 overflow-y-auto p-3">
         {files.length === 0 ? (
           <EmptyFilesState />
         ) : (
-          <div className="space-y-2">
-            {/* Unassigned files first */}
-            {filesWithoutPanel.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-amber-500 px-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  En attente ({filesWithoutPanel.length})
-                </div>
-                {filesWithoutPanel.map((file, index) => (
-                  <div key={file.id} data-file-card={index === 0 ? 'first' : undefined}>
-                    <AccordionFileCard
-                      file={file}
-                      isExpanded={expandedFileIds.has(file.id)}
-                      onToggle={() => handleToggleExpand(file.id)}
-                      onRemove={() => onRemoveFile(file.id)}
-                      onUnassign={() => onUnassignPanel(file.id)}
-                      onDrop={(panel) => onAssignPanel(file.id, panel)}
-                      onSearchPanel={onSearchPanel}
-                      onSplitByThickness={onSplitByThickness}
-                    />
-                  </div>
-                ))}
+          <div className={files.length > 10 ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
+            {/* All files in order of import - status shown visually */}
+            {files.map((file, index) => (
+              <div
+                key={file.id}
+                data-file-card={index === 0 ? 'first' : undefined}
+                className={files.length > 10 && expandedFileIds.has(file.id) ? 'col-span-2' : ''}
+              >
+                <AccordionFileCard
+                  file={file}
+                  isExpanded={expandedFileIds.has(file.id)}
+                  onToggle={() => handleToggleExpand(file.id)}
+                  onRemove={() => onRemoveFile(file.id)}
+                  onUnassign={() => onUnassignPanel(file.id)}
+                  onDrop={(panel) => onAssignPanel(file.id, panel)}
+                  onSearchPanel={onSearchPanel}
+                  onSplitByThickness={onSplitByThickness}
+                  isCompact={files.length > 10 && !expandedFileIds.has(file.id)}
+                />
               </div>
-            )}
+            ))}
 
-            {/* Separator */}
-            {filesWithoutPanel.length > 0 && filesWithPanel.length > 0 && (
-              <div className="my-3 h-px bg-white/5" />
-            )}
-
-            {/* Assigned files */}
-            {filesWithPanel.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-green-500 px-1">
-                  <Check className="w-3 h-3" />
-                  Assignés ({filesWithPanel.length})
-                </div>
-                {filesWithPanel.map((file) => (
-                  <AccordionFileCard
-                    key={file.id}
-                    file={file}
-                    isExpanded={expandedFileIds.has(file.id)}
-                    onToggle={() => handleToggleExpand(file.id)}
-                    onRemove={() => onRemoveFile(file.id)}
-                    onUnassign={() => onUnassignPanel(file.id)}
-                    onDrop={(panel) => onAssignPanel(file.id, panel)}
-                    onSearchPanel={onSearchPanel}
-                    onSplitByThickness={onSplitByThickness}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Add more files zone - same visual as empty state */}
+            {/* Add more files zone - spans full width in grid mode */}
             {onFileDrop && (
-              <AddMoreFilesZone
-                isDragging={isDraggingFile}
-                isImporting={isImporting}
-                onDragOver={handleFileDragOver}
-                onDragLeave={handleFileDragLeave}
-                onDrop={handleFileDrop}
-              />
+              <div className={files.length > 10 ? 'col-span-2' : ''}>
+                <AddMoreFilesZone
+                  isDragging={isDraggingFile}
+                  isImporting={isImporting}
+                  onDragOver={handleFileDragOver}
+                  onDragLeave={handleFileDragLeave}
+                  onDrop={handleFileDrop}
+                />
+              </div>
             )}
           </div>
         )}
@@ -202,6 +183,7 @@ interface AccordionFileCardProps {
   onDrop: (panel: SearchProduct) => void;
   onSearchPanel?: (query: string) => void;
   onSplitByThickness?: (fileId: string) => void;
+  isCompact?: boolean;
 }
 
 function AccordionFileCard({
@@ -213,6 +195,7 @@ function AccordionFileCard({
   onDrop,
   onSearchPanel,
   onSplitByThickness,
+  isCompact = false,
 }: AccordionFileCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -267,47 +250,51 @@ function AccordionFileCard({
       {/* Collapsed header - always visible */}
       <div
         onClick={onToggle}
-        className="flex items-center gap-2 p-3 cursor-pointer hover:bg-white/5 transition-colors"
+        className={`flex items-center cursor-pointer hover:bg-white/5 transition-colors ${
+          isCompact ? 'gap-1.5 p-2' : 'gap-2 p-3'
+        }`}
       >
-        {/* Expand/collapse icon */}
-        <button className="flex-shrink-0 text-[var(--cx-text-muted)]">
-          {isExpanded ? (
-            <ChevronDown className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
-        </button>
+        {/* Expand/collapse icon - hidden in compact mode */}
+        {!isCompact && (
+          <button className="flex-shrink-0 text-[var(--cx-text-muted)]">
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
+        )}
 
         {/* File icon */}
-        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
-          hasPanel ? 'bg-green-500/10' : 'bg-white/5'
-        }`}>
+        <div className={`flex-shrink-0 rounded-lg flex items-center justify-center ${
+          isCompact ? 'w-6 h-6' : 'w-8 h-8'
+        } ${hasPanel ? 'bg-green-500/10' : 'bg-white/5'}`}>
           {hasPanel ? (
-            <Check className="w-4 h-4 text-green-500" />
+            <Check className={`${isCompact ? 'w-3 h-3' : 'w-4 h-4'} text-green-500`} />
           ) : isDragOver ? (
-            <ArrowRight className="w-4 h-4 text-amber-500 animate-pulse" />
+            <ArrowRight className={`${isCompact ? 'w-3 h-3' : 'w-4 h-4'} text-amber-500 animate-pulse`} />
           ) : (
-            <FileIcon className={`w-4 h-4 ${isDxf ? 'text-amber-400' : 'text-[var(--cx-text-muted)]'}`} />
+            <FileIcon className={`${isCompact ? 'w-3 h-3' : 'w-4 h-4'} ${isDxf ? 'text-amber-400' : 'text-[var(--cx-text-muted)]'}`} />
           )}
         </div>
 
         {/* File name and quick stats */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[var(--cx-text)] truncate">
+          <div className="flex items-center gap-1">
+            <span className={`font-medium text-[var(--cx-text)] truncate ${isCompact ? 'text-xs' : 'text-sm'}`}>
               {file.name.replace(/\.(xlsx|xls|dxf)$/i, '')}
             </span>
           </div>
           {isDragOver && !hasPanel ? (
-            <div className="text-xs text-amber-500 font-medium animate-pulse">
-              ↓ Relâchez pour affecter
+            <div className={`text-amber-500 font-medium animate-pulse ${isCompact ? 'text-[10px]' : 'text-xs'}`}>
+              ↓ Relâchez
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-[var(--cx-text-muted)]">
+            <div className={`flex items-center gap-1 text-[var(--cx-text-muted)] ${isCompact ? 'text-[10px]' : 'text-xs gap-2'}`}>
               <span>{file.lines.length} pcs</span>
               <span>•</span>
               <span>{file.primaryThickness}mm</span>
-              {file.isMixedThickness && (
+              {!isCompact && file.isMixedThickness && (
                 <>
                   <span>•</span>
                   <span className="text-amber-500">Mix</span>
@@ -317,16 +304,18 @@ function AccordionFileCard({
           )}
         </div>
 
-        {/* Remove button */}
+        {/* Remove button - smaller in compact mode */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          className="flex-shrink-0 p-1.5 rounded-full text-[var(--cx-text-muted)] hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+          className={`flex-shrink-0 rounded-full text-[var(--cx-text-muted)] hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all ${
+            isCompact ? 'p-1' : 'p-1.5'
+          }`}
           title="Retirer"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className={isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
         </button>
       </div>
 
