@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
-import type { PanneauOptimise, DebitPlace } from '@/lib/configurateur/optimiseur/types';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import type { PanneauOptimise, DebitPlace, ZoneChute } from '@/lib/configurateur/optimiseur/types';
 
 interface VisualisationPanneauProps {
   panneau: PanneauOptimise;
-  width?: number;  // Largeur du SVG en pixels
-  height?: number; // Hauteur du SVG en pixels
+  width?: number;  // Largeur du SVG en pixels (optionnel, auto si non fourni)
+  height?: number; // Hauteur du SVG en pixels (optionnel, auto si non fourni)
 }
 
 // Couleurs
@@ -15,13 +15,46 @@ const COULEUR_DEBIT = '#3d3d3d';
 const COULEUR_DEBIT_STROKE = '#555';
 const COULEUR_CHANT = '#8b9d51'; // Olive
 const COULEUR_TEXTE = '#e0e0e0';
+const COULEUR_TEXTE_DIM = '#c8c8c8'; // Plus blanc pour les dimensions
 const COULEUR_TEXTE_MUTED = '#888';
+const COULEUR_CHUTE = '#c9a227'; // Ambre/sable pour les chutes
+const COULEUR_CHUTE_TEXTE = '#f5e6c8'; // Texte chute plus clair/blanc
+const COULEUR_CHUTE_STROKE = '#8b7355'; // Bordure chute
 
 export default function VisualisationPanneau({
   panneau,
-  width = 600,
-  height = 400,
+  width: propWidth,
+  height: propHeight,
 }: VisualisationPanneauProps) {
+  // Ref pour mesurer le container
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+
+  // Observer la taille du container
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setContainerSize({ width: rect.width, height: rect.height });
+      }
+    };
+
+    // Mesurer initialement
+    updateSize();
+
+    // Observer les changements de taille
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // Utiliser les props si fournies, sinon la taille mesurée
+  const width = propWidth ?? containerSize.width;
+  const height = propHeight ?? containerSize.height;
   // Calculer l'échelle pour que le panneau rentre dans le SVG
   const scale = useMemo(() => {
     const padding = 60; // Marge pour les labels
@@ -46,11 +79,12 @@ export default function VisualisationPanneau({
   const chantStroke = 4;
 
   return (
+    <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 400 }}>
     <svg
       viewBox={`0 0 ${width} ${height}`}
       width="100%"
       height="100%"
-      style={{ maxWidth: width, maxHeight: height }}
+      preserveAspectRatio="xMidYMid meet"
     >
       {/* Fond */}
       <rect x={0} y={0} width={width} height={height} fill="#1a1a1a" />
@@ -92,7 +126,7 @@ export default function VisualisationPanneau({
         Largeur • {panneau.dimensions.largeur} mm
       </text>
 
-      {/* Définitions (flèches) */}
+      {/* Définitions (flèches et patterns) */}
       <defs>
         <marker
           id="arrowhead"
@@ -114,6 +148,24 @@ export default function VisualisationPanneau({
         >
           <polygon points="6 0, 0 3, 6 6" fill={COULEUR_TEXTE_MUTED} />
         </marker>
+        {/* Pattern hachuré pour les zones de chute */}
+        <pattern
+          id="chutePattern"
+          patternUnits="userSpaceOnUse"
+          width="8"
+          height="8"
+          patternTransform="rotate(45)"
+        >
+          <line
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="8"
+            stroke={COULEUR_CHUTE}
+            strokeWidth="2"
+            strokeOpacity="0.4"
+          />
+        </pattern>
       </defs>
 
       {/* Panneau brut (fond) */}
@@ -127,6 +179,17 @@ export default function VisualisationPanneau({
         strokeWidth={2}
         rx={2}
       />
+
+      {/* Zones de chute (espaces libres) */}
+      {panneau.zonesChute?.map((chute) => (
+        <ChuteRect
+          key={chute.id}
+          chute={chute}
+          scale={scale}
+          offsetX={offsetX}
+          offsetY={offsetY}
+        />
+      ))}
 
       {/* Débits placés */}
       {panneau.debitsPlaces.map((debit) => (
@@ -152,6 +215,7 @@ export default function VisualisationPanneau({
         Remplissage: {panneau.tauxRemplissage.toFixed(1)}%
       </text>
     </svg>
+    </div>
   );
 }
 
@@ -175,19 +239,23 @@ function DebitRect({
   const w = (debit.rotation ? debit.largeur : debit.longueur) * scale;
   const h = (debit.rotation ? debit.longueur : debit.largeur) * scale;
 
+  // Sécurité: valeurs par défaut pour les propriétés potentiellement undefined
+  const reference = debit.reference ?? '';
+  const chants = debit.chants ?? { A: false, B: false, C: false, D: false };
+
   // Déterminer quels côtés ont un chant (en tenant compte de la rotation)
   const chantsVisuels = debit.rotation
     ? {
-        top: debit.chants.B,    // B devient le haut
-        right: debit.chants.A,  // A devient la droite
-        bottom: debit.chants.D, // D devient le bas
-        left: debit.chants.C,   // C devient la gauche
+        top: chants.B,    // B devient le haut
+        right: chants.A,  // A devient la droite
+        bottom: chants.D, // D devient le bas
+        left: chants.C,   // C devient la gauche
       }
     : {
-        top: debit.chants.A,    // A = longueur côté 1 (haut)
-        right: debit.chants.B,  // B = largeur côté 1 (droite)
-        bottom: debit.chants.C, // C = longueur côté 2 (bas)
-        left: debit.chants.D,   // D = largeur côté 2 (gauche)
+        top: chants.A,    // A = longueur côté 1 (haut)
+        right: chants.B,  // B = largeur côté 1 (droite)
+        bottom: chants.C, // C = longueur côté 2 (bas)
+        left: chants.D,   // D = largeur côté 2 (gauche)
       };
 
   return (
@@ -268,23 +336,96 @@ function DebitRect({
         fontFamily="system-ui"
         fontWeight={500}
       >
-        {debit.reference.length > 12
-          ? debit.reference.substring(0, 10) + '...'
-          : debit.reference}
+        {reference.length > 12 ? reference.substring(0, 10) + '...' : reference}
       </text>
 
       {/* Dimensions en petit */}
-      {w > 60 && h > 40 && (
+      {w > 50 && h > 35 && (
         <text
           x={x + w / 2}
           y={y + h / 2 + 14}
           textAnchor="middle"
           dominantBaseline="middle"
-          fill={COULEUR_TEXTE_MUTED}
-          fontSize={8}
+          fill={COULEUR_TEXTE_DIM}
+          fontSize={Math.min(11, Math.max(9, w / 10))}
           fontFamily="system-ui"
+          fontWeight={500}
         >
           {debit.longueur}×{debit.largeur}
+        </text>
+      )}
+    </g>
+  );
+}
+
+// Composant pour une zone de chute
+function ChuteRect({
+  chute,
+  scale,
+  offsetX,
+  offsetY,
+}: {
+  chute: ZoneChute;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}) {
+  const x = offsetX + chute.x * scale;
+  const y = offsetY + chute.y * scale;
+  const w = chute.longueur * scale;
+  const h = chute.largeur * scale;
+
+  // Ne pas afficher les chutes trop petites visuellement
+  if (w < 10 || h < 10) return null;
+
+  // Calculer la taille de police adaptée
+  const fontSize = Math.min(11, Math.max(7, Math.min(w, h) / 6));
+  const showDimensions = w > 40 && h > 25;
+
+  return (
+    <g>
+      {/* Fond hachuré */}
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        fill="url(#chutePattern)"
+        stroke={COULEUR_CHUTE_STROKE}
+        strokeWidth={1}
+        strokeDasharray="4 2"
+        rx={1}
+      />
+
+      {/* Dimensions au centre */}
+      {showDimensions && (
+        <text
+          x={x + w / 2}
+          y={y + h / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={COULEUR_CHUTE_TEXTE}
+          fontSize={Math.min(13, Math.max(9, fontSize + 2))}
+          fontFamily="system-ui"
+          fontWeight={600}
+        >
+          {chute.longueur}×{chute.largeur}
+        </text>
+      )}
+
+      {/* Surface en petit si assez d'espace */}
+      {w > 60 && h > 40 && (
+        <text
+          x={x + w / 2}
+          y={y + h / 2 + fontSize + 4}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={COULEUR_CHUTE_TEXTE}
+          fontSize={8}
+          fontFamily="system-ui"
+          opacity={0.8}
+        >
+          {(chute.surface * 10000).toFixed(0)} cm²
         </text>
       )}
     </g>

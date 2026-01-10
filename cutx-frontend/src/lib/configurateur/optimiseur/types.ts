@@ -30,6 +30,18 @@ export interface DebitPlace {
 }
 
 /**
+ * Une zone de chute (espace libre) sur le panneau
+ */
+export interface ZoneChute {
+  id: string;
+  x: number;             // Position X sur le panneau (mm)
+  y: number;             // Position Y sur le panneau (mm)
+  longueur: number;      // mm
+  largeur: number;       // mm
+  surface: number;       // m²
+}
+
+/**
  * Résultat pour un panneau brut
  */
 export interface PanneauOptimise {
@@ -42,6 +54,7 @@ export interface PanneauOptimise {
     epaisseur: number;               // mm
   };
   debitsPlaces: DebitPlace[];        // Débits placés sur ce panneau
+  zonesChute: ZoneChute[];           // Zones de chute (espaces libres)
   surfaceUtilisee: number;           // m²
   surfaceTotale: number;             // m²
   tauxRemplissage: number;           // % (0-100)
@@ -61,9 +74,31 @@ export interface ResultatOptimisation {
 }
 
 /**
+ * Stratégie de découpe (direction des coupes)
+ */
+export type SplitStrategy =
+  | 'horizontal_first'    // Coupes horizontales d'abord → chutes en bandes horizontales
+  | 'vertical_first'      // Coupes verticales d'abord → chutes en bandes verticales
+  | 'shorter_leftover'    // Minimiser le plus petit reste (défaut, efficacité max)
+  | 'longer_leftover'     // Maximiser les grandes chutes (chutes réutilisables)
+  | 'min_area';           // Minimiser l'aire totale des restes
+
+/**
+ * Type d'optimisation principal
+ */
+export type OptimizationType =
+  | 'minimize_waste'      // Minimiser les chutes (efficacité max)
+  | 'minimize_sheets'     // Minimiser le nombre de panneaux
+  | 'minimize_cuts';      // Minimiser le nombre de coupes
+
+/**
  * Options pour l'optimisation
  */
 export interface OptionsOptimisation {
   margeCoupe?: number;               // Marge entre les pièces (mm), défaut: 4mm
   respecterSensFil?: boolean;        // Forcer le respect du sens du fil, défaut: true
+  splitStrategy?: SplitStrategy;     // Stratégie de découpe, défaut: 'shorter_leftover'
+  optimizationType?: OptimizationType; // Type d'optimisation, défaut: 'minimize_waste'
+  minOffcutLength?: number;          // Longueur min chute réutilisable (mm), défaut: 300
+  minOffcutWidth?: number;           // Largeur min chute réutilisable (mm), défaut: 100
 }

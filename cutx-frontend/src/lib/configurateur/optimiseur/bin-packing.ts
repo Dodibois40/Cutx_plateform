@@ -240,6 +240,7 @@ export function optimiserDebits(
       panneauNom,
       dimensions: { ...panneauDimensions },
       debitsPlaces: [],
+      zonesChute: [], // L'optimiseur local ne calcule pas les zones de chute détaillées
       surfaceUtilisee: 0,
       surfaceTotale: (panneauDimensions.longueur * panneauDimensions.largeur) / 1_000_000,
       tauxRemplissage: 0,
