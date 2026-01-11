@@ -40,5 +40,6 @@ COPY --from=builder /app/dist ./dist
 # Expose port
 EXPOSE 3001
 
-# Run migrations and start the application
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+# Sync schema and start the application
+# Using db push instead of migrate deploy because database was created without migrations
+CMD ["sh", "-c", "npx prisma db push && node dist/main"]
