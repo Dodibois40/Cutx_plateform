@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from '@/i18n/routing';
 import {
   Scissors,
   FileText,
@@ -32,6 +33,7 @@ interface AppCategory {
 }
 
 export function CutXAppsMenu() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(true); // Always show for now
   const menuRef = useRef<HTMLDivElement>(null);
@@ -193,7 +195,7 @@ export function CutXAppsMenu() {
 
   const handleAppClick = (app: AppItem) => {
     if (app.available && app.href) {
-      window.location.href = app.href;
+      router.push(app.href);
       setIsOpen(false);
     }
   };
