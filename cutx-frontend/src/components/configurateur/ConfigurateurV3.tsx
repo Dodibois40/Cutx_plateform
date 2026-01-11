@@ -2,8 +2,10 @@
 
 import '@/app/styles/cutx.css';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { useParams } from 'next/navigation';
+import { useOptimizerBroadcast } from '@/lib/hooks/useOptimizerBroadcast';
 import { Plus, AlertTriangle, CheckCircle, XCircle, Tag, Lightbulb, Save, RotateCcw } from 'lucide-react';
 import { validerLigne } from '@/lib/configurateur/validation';
 import { parseExcelAuto, parseDxfFile } from '@/lib/configurateur/import';
@@ -71,6 +73,11 @@ export default function ConfigurateurV3(props: ConfigurateurV3Props) {
 
 function ConfigurateurContent() {
   const t = useTranslations();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'fr';
+
+  // Hook pour ouvrir l'optimiseur dans une nouvelle fenêtre
+  const { openOptimizerWindow, broadcastData } = useOptimizerBroadcast();
 
   // Context configurateur classique
   const {
@@ -147,6 +154,21 @@ function ConfigurateurContent() {
     setSelecteurPanneauOpen(true);
   }, []);
 
+  // Diffuser les changements de données aux fenêtres optimiseur ouvertes
+  useEffect(() => {
+    // Rassembler toutes les lignes (groupes + non assignées)
+    const toutesLesLignes = modeGroupes
+      ? [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees]
+      : lignes;
+
+    broadcastData({
+      lignes: toutesLesLignes,
+      panneauxCatalogue,
+      panneauGlobal,
+      timestamp: Date.now(),
+    });
+  }, [lignes, groupes, lignesNonAssignees, modeGroupes, panneauxCatalogue, panneauGlobal, broadcastData]);
+
   // Handler pour la sélection d'un panneau (mode groupes)
   const handlePanneauSelected = useCallback((panneau: PanneauCatalogue) => {
     if (selecteurPanneauCallback) {
@@ -189,16 +211,14 @@ function ConfigurateurContent() {
       return;
     }
 
-    // Configurer les données du groupe pour l'optimisation
-    setGroupeToOptimize({
-      groupeId: groupe.id,
-      panneau: groupe.panneau,
-      lignes: groupe.lignes,
-    });
-
-    // Ouvrir le popup
-    setShowOptimiseur(true);
-  }, [groupes, showToast, setGroupeToOptimize, setShowOptimiseur]);
+    // Ouvrir l'optimiseur dans une nouvelle fenêtre
+    openOptimizerWindow(
+      groupe.lignes,
+      panneauxCatalogue,
+      groupe.panneau?.type === 'catalogue' ? groupe.panneau.panneau : null,
+      locale
+    );
+  }, [groupes, showToast, panneauxCatalogue, openOptimizerWindow, locale]);
 
   // Helper: génère la prochaine référence pour une duplication
   const genererProchaineReference = useCallback((referenceBase: string, toutesLesReferences: string[]): string => {
@@ -628,7 +648,12 @@ function ConfigurateurContent() {
         lignesCompletes={modeGroupes ? totauxGlobaux.nbLignesTotal : lignes.filter(l => validerLigne(l).isValid).length}
         totalLignes={modeGroupes ? totauxGlobaux.nbLignesTotal : lignes.filter(l => l.typeLigne === 'panneau').length}
         isEditing={isEditing}
-        onOpenOptimiseur={() => setShowOptimiseur(true)}
+        onOpenOptimiseur={() => {
+          const toutesLesLignes = modeGroupes
+            ? [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees]
+            : lignes;
+          openOptimizerWindow(toutesLesLignes, panneauxCatalogue, panneauGlobal, locale);
+        }}
         panneauGlobal={panneauGlobal}
       />
 

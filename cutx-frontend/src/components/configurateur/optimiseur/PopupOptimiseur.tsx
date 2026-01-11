@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { X, ChevronLeft, ChevronRight, Maximize2, AlertTriangle, Loader2, Zap, Info, FileText, FileDown, Settings2 } from 'lucide-react';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
@@ -90,6 +91,12 @@ export default function PopupOptimiseur({
 
   // Export PDF
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Portal mounting (pour SSR safety)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Ref pour annuler les requêtes API en cours
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -407,11 +414,39 @@ export default function PopupOptimiseur({
   // Pas de panneaux à afficher
   const hasNoPanneaux = tousLesPanneaux.length === 0;
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="popup-overlay" onClick={onClose}>
-      <div className="popup-container" onClick={(e) => e.stopPropagation()}>
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.92)',
+        backdropFilter: 'blur(4px)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        padding: 0,
+        overflowY: 'auto',
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="popup-container"
+        style={{
+          background: 'var(--admin-bg-primary)',
+          border: 'none',
+          borderRadius: 0,
+          width: '100%',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'visible',
+          boxShadow: 'none',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="popup-header">
           <div className="header-left">
@@ -622,31 +657,6 @@ export default function PopupOptimiseur({
         )}
 
         <style jsx>{`
-          .popup-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.92);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding: 0;
-            overflow-y: auto;
-          }
-
-          .popup-container {
-            background: var(--admin-bg-primary);
-            border: none;
-            border-radius: 0;
-            width: 100%;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: visible;
-            box-shadow: none;
-          }
-
           .popup-header {
             display: flex;
             align-items: center;
@@ -1079,6 +1089,7 @@ export default function PopupOptimiseur({
           />
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
