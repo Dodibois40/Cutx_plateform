@@ -48,6 +48,27 @@ export class CataloguesController {
   }
 
   /**
+   * Search Suggestions - Correction de fautes de frappe
+   * Utilise pg_trgm pour suggérer des corrections
+   *
+   * @example
+   * GET /catalogues/suggest?q=chataigner
+   * Returns: { suggestions: [{ original: "chataigner", suggestion: "châtaignier", confidence: 0.65 }] }
+   */
+  @Get('suggest')
+  async suggest(@Query('q') query: string) {
+    if (!query || query.length < 3) {
+      return {
+        originalQuery: query || '',
+        suggestions: [],
+        correctedQuery: null,
+      };
+    }
+
+    return this.cataloguesService.suggest(query);
+  }
+
+  /**
    * Sponsored Panels - Panneaux sponsorisés
    * Retourne les panneaux marqués comme sponsorisés (isSponsored = true)
    * et dont la date d'expiration n'est pas dépassée
@@ -82,6 +103,13 @@ export class CataloguesController {
     @Query('catalogue') catalogueSlug?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortDirection') sortDirection?: string,
+    @Query('enStock') enStock?: string,
+    // Nouveaux filtres explicites
+    @Query('decorCategory') decorCategory?: string,
+    @Query('manufacturer') manufacturer?: string,
+    @Query('isHydrofuge') isHydrofuge?: string,
+    @Query('isIgnifuge') isIgnifuge?: string,
+    @Query('isPreglued') isPreglued?: string,
   ) {
     if (!query || query.trim().length < 2) {
       return {
@@ -105,6 +133,13 @@ export class CataloguesController {
       catalogueSlug,
       sortBy,
       sortDirection: sortDirection as 'asc' | 'desc' | undefined,
+      enStock: enStock === 'true',
+      // Nouveaux filtres explicites
+      decorCategory: decorCategory || undefined,
+      manufacturer: manufacturer || undefined,
+      isHydrofuge: isHydrofuge === 'true' || undefined,
+      isIgnifuge: isIgnifuge === 'true' || undefined,
+      isPreglued: isPreglued === 'true' || undefined,
     });
 
     return result;

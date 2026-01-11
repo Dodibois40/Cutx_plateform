@@ -62,6 +62,7 @@ export const PRODUCT_TYPE_FULL_NAMES: Record<string, string[]> = {
 // ============================================================================
 
 export const WOOD_SYNONYMS: Record<string, string[]> = {
+  // Essences européennes
   chene: ['chêne', 'Chêne', 'chene', 'oak', 'Oak'],
   chêne: ['chêne', 'Chêne', 'oak'],
   noyer: ['noyer', 'Noyer', 'walnut', 'Walnut'],
@@ -76,6 +77,17 @@ export const WOOD_SYNONYMS: Record<string, string[]> = {
   epicea: ['épicéa', 'Épicéa', 'spruce'],
   bouleau: ['bouleau', 'Bouleau', 'birch'],
   merisier: ['merisier', 'Merisier', 'cherry'],
+  cerisier: ['cerisier', 'Cerisier', 'cherry'],
+  chataignier: ['châtaignier', 'Châtaignier', 'chestnut'],
+  châtaignier: ['châtaignier', 'Châtaignier', 'chestnut'],
+  chataigner: ['châtaignier', 'Châtaignier', 'chestnut'],  // Faute courante
+  chateignier: ['châtaignier', 'Châtaignier', 'chestnut'], // Faute courante
+  tilleul: ['tilleul', 'Tilleul', 'linden'],
+  aulne: ['aulne', 'Aulne', 'alder'],
+  charme: ['charme', 'Charme', 'hornbeam'],
+  peuplier: ['peuplier', 'Peuplier', 'poplar'],
+  platane: ['platane', 'Platane', 'plane'],
+  // Essences exotiques
   teck: ['teck', 'Teck', 'teak'],
   wenge: ['wengé', 'Wengé', 'wenge'],
   acacia: ['acacia', 'Acacia'],
@@ -83,6 +95,34 @@ export const WOOD_SYNONYMS: Record<string, string[]> = {
   orme: ['orme', 'Orme', 'elm'],
   zebrano: ['zébrano', 'Zebrano'],
   palissandre: ['palissandre', 'Palissandre', 'rosewood'],
+  // Essences africaines
+  sapelli: ['sapelli', 'Sapelli', 'sapele'],
+  iroko: ['iroko', 'Iroko'],
+  okoume: ['okoumé', 'Okoumé', 'okoume'],
+  okoumé: ['okoumé', 'Okoumé'],
+  sipo: ['sipo', 'Sipo', 'utile'],
+  acajou: ['acajou', 'Acajou', 'mahogany'],
+  ayous: ['ayous', 'Ayous', 'obeche'],
+  padouk: ['padouk', 'Padouk', 'padauk'],
+  doussie: ['doussié', 'Doussié', 'afzelia'],
+  doussié: ['doussié', 'Doussié', 'afzelia'],
+  movingui: ['movingui', 'Movingui'],
+  framire: ['framiré', 'Framiré'],
+  framiré: ['framiré', 'Framiré'],
+  // Essences américaines
+  tulipier: ['tulipier', 'Tulipier', 'tulip', 'yellow poplar'],
+  ipe: ['ipé', 'Ipé', 'ipe'],
+  ipé: ['ipé', 'Ipé'],
+  jatoba: ['jatoba', 'Jatoba', 'brazilian cherry'],
+  // Résineux
+  meleze: ['mélèze', 'Mélèze', 'larch'],
+  mélèze: ['mélèze', 'Mélèze', 'larch'],
+  cedre: ['cèdre', 'Cèdre', 'cedar'],
+  cèdre: ['cèdre', 'Cèdre', 'cedar'],
+  douglas: ['douglas', 'Douglas'],
+  // Autres
+  bambou: ['bambou', 'Bambou', 'bamboo'],
+  robinier: ['robinier', 'Robinier', 'robinia', 'acacia'],
 };
 
 // ============================================================================
@@ -90,38 +130,55 @@ export const WOOD_SYNONYMS: Record<string, string[]> = {
 // ============================================================================
 
 export const COLOR_SYNONYMS: Record<string, string[]> = {
-  // Blancs
-  blanc: ['blanc', 'Blanc', 'white', 'bianco'], white: ['blanc', 'white'],
-  creme: ['crème', 'Crème', 'cream', 'ivoire'], ivoire: ['ivoire', 'Ivoire'],
+  // Blancs (clé française = forme canonique)
+  blanc: ['blanc', 'Blanc', 'white', 'bianco', 'blanco'],
+  creme: ['crème', 'Crème', 'cream', 'ivoire'],
+  ivoire: ['ivoire', 'Ivoire', 'ivory'],
   // Gris
   gris: ['gris', 'Gris', 'grey', 'gray', 'grigio'],
-  anthracite: ['anthracite', 'Anthracite'], ardoise: ['ardoise', 'Ardoise', 'slate'],
-  taupe: ['taupe', 'Taupe'], graphite: ['graphite', 'Graphite'],
+  anthracite: ['anthracite', 'Anthracite'],
+  ardoise: ['ardoise', 'Ardoise', 'slate'],
+  taupe: ['taupe', 'Taupe'],
+  graphite: ['graphite', 'Graphite'],
   // Noirs
-  noir: ['noir', 'Noir', 'black', 'nero'], black: ['noir', 'black'],
+  noir: ['noir', 'Noir', 'black', 'nero'],
   // Beiges / Marrons
-  beige: ['beige', 'Beige', 'sable'], sable: ['sable', 'Sable', 'sand'],
-  marron: ['marron', 'Marron', 'brown', 'brun'], brun: ['brun', 'Brun', 'brown'],
-  caramel: ['caramel', 'Caramel'], chocolat: ['chocolat', 'Chocolat'],
-  cafe: ['café', 'Café', 'coffee'], cappuccino: ['cappuccino', 'Cappuccino'],
+  beige: ['beige', 'Beige', 'sable'],
+  sable: ['sable', 'Sable', 'sand'],
+  marron: ['marron', 'Marron', 'brown', 'brun'],
+  brun: ['brun', 'Brun', 'brown'],
+  caramel: ['caramel', 'Caramel'],
+  chocolat: ['chocolat', 'Chocolat'],
+  cafe: ['café', 'Café', 'coffee'],
+  cappuccino: ['cappuccino', 'Cappuccino'],
   // Bleus
-  bleu: ['bleu', 'Bleu', 'blue'], blue: ['bleu', 'blue'],
-  navy: ['navy', 'bleu marine'], marine: ['marine', 'navy'],
+  bleu: ['bleu', 'Bleu', 'blue', 'blu'],
+  navy: ['navy', 'bleu marine'],
+  marine: ['marine', 'navy'],
   turquoise: ['turquoise', 'Turquoise'],
   // Verts
-  vert: ['vert', 'Vert', 'green'], green: ['vert', 'green'],
-  olive: ['olive', 'Olive'], sauge: ['sauge', 'Sauge', 'sage'],
+  vert: ['vert', 'Vert', 'green', 'verde'],
+  olive: ['olive', 'Olive'],
+  sauge: ['sauge', 'Sauge', 'sage'],
   // Rouges / Roses
-  rouge: ['rouge', 'Rouge', 'red'], bordeaux: ['bordeaux', 'Bordeaux'],
-  rose: ['rose', 'Rose', 'pink'], corail: ['corail', 'Corail'],
+  rouge: ['rouge', 'Rouge', 'red', 'rosso'],
+  bordeaux: ['bordeaux', 'Bordeaux'],
+  rose: ['rose', 'Rose', 'pink'],
+  corail: ['corail', 'Corail'],
   // Jaunes / Oranges
-  jaune: ['jaune', 'Jaune', 'yellow'], orange: ['orange', 'Orange'],
-  curry: ['curry', 'Curry', 'moutarde'], moutarde: ['moutarde', 'Moutarde'],
+  jaune: ['jaune', 'Jaune', 'yellow', 'giallo'],
+  orange: ['orange', 'Orange', 'arancione'],
+  curry: ['curry', 'Curry', 'moutarde'],
+  moutarde: ['moutarde', 'Moutarde'],
   // Métalliques
-  cuivre: ['cuivre', 'Cuivre', 'copper'], or: ['or', 'Or', 'gold', 'doré'],
-  dore: ['doré', 'Doré', 'gold'], argent: ['argent', 'Argent', 'silver'],
-  chrome: ['chrome', 'Chrome'], inox: ['inox', 'Inox'],
-  alu: ['aluminium', 'Aluminium', 'alu'], aluminium: ['aluminium', 'Aluminium'],
+  cuivre: ['cuivre', 'Cuivre', 'copper'],
+  or: ['or', 'Or', 'gold', 'doré'],
+  dore: ['doré', 'Doré', 'gold'],
+  argent: ['argent', 'Argent', 'silver'],
+  chrome: ['chrome', 'Chrome'],
+  inox: ['inox', 'Inox'],
+  alu: ['aluminium', 'Aluminium', 'alu'],
+  aluminium: ['aluminium', 'Aluminium'],
 };
 
 // ============================================================================
@@ -189,7 +246,9 @@ export const SUBCATEGORY_SYNONYMS: Record<string, string[]> = {
 
   // Mélaminés
   unis: ['unis', 'Unis', 'uni', 'couleur unie'],
-  bois: ['bois', 'Bois', 'décor bois', 'wood'],
+  // NOTE: "bois" retiré car trop générique - pour placage c'est redondant,
+  // pour mélaminé utiliser "décor bois" ou une essence spécifique (chêne, noyer, etc.)
+  decorbois: ['décor bois', 'decor bois', 'imitation bois'],
   fantaisie: ['fantaisie', 'Fantaisie', 'design', 'motif'],
 
   // Plans de travail
@@ -382,8 +441,17 @@ export function parseSmartQuery(query: string): ParsedSmartQuery {
     unrecognized.push(token);
   }
 
-  result.unrecognizedTokens = unrecognized;
-  result.searchText = unrecognized.join(' ');
+  // Filtrer les mots redondants selon le contexte
+  // "bois" est redondant pour les types de produits qui sont intrinsèquement en bois
+  const WOOD_INHERENT_TYPES = ['PLACAGE', 'MASSIF', 'CONTREPLAQUE'];
+  const isWoodInherentProduct = result.productTypes.some(t => WOOD_INHERENT_TYPES.includes(t));
+
+  const filteredUnrecognized = isWoodInherentProduct
+    ? unrecognized.filter(token => token.toLowerCase() !== 'bois')
+    : unrecognized;
+
+  result.unrecognizedTokens = filteredUnrecognized;
+  result.searchText = filteredUnrecognized.join(' ');
   return result;
 }
 

@@ -399,6 +399,13 @@ export async function smartSearch(
     catalogueSlug?: string;
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
+    enStock?: boolean;
+    // Filtres explicites
+    decorCategory?: string;
+    manufacturer?: string;
+    isHydrofuge?: boolean;
+    isIgnifuge?: boolean;
+    isPreglued?: boolean;
   }
 ): Promise<SmartSearchResult> {
   const queryParams = new URLSearchParams();
@@ -409,6 +416,13 @@ export async function smartSearch(
   if (options?.catalogueSlug) queryParams.append('catalogue', options.catalogueSlug);
   if (options?.sortBy) queryParams.append('sortBy', options.sortBy);
   if (options?.sortDirection) queryParams.append('sortDirection', options.sortDirection);
+  if (options?.enStock) queryParams.append('enStock', 'true');
+  // Filtres explicites
+  if (options?.decorCategory) queryParams.append('decorCategory', options.decorCategory);
+  if (options?.manufacturer) queryParams.append('manufacturer', options.manufacturer);
+  if (options?.isHydrofuge) queryParams.append('isHydrofuge', 'true');
+  if (options?.isIgnifuge) queryParams.append('isIgnifuge', 'true');
+  if (options?.isPreglued) queryParams.append('isPreglued', 'true');
 
   const endpoint = `/api/catalogues/smart-search?${queryParams}`;
 
@@ -487,6 +501,56 @@ export async function findMatchingChant(
   } catch (error) {
     console.error('[findMatchingChant] Error searching for matching chant:', error);
     return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEARCH SUGGESTIONS - Correction de fautes de frappe
+// ═══════════════════════════════════════════════════════════════
+
+export interface SearchSuggestion {
+  original: string;
+  suggestion: string;
+  confidence: number;
+  type: 'wood' | 'color' | 'productType' | 'manufacturer' | 'other';
+}
+
+export interface SuggestResponse {
+  originalQuery: string;
+  suggestions: SearchSuggestion[];
+  correctedQuery: string | null;
+}
+
+/**
+ * Get spelling correction suggestions for a search query
+ * Uses trigram similarity to find close matches
+ *
+ * @param query - The search query to check for typos
+ * @returns Suggestions for corrections if any typos detected
+ */
+export async function getSearchSuggestions(
+  query: string
+): Promise<SuggestResponse> {
+  if (!query || query.trim().length < 3) {
+    return {
+      originalQuery: query || '',
+      suggestions: [],
+      correctedQuery: null,
+    };
+  }
+
+  try {
+    const response = await apiCall<SuggestResponse>(
+      `/api/catalogues/suggest?q=${encodeURIComponent(query)}`
+    );
+    return response;
+  } catch (error) {
+    console.warn('[getSearchSuggestions] Error:', error);
+    return {
+      originalQuery: query,
+      suggestions: [],
+      correctedQuery: null,
+    };
   }
 }
 

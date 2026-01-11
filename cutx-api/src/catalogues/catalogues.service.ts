@@ -1142,6 +1142,13 @@ export class CataloguesService {
       catalogueSlug?: string;
       sortBy?: string;
       sortDirection?: 'asc' | 'desc';
+      enStock?: boolean;
+      // Nouveaux filtres explicites
+      decorCategory?: string;
+      manufacturer?: string;
+      isHydrofuge?: boolean;
+      isIgnifuge?: boolean;
+      isPreglued?: boolean;
     },
   ): Promise<{
     panels: Panel[];
@@ -1160,6 +1167,9 @@ export class CataloguesService {
       genres: { label: string; count: number; searchTerm: string }[];
       dimensions: { label: string; count: number; length: number; width: number }[];
       thicknesses: { value: number; count: number }[];
+      decorCategories: { value: string; label: string; count: number }[];
+      manufacturers: { value: string; label: string; count: number }[];
+      properties: { key: string; label: string; count: number }[];
     };
   }> {
     // Import du parser
@@ -1182,6 +1192,36 @@ export class CataloguesService {
       params.push(options.catalogueSlug);
     }
 
+    // Ajouter le filtre stock si spécifié
+    let stockCondition = '';
+    if (options?.enStock) {
+      stockCondition = `AND p."stockStatus" = 'EN STOCK'`;
+    }
+
+    // Sauvegarder le nombre de paramètres AVANT les filtres explicites (pour les facettes)
+    const baseParamsCount = params.length;
+
+    // Ajouter les filtres explicites (decorCategory, manufacturer, properties)
+    let explicitFilters = '';
+    if (options?.decorCategory) {
+      // Cast to enum type for PostgreSQL comparison
+      explicitFilters += ` AND p."decorCategory" = $${params.length + 1}::"DecorCategory"`;
+      params.push(options.decorCategory);
+    }
+    if (options?.manufacturer) {
+      explicitFilters += ` AND p.manufacturer = $${params.length + 1}`;
+      params.push(options.manufacturer);
+    }
+    if (options?.isHydrofuge) {
+      explicitFilters += ` AND p."isHydrofuge" = true`;
+    }
+    if (options?.isIgnifuge) {
+      explicitFilters += ` AND p."isIgnifuge" = true`;
+    }
+    if (options?.isPreglued) {
+      explicitFilters += ` AND p."isPreglued" = true`;
+    }
+
     // Construire le ORDER BY
     const sortBy = options?.sortBy || 'name';
     const sortDir = (options?.sortDirection || 'asc').toUpperCase();
@@ -1202,6 +1242,8 @@ export class CataloguesService {
       LEFT JOIN "Category" parent ON cat."parentId" = parent.id
       WHERE ${whereClause}
         ${catalogueCondition}
+        ${stockCondition}
+        ${explicitFilters}
       ORDER BY ${orderByClause}
       LIMIT ${limit} OFFSET ${offset}
     `;
@@ -1213,6 +1255,8 @@ export class CataloguesService {
       JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
       WHERE ${whereClause}
         ${catalogueCondition}
+        ${stockCondition}
+        ${explicitFilters}
     `;
 
     // Exécuter les requêtes
@@ -1259,8 +1303,13 @@ export class CataloguesService {
 
     const hasMore = offset + panels.length < total;
 
-    // Agréger les facettes disponibles dans les résultats
-    const facets = await this.aggregateSmartSearchFacets(whereClause, params, catalogueCondition);
+    // Agréger les facettes disponibles (sans les filtres explicites pour permettre de changer)
+    // On utilise seulement les paramètres de base (avant decorCategory, manufacturer, etc.)
+    const facets = await this.aggregateSmartSearchFacets(
+      whereClause,
+      params.slice(0, baseParamsCount),
+      catalogueCondition,
+    );
 
     return {
       panels: panels as unknown as Panel[],
@@ -1280,9 +1329,8 @@ export class CataloguesService {
   }
 
   /**
-   * Agrège les facettes de recherche en 3 requêtes parallèles (optimisé).
-   * Avant: 19+ requêtes séquentielles pour les genres.
-   * Après: 1 requête avec CASE WHEN + 2 requêtes parallèles = 3 total.
+   * Agrège les facettes de recherche en requêtes parallèles (optimisé).
+   * Inclut: genres, dimensions, épaisseurs, catégories décor, fournisseurs, propriétés
    */
   private async aggregateSmartSearchFacets(
     whereClause: string,
@@ -1292,6 +1340,9 @@ export class CataloguesService {
     genres: { label: string; count: number; searchTerm: string }[];
     dimensions: { label: string; count: number; length: number; width: number }[];
     thicknesses: { value: number; count: number }[];
+    decorCategories: { value: string; label: string; count: number }[];
+    manufacturers: { value: string; label: string; count: number }[];
+    properties: { key: string; label: string; count: number }[];
   }> {
     // Mots-clés pour détecter les genres dans les noms de produits
     const genreKeywords = [
@@ -1361,8 +1412,51 @@ export class CataloguesService {
       ORDER BY thickness_value ASC
     `;
 
-    // Exécuter les 3 requêtes en parallèle (au lieu de 19+ séquentielles)
-    const [genreResult, dimResults, thickResults] = await Promise.all([
+    // Nouvelles facettes: Catégories de décor
+    const decorCategorySql = `
+      SELECT
+        p."decorCategory" as value,
+        COUNT(*) as count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+        AND p."decorCategory" IS NOT NULL
+      GROUP BY p."decorCategory"
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+
+    // Nouvelles facettes: Fournisseurs (manufacturer)
+    const manufacturerSql = `
+      SELECT
+        p.manufacturer as value,
+        COUNT(*) as count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+        AND p.manufacturer IS NOT NULL
+        AND p.manufacturer != ''
+      GROUP BY p.manufacturer
+      ORDER BY count DESC
+      LIMIT 15
+    `;
+
+    // Nouvelles facettes: Propriétés booléennes (hydrofuge, ignifugé, pré-collé)
+    const propertiesSql = `
+      SELECT
+        SUM(CASE WHEN p."isHydrofuge" = true THEN 1 ELSE 0 END) as hydrofuge_count,
+        SUM(CASE WHEN p."isIgnifuge" = true THEN 1 ELSE 0 END) as ignifuge_count,
+        SUM(CASE WHEN p."isPreglued" = true THEN 1 ELSE 0 END) as preglued_count
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+    `;
+
+    // Exécuter les 6 requêtes en parallèle
+    const [genreResult, dimResults, thickResults, decorResults, manuResults, propResult] = await Promise.all([
       this.prisma
         .$queryRawUnsafe<[Record<string, bigint>]>(genresSql, ...params)
         .catch(() => [{}] as [Record<string, bigint>]),
@@ -1375,6 +1469,15 @@ export class CataloguesService {
       this.prisma
         .$queryRawUnsafe<{ thickness_value: number; count: bigint }[]>(thicknessSql, ...params)
         .catch(() => [] as { thickness_value: number; count: bigint }[]),
+      this.prisma
+        .$queryRawUnsafe<{ value: string; count: bigint }[]>(decorCategorySql, ...params)
+        .catch(() => [] as { value: string; count: bigint }[]),
+      this.prisma
+        .$queryRawUnsafe<{ value: string; count: bigint }[]>(manufacturerSql, ...params)
+        .catch(() => [] as { value: string; count: bigint }[]),
+      this.prisma
+        .$queryRawUnsafe<[{ hydrofuge_count: bigint; ignifuge_count: bigint; preglued_count: bigint }]>(propertiesSql, ...params)
+        .catch(() => [{ hydrofuge_count: BigInt(0), ignifuge_count: BigInt(0), preglued_count: BigInt(0) }]),
     ]);
 
     // Parser les résultats des genres
@@ -1409,7 +1512,51 @@ export class CataloguesService {
         count: Number(t.count),
       }));
 
-    return { genres: genreCounts, dimensions, thicknesses };
+    // Parser les catégories de décor
+    const decorCategoryLabels: Record<string, string> = {
+      'UNIS': 'Unis',
+      'BOIS': 'Bois',
+      'PIERRE': 'Pierre',
+      'BETON': 'Béton',
+      'METAL': 'Métal',
+      'TEXTILE': 'Textile',
+      'FANTAISIE': 'Fantaisie',
+      'SANS_DECOR': 'Sans décor',
+    };
+    const decorCategories = decorResults
+      .filter((d) => d.value && d.value !== 'SANS_DECOR')
+      .map((d) => ({
+        value: d.value,
+        label: decorCategoryLabels[d.value] || d.value,
+        count: Number(d.count),
+      }));
+
+    // Parser les fournisseurs
+    const manufacturers = manuResults.map((m) => ({
+      value: m.value,
+      label: m.value,
+      count: Number(m.count),
+    }));
+
+    // Parser les propriétés booléennes
+    const propRow = propResult[0] || { hydrofuge_count: BigInt(0), ignifuge_count: BigInt(0), preglued_count: BigInt(0) };
+    const properties: { key: string; label: string; count: number }[] = [];
+
+    const hydrofugeCount = Number(propRow.hydrofuge_count || 0);
+    const ignifugeCount = Number(propRow.ignifuge_count || 0);
+    const pregluedCount = Number(propRow.preglued_count || 0);
+
+    if (hydrofugeCount > 0) {
+      properties.push({ key: 'hydrofuge', label: 'Hydrofuge', count: hydrofugeCount });
+    }
+    if (ignifugeCount > 0) {
+      properties.push({ key: 'ignifuge', label: 'Ignifugé', count: ignifugeCount });
+    }
+    if (pregluedCount > 0) {
+      properties.push({ key: 'preglued', label: 'Pré-collé', count: pregluedCount });
+    }
+
+    return { genres: genreCounts, dimensions, thicknesses, decorCategories, manufacturers, properties };
   }
 
   // ============================================
@@ -1468,5 +1615,33 @@ export class CataloguesService {
         },
       },
     });
+  }
+
+  // ============================================
+  // SEARCH SUGGESTIONS - Correction de fautes
+  // ============================================
+
+  /**
+   * Suggest corrections for misspelled search terms
+   * Uses pg_trgm similarity to find close matches
+   *
+   * @example
+   * Input: "chataigner" (typo)
+   * Output: { suggestions: [{ original: "chataigner", suggestion: "châtaignier", confidence: 0.65 }] }
+   */
+  async suggest(
+    query: string,
+  ): Promise<{
+    originalQuery: string;
+    suggestions: Array<{
+      original: string;
+      suggestion: string;
+      confidence: number;
+      type: 'wood' | 'color' | 'productType' | 'manufacturer' | 'other';
+    }>;
+    correctedQuery: string | null;
+  }> {
+    const { analyzeQueryForSuggestions } = await import('./utils/search-suggestions.js');
+    return analyzeQueryForSuggestions(this.prisma, query);
   }
 }

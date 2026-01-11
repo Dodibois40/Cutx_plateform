@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Loader2, LayoutGrid, Columns2, List, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Loader2, LayoutGrid, Columns2, List, ChevronUp, ChevronDown, ChevronsUpDown, PackageCheck, Lightbulb } from 'lucide-react';
 import ProductCard from './ProductCard';
 import FilterChips from './FilterChips';
 import SponsoredRow from './SponsoredRow';
+import { useSearchSuggestions } from '@/lib/hooks/useSearchSuggestions';
 import type { SearchProduct, SmartSearchFacets, ParsedFilters } from './types';
 
 export type ViewMode = 'detail' | 'grid' | 'list';
@@ -31,11 +32,14 @@ interface SearchResultsProps {
   parsedFilters: ParsedFilters | null;
   activeFilters?: ActiveFilter[];
   onProductClick: (product: SearchProduct) => void;
+  onViewDetails?: (productId: string) => void;
   onFilterClick: (filterType: string, value: string) => void;
   onClearFilter?: (filterType: string, value: string) => void;
   onClearAllFilters?: () => void;
   onLoadMore: () => void;
   isDraggable?: boolean;
+  /** Callback to search with a suggested correction */
+  onSearchWithSuggestion?: (suggestion: string) => void;
 }
 
 export default function SearchResults({
@@ -49,16 +53,31 @@ export default function SearchResults({
   parsedFilters,
   activeFilters = [],
   onProductClick,
+  onViewDetails,
   onFilterClick,
   onClearFilter,
   onClearAllFilters,
   onLoadMore,
   isDraggable = false,
+  onSearchWithSuggestion,
 }: SearchResultsProps) {
   const t = useTranslations('home');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
+  // Get spelling suggestions when results are few or empty
+  const {
+    suggestions,
+    correctedQuery,
+    hasSuggestions,
+    isLoading: suggestionsLoading,
+  } = useSearchSuggestions({
+    query,
+    resultsCount: total,
+    threshold: 3, // Show suggestions when <= 3 results
+    enabled: !isLoading && query.length >= 3,
+  });
 
   // Load view mode from localStorage on mount
   useEffect(() => {
@@ -153,16 +172,33 @@ export default function SearchResults({
     );
   }
 
-  // Show no results
+  // Show no results with suggestion
   if (!isLoading && results.length === 0 && query.length >= 2) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-xl text-[var(--cx-text-muted)] mb-2">
           {t('results.noResults', { query })}
         </p>
-        <p className="text-sm text-[var(--cx-text-muted)]">
+        <p className="text-sm text-[var(--cx-text-muted)] mb-4">
           {t('results.tryAgain')}
         </p>
+
+        {/* Spelling suggestion */}
+        {hasSuggestions && correctedQuery && onSearchWithSuggestion && (
+          <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-amber-400">
+              <Lightbulb className="w-5 h-5" />
+              <span className="text-sm">Vouliez-vous dire :</span>
+              <button
+                onClick={() => onSearchWithSuggestion(correctedQuery)}
+                className="font-semibold text-amber-300 hover:text-amber-200 underline underline-offset-2 transition-colors"
+              >
+                {correctedQuery}
+              </button>
+              <span className="text-xs text-amber-500/70">?</span>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -171,6 +207,23 @@ export default function SearchResults({
     <div className="w-full max-w-6xl mx-auto px-4 py-6">
       {/* Sponsored row */}
       <SponsoredRow products={sponsored} onProductClick={onProductClick} />
+
+      {/* Spelling suggestion when few results */}
+      {hasSuggestions && correctedQuery && onSearchWithSuggestion && total > 0 && total <= 3 && (
+        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <div className="flex items-center gap-2 text-amber-400">
+            <Lightbulb className="w-4 h-4" />
+            <span className="text-sm">Peu de résultats. Vouliez-vous dire :</span>
+            <button
+              onClick={() => onSearchWithSuggestion(correctedQuery)}
+              className="font-semibold text-amber-300 hover:text-amber-200 underline underline-offset-2 transition-colors"
+            >
+              {correctedQuery}
+            </button>
+            <span className="text-xs text-amber-500/70">?</span>
+          </div>
+        </div>
+      )}
 
       {/* Filter chips */}
       <div className="mb-6">
@@ -185,14 +238,39 @@ export default function SearchResults({
         />
       </div>
 
-      {/* Results count + View toggle */}
+      {/* Results count + Stock filter + View toggle */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-[var(--cx-text-muted)]">
           {t('results.count', { count: total })}
         </p>
 
-        {/* View mode toggle */}
-        <div className="flex items-center gap-1 p-1 bg-[var(--cx-surface-1)] border border-[var(--cx-border)] rounded-lg">
+        <div className="flex items-center gap-3">
+          {/* En Stock toggle button */}
+          {(() => {
+            const isStockActive = activeFilters.some(f => f.type === 'stock');
+            return (
+              <button
+                onClick={() => {
+                  if (isStockActive) {
+                    onClearFilter?.('stock', 'true');
+                  } else {
+                    onFilterClick('stock', 'true');
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  isStockActive
+                    ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-green-500/30 hover:text-green-400'
+                }`}
+              >
+                <PackageCheck className="w-4 h-4" />
+                En stock
+              </button>
+            );
+          })()}
+
+          {/* View mode toggle */}
+          <div className="flex items-center gap-1 p-1 bg-[var(--cx-surface-1)] border border-[var(--cx-border)] rounded-lg">
           <button
             onClick={() => handleViewModeChange('detail')}
             className={`p-2 rounded-md transition-colors ${
@@ -226,6 +304,7 @@ export default function SearchResults({
           >
             <List className="w-4 h-4" />
           </button>
+        </div>
         </div>
       </div>
 
@@ -288,6 +367,7 @@ export default function SearchResults({
             <ProductCard
               product={product}
               onClick={onProductClick}
+              onViewDetails={onViewDetails}
               viewMode={viewMode}
               isDraggable={isDraggable}
             />

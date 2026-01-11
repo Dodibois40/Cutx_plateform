@@ -11,6 +11,7 @@ import {
   HomeSearchBar,
   SearchResults,
   PanelActionPopup,
+  ProductDetailModal,
 } from '@/components/home';
 import FilesPanel, { DropZoneVisual } from '@/components/home/ImportWorkspace/FilesPanel';
 import WorkspaceBottomBar from '@/components/home/ImportWorkspace/WorkspaceBottomBar';
@@ -27,8 +28,9 @@ import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 import { useSearchState } from '@/components/home/hooks/useSearchState';
 import { useRouter, Link } from '@/i18n/routing';
-import { Upload, ClipboardCheck } from 'lucide-react';
+import { Upload, ClipboardCheck, Play } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
+import { UserAccountMenu } from '@/components/ui/UserAccountMenu';
 
 // Fallback for Suspense
 function HomePageLoading() {
@@ -85,6 +87,8 @@ function HomePageContent() {
   const [showLaunchMessage, setShowLaunchMessage] = useState(false);
   // Chant (edge banding) search mode - tracks which file we're searching chant for
   const [searchingChantForFileId, setSearchingChantForFileId] = useState<string | null>(null);
+  // Product detail modal
+  const [detailProductId, setDetailProductId] = useState<string | null>(null);
 
   // File import hook for DXF/XLSX dropped on homepage
   const fileImport = useFileImport();
@@ -115,13 +119,41 @@ function HomePageContent() {
     }, 2000);
   }, [fileImport, goHome]);
 
+  // Manual demo trigger - reset and start fresh demo
+  const handleStartDemo = useCallback(() => {
+    // Reset everything first
+    goHome();
+    fileImport.resetImport();
+    setSelectedFileId(null);
+
+    // Add mock file and show onboarding
+    fileImport.addMockFile();
+    setShowOnboarding(true);
+  }, [fileImport, goHome]);
+
   const debouncedQuery = useDebounce(query, 300);
 
-  // Construct combined search query from base query + active filters
-  const combinedQuery = useMemo(() => {
-    if (activeFilters.length === 0) return debouncedQuery;
+  // Extract explicit filters (handled via API parameters, not text search)
+  const explicitFilters = useMemo(() => {
+    const decorCategory = activeFilters.find(f => f.type === 'decorCategory')?.value;
+    const manufacturer = activeFilters.find(f => f.type === 'manufacturer')?.value;
+    const isHydrofuge = activeFilters.some(f => f.type === 'property' && f.value === 'hydrofuge');
+    const isIgnifuge = activeFilters.some(f => f.type === 'property' && f.value === 'ignifuge');
+    const isPreglued = activeFilters.some(f => f.type === 'property' && f.value === 'preglued');
+    const enStock = activeFilters.some(f => f.type === 'stock');
 
-    const filterTerms = activeFilters.map(f => {
+    return { decorCategory, manufacturer, isHydrofuge, isIgnifuge, isPreglued, enStock };
+  }, [activeFilters]);
+
+  // Construct combined search query from base query + text-based filters only
+  // (thickness, dimension, genre are added to text query; decorCategory, manufacturer, property use API params)
+  const combinedQuery = useMemo(() => {
+    const textFilters = activeFilters.filter(f =>
+      !['stock', 'decorCategory', 'manufacturer', 'property'].includes(f.type)
+    );
+    if (textFilters.length === 0) return debouncedQuery;
+
+    const filterTerms = textFilters.map(f => {
       if (f.type === 'thickness') return `${f.value}mm`;
       return f.value;
     });
@@ -129,7 +161,7 @@ function HomePageContent() {
     return `${debouncedQuery} ${filterTerms.join(' ')}`.trim();
   }, [debouncedQuery, activeFilters]);
 
-  // Search hook with smart search - uses combined query
+  // Search hook with smart search - uses combined query + explicit filters
   const {
     produits,
     total,
@@ -142,6 +174,12 @@ function HomePageContent() {
     search: combinedQuery,
     useSmartSearch: true,
     enabled: combinedQuery.length >= 2,
+    enStock: explicitFilters.enStock || undefined,
+    decorCategory: explicitFilters.decorCategory,
+    manufacturer: explicitFilters.manufacturer,
+    isHydrofuge: explicitFilters.isHydrofuge || undefined,
+    isIgnifuge: explicitFilters.isIgnifuge || undefined,
+    isPreglued: explicitFilters.isPreglued || undefined,
   });
 
   // Fetch sponsored when search changes
@@ -216,6 +254,16 @@ function HomePageContent() {
   // Close popup
   const handleClosePopup = useCallback(() => {
     setSelectedProduct(null);
+  }, []);
+
+  // Open product detail modal
+  const handleViewDetails = useCallback((productId: string) => {
+    setDetailProductId(productId);
+  }, []);
+
+  // Close product detail modal
+  const handleCloseDetailModal = useCallback(() => {
+    setDetailProductId(null);
   }, []);
 
   // Handle split by thickness
@@ -352,18 +400,27 @@ function HomePageContent() {
   const hasFiles = mounted && fileImport.totalFiles > 0;
 
   return (
-    <div className="fixed inset-0 bg-[var(--cx-background)] flex flex-col">
+    <div className="fixed inset-0 w-full h-full bg-[var(--cx-background)] flex flex-col overflow-hidden">
       {/* Main content - permanent 75/25 split */}
-      <main className="flex-1 flex min-h-0">
+      <main className="flex-1 flex min-h-0 w-full">
         {/* Left panel - Search (75%) */}
         <div className="w-[75%] flex flex-col min-h-0 relative">
-          {/* Apps menu - inside left panel, top left */}
-          <div className="absolute top-4 left-4 z-20">
+          {/* Top left - User avatar + Apps menu */}
+          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+            <UserAccountMenu />
             <CutXAppsMenu />
           </div>
 
-          {/* Language switcher & Admin link - inside left panel, top right */}
+          {/* Top right - Demo + Review + Language switcher */}
           <div className="absolute top-4 right-4 z-20 flex items-center gap-3">
+            <button
+              onClick={handleStartDemo}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--cx-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-full border border-[var(--cx-border)] hover:border-amber-500/30 transition-colors"
+              title="Lancer la démo"
+            >
+              <Play size={12} fill="currentColor" />
+              <span>Démo</span>
+            </button>
             {isSignedIn && (
               <Link
                 href="/panels-review"
@@ -469,11 +526,13 @@ function HomePageContent() {
                 parsedFilters={parsedFilters}
                 activeFilters={activeFilters}
                 onProductClick={handleProductClick}
+                onViewDetails={handleViewDetails}
                 onFilterClick={addFilter}
                 onClearFilter={removeFilter}
                 onClearAllFilters={clearAllFilters}
                 onLoadMore={handleLoadMore}
                 isDraggable={hasFiles}
+                onSearchWithSuggestion={setQuery}
               />
             </div>
           )}
@@ -556,6 +615,13 @@ function HomePageContent() {
         file={splitModalFileId ? fileImport.importedFiles.find(f => f.id === splitModalFileId) || null : null}
         onSplit={handleConfirmSplit}
         onCancel={handleCloseSplitModal}
+      />
+
+      {/* Product detail modal */}
+      <ProductDetailModal
+        open={!!detailProductId}
+        productId={detailProductId}
+        onClose={handleCloseDetailModal}
       />
 
       {/* Onboarding overlay - shows on first file import */}
