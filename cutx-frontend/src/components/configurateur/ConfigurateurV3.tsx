@@ -92,6 +92,8 @@ function ConfigurateurContent() {
     setShowWelcomeModal,
     showOptimiseur,
     setShowOptimiseur,
+    groupeToOptimize,
+    setGroupeToOptimize,
     totaux,
     tarifsDecoupeChants,
     validation,
@@ -159,6 +161,44 @@ function ConfigurateurContent() {
     setEditingMulticoucheGroupeId(groupeId);
     setMulticoucheGroupesOpen(true);
   }, []);
+
+  // Handler pour optimiser un groupe spécifique
+  const handleOptimiserGroupe = useCallback((groupeId: string) => {
+    // Trouver le groupe
+    const groupe = groupes.find(g => g.id === groupeId);
+    if (!groupe || !groupe.panneau) {
+      showToast({
+        type: 'warning',
+        message: 'Sélectionnez un panneau pour ce groupe avant d\'optimiser',
+      });
+      return;
+    }
+
+    // Vérifier qu'il y a des lignes
+    const lignesPanneau = groupe.lignes.filter(l =>
+      l.typeLigne === 'panneau' &&
+      l.dimensions.longueur > 0 &&
+      l.dimensions.largeur > 0
+    );
+
+    if (lignesPanneau.length === 0) {
+      showToast({
+        type: 'warning',
+        message: 'Aucune ligne avec dimensions valides à optimiser',
+      });
+      return;
+    }
+
+    // Configurer les données du groupe pour l'optimisation
+    setGroupeToOptimize({
+      groupeId: groupe.id,
+      panneau: groupe.panneau,
+      lignes: groupe.lignes,
+    });
+
+    // Ouvrir le popup
+    setShowOptimiseur(true);
+  }, [groupes, showToast, setGroupeToOptimize, setShowOptimiseur]);
 
   // Helper: génère la prochaine référence pour une duplication
   const genererProchaineReference = useCallback((referenceBase: string, toutesLesReferences: string[]): string => {
@@ -466,6 +506,7 @@ function ConfigurateurContent() {
             }}
             onEditMulticouche={handleEditMulticoucheGroupe}
             onCopierLigne={handleCopierLigneGroupes}
+            onOptimiserGroupe={handleOptimiserGroupe}
           />
         ) : (
           <TableauPrestations
@@ -606,10 +647,14 @@ function ConfigurateurContent() {
 
       <PopupOptimiseur
         open={showOptimiseur}
-        onClose={() => setShowOptimiseur(false)}
+        onClose={() => {
+          setShowOptimiseur(false);
+          setGroupeToOptimize(null); // Reset groupe data on close
+        }}
         lignes={modeGroupes ? [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees] : lignes}
         panneauxCatalogue={panneauxCatalogue}
         panneauGlobal={panneauGlobal}
+        groupeData={groupeToOptimize}
       />
 
       {/* Popup sélecteur de panneau (mode groupes) - Utilise le vrai catalogue */}

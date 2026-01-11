@@ -9,7 +9,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, Trash2, Package, Plus, ArrowDownToLine, Layers, MoveVertical } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Package, Plus, ArrowDownToLine, Layers, MoveVertical, Scissors } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { GroupePanneau as GroupePanneauType } from '@/lib/configurateur/groupes/types';
 import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateur/types';
@@ -82,6 +82,8 @@ interface GroupePanneauProps {
   // Props de sélection
   selectedLigneIds?: Set<string>;
   onToggleLigneSelection?: (ligneId: string) => void;
+  // Optimiseur
+  onOptimiserGroupe?: () => void;
 }
 
 export function GroupePanneau({
@@ -103,6 +105,7 @@ export function GroupePanneau({
   onApplyToColumn,
   selectedLigneIds,
   onToggleLigneSelection,
+  onOptimiserGroupe,
 }: GroupePanneauProps) {
   const t = useTranslations();
 
@@ -330,6 +333,25 @@ export function GroupePanneau({
               <span className="prix-total">
                 {totaux.prixTotalHT.toFixed(2)}€
               </span>
+            )}
+
+            {/* Bouton optimiseur - visible dès qu'un panneau est sélectionné */}
+            {/* DEBUG: onOptimiserGroupe={!!onOptimiserGroupe}, groupe.panneau={!!groupe.panneau} */}
+            {groupe.panneau && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onOptimiserGroupe) {
+                    onOptimiserGroupe();
+                  } else {
+                    console.warn('onOptimiserGroupe not provided');
+                  }
+                }}
+                className="optimize-btn"
+                title="Optimiser la découpe"
+              >
+                <Scissors className="w-4 h-4" />
+              </button>
             )}
 
             <button
@@ -837,6 +859,26 @@ export function GroupePanneau({
           font-size: var(--cx-text-sm);
           font-weight: 600;
           color: var(--cx-accent);
+        }
+
+        .optimize-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          background: transparent;
+          border: none;
+          border-radius: var(--cx-radius-md);
+          color: var(--cx-accent);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .optimize-btn:hover {
+          color: var(--cx-accent);
+          background: var(--cx-accent-muted);
         }
 
         .delete-btn {

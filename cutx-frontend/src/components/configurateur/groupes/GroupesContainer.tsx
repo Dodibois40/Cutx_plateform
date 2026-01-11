@@ -39,6 +39,7 @@ interface GroupesContainerProps {
   onOpenMulticouche?: () => void;
   onEditMulticouche?: (groupeId: string) => void; // Pour éditer un groupe multicouche existant
   onCopierLigne: (ligneId: string) => void;
+  onOptimiserGroupe?: (groupeId: string) => void; // Pour optimiser un groupe spécifique
 }
 
 export function GroupesContainer({
@@ -47,6 +48,7 @@ export function GroupesContainer({
   onOpenMulticouche,
   onEditMulticouche,
   onCopierLigne,
+  onOptimiserGroupe,
 }: GroupesContainerProps) {
   const {
     groupes,
@@ -419,6 +421,8 @@ export function GroupesContainer({
               // Props de sélection
               selectedLigneIds={selectedLigneIds}
               onToggleLigneSelection={toggleLigneSelection}
+              // Optimiseur
+              onOptimiserGroupe={onOptimiserGroupe ? () => onOptimiserGroupe(groupe.id) : undefined}
             />
           );
         })}

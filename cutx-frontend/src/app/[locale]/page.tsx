@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { LocaleSwitcher } from '@/components/ui/LocaleSwitcher';
+import { CutXAppsMenu } from '@/components/ui/CutXAppsMenu';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useCatalogueSearch } from '@/lib/hooks/useCatalogueSearch';
 import { getSponsored, type CatalogueProduit } from '@/lib/services/catalogue-api';
@@ -26,7 +27,9 @@ import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 import { useSearchState } from '@/components/home/hooks/useSearchState';
 import { useRouter } from '@/i18n/routing';
-import { Upload } from 'lucide-react';
+import { Upload, ClipboardCheck } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 
 // Fallback for Suspense
 function HomePageLoading() {
@@ -54,6 +57,7 @@ export default function HomePage() {
 
 function HomePageContent() {
   const t = useTranslations('common');
+  const { isSignedIn } = useUser();
 
   // Prevent hydration mismatch - render same HTML on server and first client render
   const [mounted, setMounted] = useState(false);
@@ -354,8 +358,23 @@ function HomePageContent() {
       <main className="flex-1 flex min-h-0">
         {/* Left panel - Search (75%) */}
         <div className="w-[75%] flex flex-col min-h-0 relative">
-          {/* Language switcher - inside left panel, top right */}
-          <div className="absolute top-4 right-4 z-20">
+          {/* Apps menu - inside left panel, top left */}
+          <div className="absolute top-4 left-4 z-20">
+            <CutXAppsMenu />
+          </div>
+
+          {/* Language switcher & Admin link - inside left panel, top right */}
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-3">
+            {isSignedIn && (
+              <Link
+                href="/panels-review"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10 rounded transition-colors"
+                title="Review des panneaux"
+              >
+                <ClipboardCheck size={14} />
+                <span className="hidden sm:inline">Review</span>
+              </Link>
+            )}
             <LocaleSwitcher />
           </div>
           {/* Search section - centered or top based on state */}

@@ -24,6 +24,7 @@ import {
 } from '@/lib/configurateur/constants';
 import { getPanneauxDisponibles, type PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { PanneauMulticouche } from '@/lib/configurateur-multicouche/types';
+import type { GroupeOptimisationData } from '@/components/configurateur/optimiseur';
 import {
   mettreAJourCalculsLigne,
   calculerTotaux,
@@ -118,6 +119,8 @@ interface ConfigurateurContextType {
   setShowWelcomeModal: (show: boolean) => void;
   showOptimiseur: boolean;
   setShowOptimiseur: (show: boolean) => void;
+  groupeToOptimize: GroupeOptimisationData | null;
+  setGroupeToOptimize: (data: GroupeOptimisationData | null) => void;
 
   // Computed values
   totaux: ReturnType<typeof calculerTotaux>;
@@ -201,6 +204,7 @@ export function ConfigurateurProvider({
   const [highlightedColumn, setHighlightedColumn] = useState<ColonneDuplicable | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showOptimiseur, setShowOptimiseur] = useState(false);
+  const [groupeToOptimize, setGroupeToOptimize] = useState<GroupeOptimisationData | null>(null);
   const [panneauxCatalogue, setPanneauxCatalogue] = useState<PanneauCatalogue[]>([]);
   const [panneauxLoading, setPanneauxLoading] = useState(true);
 
@@ -781,6 +785,8 @@ export function ConfigurateurProvider({
     setShowWelcomeModal,
     showOptimiseur,
     setShowOptimiseur,
+    groupeToOptimize,
+    setGroupeToOptimize,
 
     // Computed values
     totaux,
@@ -829,6 +835,7 @@ export function ConfigurateurProvider({
     highlightedColumn,
     showWelcomeModal,
     showOptimiseur,
+    groupeToOptimize,
     totaux,
     tarifsDecoupeChants,
     state,
@@ -894,6 +901,8 @@ export function useConfigurateurUI() {
     setShowWelcomeModal,
     showOptimiseur,
     setShowOptimiseur,
+    groupeToOptimize,
+    setGroupeToOptimize,
     highlightedColumn,
   } = useConfigurateur();
 
@@ -908,6 +917,8 @@ export function useConfigurateurUI() {
     setShowWelcomeModal,
     showOptimiseur,
     setShowOptimiseur,
+    groupeToOptimize,
+    setGroupeToOptimize,
     highlightedColumn,
   };
 }
