@@ -12,6 +12,7 @@ import { optimiserParPanneauApi } from '@/lib/services/optimization-api';
 import VisualisationPanneau from './VisualisationPanneau';
 import InfoPanneauSelected from './InfoPanneauSelected';
 import RecapDebits from './RecapDebits';
+import { ExportPdfModal } from './ExportPdfModal';
 
 /**
  * Données d'un groupe pour l'optimisation
@@ -86,6 +87,9 @@ export default function PopupOptimiseur({
   // Par défaut: Horizontal (vertical_first) pour découpe manuelle
   const [splitStrategy, setSplitStrategy] = useState<SplitStrategy>('vertical_first');
   const [showOptions, setShowOptions] = useState(false);
+
+  // Export PDF
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Ref pour annuler les requêtes API en cours
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -449,7 +453,7 @@ export default function PopupOptimiseur({
               <>
                 <button
                   className="btn-export"
-                  onClick={() => alert('Export PDF - Fonctionnalité à venir')}
+                  onClick={() => setShowExportModal(true)}
                   title="Exporter en PDF"
                 >
                   <FileText size={16} />
@@ -1063,6 +1067,17 @@ export default function PopupOptimiseur({
             }
           }
         `}</style>
+      
+
+        {/* Modal Export PDF */}
+        {showExportModal && (
+          <ExportPdfModal
+            isOpen={showExportModal}
+            onClose={() => setShowExportModal(false)}
+            panneaux={tousLesPanneaux.map(p => p.resultat.panneaux[p.indexDansResultat]).filter(Boolean)}
+            currentPanneauIndex={currentPanneauIndex}
+          />
+        )}
       </div>
     </div>
   );
