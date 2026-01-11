@@ -14,12 +14,28 @@ export type PanneauGroupe =
   | { type: 'multicouche'; panneau: PanneauMulticouche };
 
 /**
+ * Chant (bande de chant) assigné à un groupe
+ * Stocke les informations du produit chant sélectionné
+ */
+export interface ChantGroupe {
+  id: string;
+  reference: string;
+  nom: string;
+  refFabricant?: string | null;
+  epaisseur?: number | null;    // Épaisseur en mm
+  prixMl?: number | null;       // Prix au mètre linéaire
+  imageUrl?: string | null;
+}
+
+/**
  * Groupe de panneau contenant des lignes de configuration
  * Chaque groupe est associé à un panneau du catalogue ou multicouche
+ * et optionnellement à un chant (bande de chant)
  */
 export interface GroupePanneau {
   id: string;
   panneau: PanneauGroupe | null;
+  chant: ChantGroupe | null;      // Bande de chant assignée au groupe
   lignes: LignePrestationV3[];
   isExpanded: boolean;
   createdAt: Date;
@@ -73,6 +89,7 @@ export interface DeplacementLigne {
  */
 export interface CreateGroupeOptions {
   panneau?: PanneauGroupe | null;
+  chant?: ChantGroupe | null;       // Chant optionnel à la création
   lignes?: LignePrestationV3[];
   isExpanded?: boolean;
 }

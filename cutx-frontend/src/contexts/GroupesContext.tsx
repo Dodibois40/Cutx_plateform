@@ -22,6 +22,7 @@ import type {
   DragEndResult,
   GroupeWarning,
   PanneauGroupe,
+  ChantGroupe,
 } from '@/lib/configurateur/groupes/types';
 import {
   isPanneauCatalogue,
@@ -86,6 +87,7 @@ interface GroupesContextType {
   supprimerGroupe: (groupeId: string) => void;
   supprimerGroupeEtLignes: (groupeId: string) => void; // Supprime le groupe ET toutes ses lignes
   updatePanneauGroupe: (groupeId: string, panneauGroupe: PanneauGroupe | null) => void;
+  updateChantGroupe: (groupeId: string, chant: ChantGroupe | null) => void;
   toggleExpandGroupe: (groupeId: string) => void;
 
   // Actions lignes
@@ -140,6 +142,7 @@ function generateGroupeId(): string {
 
 export interface InitialGroupeData {
   panneau: PanneauGroupe;
+  chant?: ChantGroupe | null;
   lignes?: LignePrestationV3[];
 }
 
@@ -162,6 +165,7 @@ export function GroupesProvider({ children, initialLignes = [], initialGroupe, i
       return initialGroupes.map(data => ({
         id: `groupe-${crypto.randomUUID()}`,
         panneau: data.panneau,
+        chant: data.chant ?? null,
         lignes: data.lignes || [],
         isExpanded: true,
         createdAt: new Date(),
@@ -172,6 +176,7 @@ export function GroupesProvider({ children, initialLignes = [], initialGroupe, i
       return [{
         id: `groupe-${crypto.randomUUID()}`,
         panneau: initialGroupe.panneau,
+        chant: initialGroupe.chant ?? null,
         lignes: initialGroupe.lignes || [],
         isExpanded: true,
         createdAt: new Date(),
@@ -229,6 +234,7 @@ export function GroupesProvider({ children, initialLignes = [], initialGroupe, i
             return {
               ...g,
               panneau: panneauMigrated,
+              chant: g.chant ?? null,  // Migration: groupes sans chant
               createdAt: new Date(g.createdAt),
               // Filtrer les lignes pour ne garder que les panneaux (migration) et éviter les doublons
               lignes: (g.lignes || []).filter((l: LignePrestationV3) => {
@@ -316,6 +322,7 @@ export function GroupesProvider({ children, initialLignes = [], initialGroupe, i
     const nouveauGroupe: GroupePanneau = {
       id: generateGroupeId(),
       panneau: options.panneau ?? null,
+      chant: options.chant ?? null,
       lignes: options.lignes ?? [],
       isExpanded: options.isExpanded ?? true,
       createdAt: new Date(),
@@ -356,6 +363,13 @@ export function GroupesProvider({ children, initialLignes = [], initialGroupe, i
     setGroupes(prev => prev.map(g => {
       if (g.id !== groupeId) return g;
       return { ...g, panneau: panneauGroupe };
+    }));
+  }, []);
+
+  const updateChantGroupe = useCallback((groupeId: string, chant: ChantGroupe | null) => {
+    setGroupes(prev => prev.map(g => {
+      if (g.id !== groupeId) return g;
+      return { ...g, chant };
     }));
   }, []);
 
@@ -1105,6 +1119,7 @@ export function GroupesProvider({ children, initialLignes = [], initialGroupe, i
     supprimerGroupe,
     supprimerGroupeEtLignes,
     updatePanneauGroupe,
+    updateChantGroupe,
     toggleExpandGroupe,
 
     // Actions lignes
@@ -1157,6 +1172,7 @@ export function GroupesProvider({ children, initialLignes = [], initialGroupe, i
     supprimerGroupe,
     supprimerGroupeEtLignes,
     updatePanneauGroupe,
+    updateChantGroupe,
     toggleExpandGroupe,
     ajouterLigneNonAssignee,
     ajouterLigneGroupe,

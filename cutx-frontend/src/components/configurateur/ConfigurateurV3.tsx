@@ -2,7 +2,7 @@
 
 import '@/app/styles/cutx.css';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { useOptimizerBroadcast } from '@/lib/hooks/useOptimizerBroadcast';
@@ -22,6 +22,7 @@ import ConfigurateurHeader from './ConfigurateurHeader';
 import TableauPrestations from './TableauPrestations';
 import PopupMulticouche from './PopupMulticouche';
 import PopupSelectionPanneau from './PopupSelectionPanneau';
+import PopupSelectionChant from './PopupSelectionChant';
 import { GroupesContainer } from './groupes';
 import RecapitulatifTotal from './recap/RecapitulatifTotal';
 import RecapTarifsDecoupe from './recap/RecapTarifsDecoupe';
@@ -31,6 +32,7 @@ import { PopupOptimiseur } from './optimiseur';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import type { ProduitCatalogue } from '@/lib/catalogues';
+import type { ChantGroupe } from '@/lib/configurateur/groupes/types';
 import {
   Dialog,
   DialogContent,
@@ -144,6 +146,12 @@ function ConfigurateurContent() {
   const [selecteurPanneauOpen, setSelecteurPanneauOpen] = useState(false);
   const [selecteurPanneauCallback, setSelecteurPanneauCallback] = useState<((p: PanneauCatalogue) => void) | null>(null);
 
+  // State pour le sélecteur de chant (mode groupes)
+  const [selecteurChantOpen, setSelecteurChantOpen] = useState(false);
+  // Utiliser un ref pour le callback afin d'éviter les problèmes de closure
+  const selecteurChantCallbackRef = useRef<((c: ChantGroupe) => void) | null>(null);
+  const [selecteurChantSuggestedRef, setSelecteurChantSuggestedRef] = useState<string | null>(null);
+
   // State pour le popup multicouche (mode groupes)
   const [multicoucheGroupesOpen, setMulticoucheGroupesOpen] = useState(false);
   const [editingMulticoucheGroupeId, setEditingMulticoucheGroupeId] = useState<string | null>(null);
@@ -203,6 +211,32 @@ function ConfigurateurContent() {
     setSelecteurPanneauOpen(false);
     setSelecteurPanneauCallback(null);
   }, [selecteurPanneauCallback]);
+
+  // Handler pour ouvrir le sélecteur de chant (mode groupes)
+  const handleSelectChantGroupes = useCallback((callback: (chant: ChantGroupe) => void, suggestedRef?: string | null) => {
+    console.log('[ConfigV3] handleSelectChantGroupes called, suggestedRef:', suggestedRef);
+    // Stocker le callback dans le ref (évite les problèmes de closure)
+    selecteurChantCallbackRef.current = callback;
+    setSelecteurChantSuggestedRef(suggestedRef ?? null);
+    setSelecteurChantOpen(true);
+  }, []);
+
+  // Handler pour la sélection d'un chant (mode groupes)
+  const handleChantSelected = useCallback((chant: ChantGroupe) => {
+    console.log('[ConfigV3] handleChantSelected called, chant:', chant);
+    const callback = selecteurChantCallbackRef.current;
+    console.log('[ConfigV3] selecteurChantCallbackRef.current is:', callback ? 'defined' : 'null/undefined');
+    if (callback) {
+      console.log('[ConfigV3] Calling callback...');
+      callback(chant);
+      console.log('[ConfigV3] Callback called successfully');
+    } else {
+      console.warn('[ConfigV3] selecteurChantCallbackRef.current is null/undefined!');
+    }
+    setSelecteurChantOpen(false);
+    selecteurChantCallbackRef.current = null;
+    setSelecteurChantSuggestedRef(null);
+  }, []);
 
   // Handler pour ouvrir le popup multicouche en mode édition (pour un groupe existant)
   const handleEditMulticoucheGroupe = useCallback((groupeId: string) => {
@@ -546,6 +580,7 @@ function ConfigurateurContent() {
           <GroupesContainer
             panneauxCatalogue={panneauxCatalogue}
             onSelectPanneau={handleSelectPanneauGroupes}
+            onSelectChant={handleSelectChantGroupes}
             onOpenMulticouche={() => {
               setEditingMulticoucheGroupeId(null); // Création d'un nouveau groupe
               setMulticoucheGroupesOpen(true);
@@ -719,7 +754,8 @@ function ConfigurateurContent() {
         }}
         onSelectCatalogue={(produit: ProduitCatalogue) => {
           // Conversion ProduitCatalogue -> PanneauCatalogue
-          const produitAvecId = produit as ProduitCatalogue & { id: string };
+          // Note: Le produit vient de CatalogueProduit (API) qui a refFabricant
+          const produitAvecId = produit as ProduitCatalogue & { id: string; refFabricant?: string };
           const panneau: PanneauCatalogue = {
             id: produitAvecId.id || produit.reference,
             nom: `${produit.nom} (${produit.reference})`,
@@ -738,10 +774,22 @@ function ConfigurateurContent() {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             imageUrl: produit.imageUrl,
+            refFabricant: produitAvecId.refFabricant ?? null,
           };
           handlePanneauSelected(panneau);
         }}
         onClose={() => setSelecteurPanneauOpen(false)}
+      />
+
+      {/* Popup sélecteur de chant (mode groupes) */}
+      <PopupSelectionChant
+        isOpen={selecteurChantOpen}
+        onClose={() => {
+          setSelecteurChantOpen(false);
+          setSelecteurChantSuggestedRef(null);
+        }}
+        onSelect={handleChantSelected}
+        suggestedRef={selecteurChantSuggestedRef}
       />
 
       {/* Popup Multicouche (mode groupes) */}

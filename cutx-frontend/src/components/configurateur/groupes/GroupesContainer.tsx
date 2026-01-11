@@ -29,13 +29,15 @@ import {
 import { useGroupes } from '@/contexts/GroupesContext';
 import type { LignePrestationV3, TypeFinition } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
-import type { DragEndResult, GroupeWarning } from '@/lib/configurateur/groupes/types';
+import type { DragEndResult, GroupeWarning, ChantGroupe } from '@/lib/configurateur/groupes/types';
 import { GroupePanneau } from './GroupePanneau';
 import { ZoneNonAssignee } from './ZoneNonAssignee';
 
 interface GroupesContainerProps {
   panneauxCatalogue: PanneauCatalogue[];
   onSelectPanneau: (callback: (panneau: PanneauCatalogue) => void) => void;
+  /** Ouvre le sélecteur de chant avec une suggestion basée sur refFabricant du panneau */
+  onSelectChant: (callback: (chant: ChantGroupe) => void, suggestedRef?: string | null) => void;
   onOpenMulticouche?: () => void;
   onEditMulticouche?: (groupeId: string) => void; // Pour éditer un groupe multicouche existant
   onCopierLigne: (ligneId: string) => void;
@@ -45,6 +47,7 @@ interface GroupesContainerProps {
 export function GroupesContainer({
   panneauxCatalogue,
   onSelectPanneau,
+  onSelectChant,
   onOpenMulticouche,
   onEditMulticouche,
   onCopierLigne,
@@ -60,6 +63,7 @@ export function GroupesContainer({
     supprimerGroupe,
     supprimerGroupeEtLignes,
     updatePanneauGroupe,
+    updateChantGroupe,
     toggleExpandGroupe,
     ajouterLigneNonAssignee,
     ajouterLigneGroupe,
@@ -250,6 +254,24 @@ export function GroupesContainer({
     });
   }, [onSelectPanneau, updatePanneauGroupe]);
 
+  const handleSelectChantGroupe = useCallback((groupeId: string) => {
+    // Récupérer la référence fabricant du panneau pour suggérer un chant correspondant
+    const groupe = groupes.find(g => g.id === groupeId);
+    const refFabricant = groupe?.panneau?.type === 'catalogue'
+      ? groupe.panneau.panneau.refFabricant
+      : null;
+
+    console.log('[GroupesContainer] handleSelectChantGroupe called, groupeId:', groupeId, 'refFabricant:', refFabricant);
+
+    onSelectChant((chant) => {
+      updateChantGroupe(groupeId, chant);
+    }, refFabricant);
+  }, [onSelectChant, updateChantGroupe, groupes]);
+
+  const handleClearChantGroupe = useCallback((groupeId: string) => {
+    updateChantGroupe(groupeId, null);
+  }, [updateChantGroupe]);
+
   // === HANDLERS SUPPRESSION GROUPE ===
 
   const handleOpenDeleteDialog = useCallback((groupeId: string) => {
@@ -405,6 +427,8 @@ export function GroupesContainer({
               onToggleExpand={() => toggleExpandGroupe(groupe.id)}
               onSelectPanneau={() => handleSelectPanneauGroupe(groupe.id)}
               onSelectMulticouche={onEditMulticouche ? () => onEditMulticouche(groupe.id) : undefined}
+              onSelectChant={() => handleSelectChantGroupe(groupe.id)}
+              onClearChant={() => handleClearChantGroupe(groupe.id)}
               onSupprimer={() => handleOpenDeleteDialog(groupe.id)}
               onAjouterLigne={() => ajouterLigneGroupe(groupe.id)}
               onUpdateLigne={(ligneId, updates) => updateLigne(ligneId, updates as Partial<LignePrestationV3>)}

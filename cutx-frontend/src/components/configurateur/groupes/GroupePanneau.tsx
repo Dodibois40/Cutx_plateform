@@ -16,6 +16,7 @@ import type { LignePrestationV3, TypeFinition, Chants } from '@/lib/configurateu
 import type { ColonneDuplicableGroupe, FinitionApplyValue } from '@/contexts/GroupesContext';
 import { getPanneauDisplayInfo, isPanneauCatalogue } from '@/lib/configurateur/groupes/helpers';
 import { LignePanneauSortable } from './LignePanneauSortable';
+import { ChantGroupeDisplay } from './ChantGroupeDisplay';
 import { cn } from '@/lib/utils';
 
 // Helper pour obtenir la première valeur d'une colonne
@@ -70,6 +71,8 @@ interface GroupePanneauProps {
   onToggleExpand: () => void;
   onSelectPanneau: () => void;
   onSelectMulticouche?: () => void; // Callback pour ouvrir le popup multicouche
+  onSelectChant: () => void;        // Callback pour sélectionner un chant
+  onClearChant: () => void;         // Callback pour supprimer le chant
   onSupprimer: () => void;
   onAjouterLigne: () => void;
   onUpdateLigne: (ligneId: string, updates: Partial<LignePrestationV3>) => void;
@@ -94,6 +97,8 @@ export function GroupePanneau({
   onToggleExpand,
   onSelectPanneau,
   onSelectMulticouche,
+  onSelectChant,
+  onClearChant,
   onSupprimer,
   onAjouterLigne,
   onUpdateLigne,
@@ -304,6 +309,15 @@ export function GroupePanneau({
               <span>Sélectionner un panneau...</span>
             </button>
           )}
+        </div>
+
+        {/* Chant du groupe */}
+        <div className="chant-slot">
+          <ChantGroupeDisplay
+            chant={groupe.chant}
+            onSelectChant={onSelectChant}
+            onClearChant={onClearChant}
+          />
         </div>
 
         {/* Stats et actions */}
@@ -589,6 +603,11 @@ export function GroupePanneau({
           min-width: 0;
           display: flex;
           justify-content: flex-start;
+        }
+
+        .chant-slot {
+          flex-shrink: 0;
+          margin-left: 12px;
         }
 
         .panneau-details {
