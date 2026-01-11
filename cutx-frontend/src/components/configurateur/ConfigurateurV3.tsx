@@ -157,13 +157,39 @@ function ConfigurateurContent() {
   // Diffuser les changements de données aux fenêtres optimiseur ouvertes
   useEffect(() => {
     // Rassembler toutes les lignes (groupes + non assignées)
+    // En mode groupes, on doit associer chaque ligne au panneau de son groupe
     const toutesLesLignes = modeGroupes
-      ? [...groupes.flatMap(g => g.lignes), ...lignesNonAssignees]
+      ? [
+          ...groupes.flatMap(g => {
+            // Récupérer le panneau du groupe (catalogue uniquement)
+            const panneauGroupe = g.panneau?.type === 'catalogue' ? g.panneau.panneau : null;
+            // Associer chaque ligne au panneau du groupe
+            return g.lignes.map(l => ({
+              ...l,
+              panneauId: panneauGroupe?.id ?? l.panneauId ?? null,
+              panneauNom: panneauGroupe?.nom ?? l.panneauNom ?? null,
+            }));
+          }),
+          ...lignesNonAssignees
+        ]
       : lignes;
+
+    // En mode groupes, inclure les panneaux des groupes dans le catalogue
+    // pour que l'optimiseur puisse les trouver
+    let catalogueADiffuser = panneauxCatalogue;
+    if (modeGroupes) {
+      const panneauxGroupes = groupes
+        .map(g => g.panneau?.type === 'catalogue' ? g.panneau.panneau : null)
+        .filter((p): p is PanneauCatalogue => p !== null);
+      // Fusionner sans doublons (par ID)
+      const idsExistants = new Set(panneauxCatalogue.map(p => p.id));
+      const panneauxAAjouter = panneauxGroupes.filter(p => !idsExistants.has(p.id));
+      catalogueADiffuser = [...panneauxCatalogue, ...panneauxAAjouter];
+    }
 
     broadcastData({
       lignes: toutesLesLignes,
-      panneauxCatalogue,
+      panneauxCatalogue: catalogueADiffuser,
       panneauGlobal,
       timestamp: Date.now(),
     });

@@ -122,8 +122,13 @@ export async function apiCall<T = any>(
     });
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Erreur réseau' }));
-        throw new Error(error.error || `Erreur ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: 'Erreur réseau' }));
+        // Handle NestJS validation errors (message is array)
+        const errorMessage = Array.isArray(errorData.message)
+            ? errorData.message.join(', ')
+            : errorData.message || errorData.error || `Erreur ${response.status}`;
+        console.error(`[API Error] ${response.status}:`, errorData);
+        throw new Error(errorMessage);
     }
 
     return response.json();

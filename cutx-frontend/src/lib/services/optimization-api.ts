@@ -156,6 +156,14 @@ interface ApiOptimizationRequest {
 function debitToApiPiece(debit: DebitAOptimiser): ApiCuttingPiece {
   const hasGrainConstraint = debit.sensDuFil !== undefined;
 
+  // Build edging object with only non-null values
+  // (NestJS @IsString() doesn't accept null, only undefined/omitted)
+  const edging: ApiCuttingPiece['edging'] = {};
+  if (debit.chants.A) edging.top = 'chant';
+  if (debit.chants.B) edging.right = 'chant';
+  if (debit.chants.C) edging.bottom = 'chant';
+  if (debit.chants.D) edging.left = 'chant';
+
   return {
     id: debit.id,
     name: debit.reference || debit.id,
@@ -171,12 +179,7 @@ function debitToApiPiece(debit: DebitAOptimiser): ApiCuttingPiece {
     // L'algorithme décidera de pivoter ou non selon grainDirection
     canRotate: true,
     expansion: { length: 0, width: 0 },
-    edging: {
-      top: debit.chants.A ? 'chant' : null,
-      right: debit.chants.B ? 'chant' : null,
-      bottom: debit.chants.C ? 'chant' : null,
-      left: debit.chants.D ? 'chant' : null,
-    },
+    edging: Object.keys(edging).length > 0 ? edging : undefined,
   };
 }
 

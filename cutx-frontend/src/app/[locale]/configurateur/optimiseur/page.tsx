@@ -75,7 +75,7 @@ export default function OptimiseurPage() {
     setPanneauGlobal(data.panneauGlobal);
     setLastUpdate(data.timestamp);
     setHasData(true);
-    setCurrentPanneauIndex(0); // Reset navigation
+    // Don't reset navigation on every update - only on initial load
   }, []);
 
   // Hook pour recevoir les données
@@ -147,6 +147,21 @@ export default function OptimiseurPage() {
       .map(l => `${l.id}:${l.sensDuFil || 'default'}:${l.dimensions.longueur}x${l.dimensions.largeur}`)
       .join('|');
   }, [lignes]);
+
+  // Reset API optimization mode when data changes after an error
+  // This allows retry after fixing invalid dimensions
+  const prevSignatureRef = useRef<string>('');
+  useEffect(() => {
+    if (lignesSignature && lignesSignature !== prevSignatureRef.current) {
+      prevSignatureRef.current = lignesSignature;
+      // If we had an error before, reset to try API again
+      if (apiError && !useApiOptimization) {
+        setApiError(null);
+        setUseApiOptimization(true);
+        setShowFallbackNotice(false);
+      }
+    }
+  }, [lignesSignature, apiError, useApiOptimization]);
 
   // Lancer l'optimisation API
   useEffect(() => {
