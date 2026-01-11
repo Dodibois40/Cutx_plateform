@@ -26,10 +26,9 @@ const OnboardingGuide = dynamic(
 import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 import { useSearchState } from '@/components/home/hooks/useSearchState';
-import { useRouter } from '@/i18n/routing';
+import { useRouter, Link } from '@/i18n/routing';
 import { Upload, ClipboardCheck } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
-import Link from 'next/link';
 
 // Fallback for Suspense
 function HomePageLoading() {
