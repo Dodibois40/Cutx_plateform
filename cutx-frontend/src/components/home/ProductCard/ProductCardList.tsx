@@ -1,6 +1,6 @@
 'use client';
 
-import { Package, GripVertical } from 'lucide-react';
+import { Package, GripVertical, Eye } from 'lucide-react';
 import type { SearchProduct } from '../types';
 import ProductImage from './ProductImage';
 import { TypeBadge, SupplierBadge } from './ProductBadges';
@@ -9,10 +9,11 @@ import { getTypeConfig, getSupplierConfig } from './config';
 interface ProductCardListProps {
   product: SearchProduct;
   onClick: (product: SearchProduct) => void;
+  onViewDetails?: (productId: string) => void;
   isDraggable?: boolean;
 }
 
-export default function ProductCardList({ product, onClick, isDraggable = false }: ProductCardListProps) {
+export default function ProductCardList({ product, onClick, onViewDetails, isDraggable = false }: ProductCardListProps) {
   const {
     nom,
     reference,
@@ -90,6 +91,20 @@ export default function ProductCardList({ product, onClick, isDraggable = false 
         <Package className={`flex-shrink-0 w-4 h-4 ${isInStock ? 'text-emerald-500' : 'text-amber-500'}`} aria-hidden="true" />
 
         <SupplierBadge config={supplierConfig} size="sm" />
+
+        {/* View details button */}
+        {onViewDetails && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetails(product.id);
+            }}
+            className="flex-shrink-0 p-1.5 text-[var(--cx-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded transition-all"
+            title="Voir la fiche produit"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </article>
   );

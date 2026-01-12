@@ -1,6 +1,6 @@
 'use client';
 
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Eye } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { SearchProduct } from '../types';
 import ProductImage from './ProductImage';
@@ -10,11 +10,12 @@ import { getTypeConfig, getSupplierConfig, calculatePanelPrice } from './config'
 interface ProductCardDetailProps {
   product: SearchProduct;
   onClick: (product: SearchProduct) => void;
+  onViewDetails?: (productId: string) => void;
   isSponsored?: boolean;
   isDraggable?: boolean;
 }
 
-export default function ProductCardDetail({ product, onClick, isSponsored = false, isDraggable = false }: ProductCardDetailProps) {
+export default function ProductCardDetail({ product, onClick, onViewDetails, isSponsored = false, isDraggable = false }: ProductCardDetailProps) {
   const t = useTranslations('home');
 
   const {
@@ -129,9 +130,25 @@ export default function ProductCardDetail({ product, onClick, isSponsored = fals
                 {priceM2.toFixed(2)} €<span className="text-base font-normal text-[var(--cx-text-muted)]">/{priceUnit}</span>
               </span>
             )}
-            <span className="text-sm text-[var(--cx-text-muted)] px-3 py-1.5 bg-amber-500/10 rounded-lg">
-              Cliquer pour voir les options
-            </span>
+            <div className="flex items-center gap-2">
+              {/* View details button */}
+              {onViewDetails && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDetails(product.id);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--cx-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg border border-[var(--cx-border)] hover:border-amber-500/30 transition-all"
+                  title="Voir la fiche produit"
+                >
+                  <Eye className="w-4 h-4" />
+                  Fiche produit
+                </button>
+              )}
+              <span className="text-sm text-[var(--cx-text-muted)] px-3 py-1.5 bg-amber-500/10 rounded-lg">
+                Cliquer pour voir les options
+              </span>
+            </div>
           </div>
         </div>
       </div>

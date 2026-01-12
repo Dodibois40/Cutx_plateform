@@ -1,6 +1,6 @@
 'use client';
 
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Eye } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { SearchProduct } from '../types';
 import ProductImage from './ProductImage';
@@ -10,11 +10,12 @@ import { getTypeConfig, getSupplierConfig, calculatePanelPrice } from './config'
 interface ProductCardGridProps {
   product: SearchProduct;
   onClick: (product: SearchProduct) => void;
+  onViewDetails?: (productId: string) => void;
   isSponsored?: boolean;
   isDraggable?: boolean;
 }
 
-export default function ProductCardGrid({ product, onClick, isSponsored = false, isDraggable = false }: ProductCardGridProps) {
+export default function ProductCardGrid({ product, onClick, onViewDetails, isSponsored = false, isDraggable = false }: ProductCardGridProps) {
   const t = useTranslations('home');
 
   const {
@@ -121,6 +122,20 @@ export default function ProductCardGrid({ product, onClick, isSponsored = false,
                 </span>
               )}
             </div>
+            {/* View details button */}
+            {onViewDetails && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetails(product.id);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-[var(--cx-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg border border-transparent hover:border-amber-500/30 transition-all"
+                title="Voir la fiche produit"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="hidden sm:inline">Détails</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -9,19 +9,20 @@ import ProductCardGrid from './ProductCardGrid';
 interface ProductCardProps {
   product: SearchProduct;
   onClick: (product: SearchProduct) => void;
+  onViewDetails?: (productId: string) => void;
   isSponsored?: boolean;
   viewMode?: ViewMode;
   isDraggable?: boolean;
 }
 
-export default function ProductCard({ product, onClick, isSponsored = false, viewMode = 'grid', isDraggable = false }: ProductCardProps) {
+export default function ProductCard({ product, onClick, onViewDetails, isSponsored = false, viewMode = 'grid', isDraggable = false }: ProductCardProps) {
   switch (viewMode) {
     case 'list':
-      return <ProductCardList product={product} onClick={onClick} isDraggable={isDraggable} />;
+      return <ProductCardList product={product} onClick={onClick} onViewDetails={onViewDetails} isDraggable={isDraggable} />;
     case 'detail':
-      return <ProductCardDetail product={product} onClick={onClick} isSponsored={isSponsored} isDraggable={isDraggable} />;
+      return <ProductCardDetail product={product} onClick={onClick} onViewDetails={onViewDetails} isSponsored={isSponsored} isDraggable={isDraggable} />;
     default:
-      return <ProductCardGrid product={product} onClick={onClick} isSponsored={isSponsored} isDraggable={isDraggable} />;
+      return <ProductCardGrid product={product} onClick={onClick} onViewDetails={onViewDetails} isSponsored={isSponsored} isDraggable={isDraggable} />;
   }
 }
 
