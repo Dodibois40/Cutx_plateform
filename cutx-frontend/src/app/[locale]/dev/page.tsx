@@ -123,7 +123,7 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'cais-12', title: 'Export liste pièces', description: 'Générer liste des pièces pour découpe', status: 'in_progress', priority: 'high' },
       { id: 'cais-13', title: 'Tiroirs et coulisses', description: 'Ajouter configuration tiroirs avec coulisses', status: 'pending', priority: 'high' },
       { id: 'cais-14', title: 'Étagères réglables', description: 'Configuration étagères avec trous 32mm', status: 'pending', priority: 'medium' },
-      { id: 'cais-15', title: 'Export DXF/PDF plans', description: 'Export plans de découpe pour CNC', status: 'pending', priority: 'high' },
+      { id: 'cais-15', title: 'Export DXF/SVG caissons', description: 'export-dxf.service.ts backend complet', status: 'completed', priority: 'high' },
     ]
   },
   {
@@ -132,7 +132,7 @@ const getInitialTodos = (): TodoCategory[] => [
     icon: <Drill size={18} />,
     color: '#F97316',
     todos: [
-      { id: 'usin-1', title: 'Structure données usinages', description: 'Types et modèle de données pour usinages', status: 'in_progress', priority: 'critical' },
+      { id: 'usin-1', title: 'Structure données usinages', description: 'Module backend complet avec DTOs et service', status: 'completed', priority: 'critical' },
       { id: 'usin-2', title: 'Popup sélection usinage', description: 'Interface de choix du type d\'usinage', status: 'pending', priority: 'critical' },
       { id: 'usin-3', title: 'Catalogue usinages', description: 'Liste des usinages disponibles avec prix', status: 'pending', priority: 'high' },
       { id: 'usin-4', title: 'Usinage: Feuillure', description: 'Configuration feuillure (profondeur, largeur)', status: 'pending', priority: 'high' },
@@ -208,9 +208,13 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'opt-2', title: 'Algorithme bin-packing', description: 'Optimisation de placement des pièces', status: 'completed', priority: 'critical' },
       { id: 'opt-3', title: 'Visualisation panneaux', description: 'Affichage graphique du placement', status: 'completed', priority: 'high' },
       { id: 'opt-4', title: 'Récap débits', description: 'Récapitulatif des découpes', status: 'completed', priority: 'medium' },
-      { id: 'opt-5', title: 'Infos chants depuis catalogue', description: 'TODO: Récupérer les infos chants', status: 'in_progress', priority: 'high' },
-      { id: 'opt-6', title: 'Export plan de découpe PDF', description: 'Générer PDF du plan optimisé', status: 'pending', priority: 'medium' },
-      { id: 'opt-7', title: 'Prise en compte sens du fil', description: 'Respecter l\'orientation du bois', status: 'pending', priority: 'medium' },
+      { id: 'opt-5', title: 'Infos chants depuis catalogue', description: 'Récupération des infos chants intégrée', status: 'completed', priority: 'high' },
+      { id: 'opt-6', title: 'Export plan de découpe PDF', description: 'ExportPdfModal complet avec 2 types (plan + catalogue chutes)', status: 'completed', priority: 'medium' },
+      { id: 'opt-7', title: 'Prise en compte sens du fil', description: 'grain-utils.ts avec détection et validation', status: 'completed', priority: 'medium' },
+      { id: 'opt-8', title: '4 algorithmes optimisation', description: 'Guillotine, Shelf, MaxRects, Comparator', status: 'completed', priority: 'critical' },
+      { id: 'opt-9', title: 'Gestion chutes réutilisables', description: 'offcut-manager.ts pour récupération chutes', status: 'completed', priority: 'high' },
+      { id: 'opt-10', title: 'Page optimiseur standalone', description: 'Page dédiée avec sync BroadcastChannel', status: 'completed', priority: 'medium' },
+      { id: 'opt-11', title: 'Export DXF découpe', description: 'UI présent, backend à implémenter', status: 'pending', priority: 'high' },
     ]
   },
   {
@@ -236,7 +240,7 @@ const getInitialTodos = (): TodoCategory[] => [
     icon: <FileText size={18} />,
     color: '#3B82F6',
     todos: [
-      { id: 'dev-1', title: 'API devis existante', description: 'GET/POST /api/devis fonctionnel', status: 'completed', priority: 'high' },
+      { id: 'dev-1', title: 'API devis complète', description: '11 endpoints: CRUD, lignes, send, convert, duplicate', status: 'completed', priority: 'high' },
       { id: 'dev-2', title: 'Page "Mes devis"', description: 'Liste des devis de l\'utilisateur', status: 'pending', priority: 'high' },
       { id: 'dev-3', title: 'Visualisation devis', description: 'Page de détail d\'un devis', status: 'pending', priority: 'high' },
       { id: 'dev-4', title: 'Édition devis existant', description: 'Modifier un devis sauvegardé', status: 'pending', priority: 'high' },
@@ -284,7 +288,7 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'auth-3', title: 'Page Sign-up', description: 'Interface inscription stylisée', status: 'completed', priority: 'critical' },
       { id: 'auth-4', title: 'Sync préférences utilisateur', description: 'Sauvegarde préférences en base', status: 'completed', priority: 'medium' },
       { id: 'auth-5', title: 'Gestion organisations', description: 'Multi-utilisateurs par entreprise', status: 'pending', priority: 'low' },
-      { id: 'auth-6', title: 'Rôles et permissions', description: 'Admin, user, viewer', status: 'pending', priority: 'low' },
+      { id: 'auth-6', title: 'Rôles et permissions', description: 'USER/ADMIN/SUPER_ADMIN dans schema + guards', status: 'in_progress', priority: 'low' },
     ]
   },
   {
@@ -341,7 +345,7 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'int-1', title: 'Plugin SketchUp', description: 'Communication via postMessage', status: 'completed', priority: 'high' },
       { id: 'int-2', title: 'Types SketchUpData', description: 'Interface de données SketchUp', status: 'completed', priority: 'medium' },
       { id: 'int-3', title: 'Conversion SketchUp → Lignes', description: 'Transformation des données', status: 'completed', priority: 'high' },
-      { id: 'int-4', title: 'Webhooks système', description: 'Notifications événements', status: 'in_progress', priority: 'medium' },
+      { id: 'int-4', title: 'Webhooks Clerk', description: 'Sync user created/updated/deleted via Svix', status: 'completed', priority: 'medium' },
       { id: 'int-5', title: 'API publique documentée', description: 'Documentation OpenAPI/Swagger', status: 'pending', priority: 'low' },
     ]
   },
@@ -351,11 +355,13 @@ const getInitialTodos = (): TodoCategory[] => [
     icon: <Settings size={18} />,
     color: '#78716C',
     todos: [
-      { id: 'adm-1', title: 'Panel admin panneaux', description: 'CRUD panneaux avec reorder', status: 'pending', priority: 'high' },
-      { id: 'adm-2', title: 'Gestion tarifs', description: 'Modification prix découpe/chants', status: 'pending', priority: 'high' },
-      { id: 'adm-3', title: 'Gestion utilisateurs', description: 'Liste et modification users', status: 'pending', priority: 'medium' },
-      { id: 'adm-4', title: 'Dashboard statistiques', description: 'Métriques commandes/devis', status: 'pending', priority: 'medium' },
-      { id: 'adm-5', title: 'Logs d\'activité', description: 'Historique des actions', status: 'pending', priority: 'low' },
+      { id: 'adm-1', title: 'Panels Review System', description: 'Classification IA, workflow révision, stats, upload images', status: 'completed', priority: 'critical' },
+      { id: 'adm-2', title: 'Admin templates usinages', description: 'CRUD templates, toggle actif, reorder', status: 'completed', priority: 'high' },
+      { id: 'adm-3', title: 'Gestion tarifs', description: 'Modification prix découpe/chants', status: 'pending', priority: 'high' },
+      { id: 'adm-4', title: 'Gestion utilisateurs', description: 'Liste et modification users (infrastructure prête)', status: 'pending', priority: 'medium' },
+      { id: 'adm-5', title: 'Dashboard statistiques global', description: 'Métriques commandes/devis/utilisateurs', status: 'pending', priority: 'medium' },
+      { id: 'adm-6', title: 'Logs d\'activité', description: 'Historique des actions', status: 'pending', priority: 'low' },
+      { id: 'adm-7', title: 'Admin dashboard centralisé', description: 'Hub navigation admin avec accès rapide', status: 'pending', priority: 'medium' },
     ]
   },
   {
@@ -372,9 +378,12 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'back-6', title: 'Scraper Dispano Panneaux', description: '1150 panneaux importés avec catégorisation', status: 'completed', priority: 'high' },
       { id: 'back-7', title: 'Scraper Dispano Bois', description: '1036 panneaux bois importés', status: 'completed', priority: 'high' },
       { id: 'back-8', title: 'Scraper Dispano Chants', description: 'Import chants automatique', status: 'completed', priority: 'medium' },
-      { id: 'back-9', title: 'Module Caissons API', description: 'Endpoints pour configurations caissons', status: 'completed', priority: 'high' },
-      { id: 'back-10', title: 'Rate limiting', description: 'Protection API', status: 'pending', priority: 'medium' },
-      { id: 'back-11', title: 'Caching Redis', description: 'Performance requêtes', status: 'pending', priority: 'low' },
+      { id: 'back-9', title: 'Module Caissons API', description: '11 endpoints: templates, calculs, DXF/SVG export, System32', status: 'completed', priority: 'high' },
+      { id: 'back-10', title: 'Module Optimization API', description: '4 endpoints + 5 algorithmes bin-packing complets', status: 'completed', priority: 'critical' },
+      { id: 'back-11', title: 'Module Panels-Review API', description: '11 endpoints admin: stats, review workflow, upload', status: 'completed', priority: 'high' },
+      { id: 'back-12', title: 'Module Usinages API', description: 'CRUD templates usinages avec admin routes', status: 'completed', priority: 'high' },
+      { id: 'back-13', title: 'Rate limiting', description: 'Protection API', status: 'pending', priority: 'medium' },
+      { id: 'back-14', title: 'Caching Redis', description: 'Performance requêtes', status: 'pending', priority: 'low' },
     ]
   },
   {
@@ -385,7 +394,7 @@ const getInitialTodos = (): TodoCategory[] => [
     todos: [
       { id: 'test-1', title: 'Tests unitaires calculs', description: 'Validation formules prix', status: 'pending', priority: 'high' },
       { id: 'test-2', title: 'Tests E2E configurateur', description: 'Parcours utilisateur complet', status: 'pending', priority: 'high' },
-      { id: 'test-3', title: 'Tests API endpoints', description: 'Validation responses', status: 'pending', priority: 'medium' },
+      { id: 'test-3', title: 'Tests API endpoints', description: 'Tests specs pour optimization (5 fichiers)', status: 'in_progress', priority: 'medium' },
       { id: 'test-4', title: 'Tests import Excel', description: 'Validation formats', status: 'pending', priority: 'medium' },
       { id: 'test-5', title: 'Audit sécurité', description: 'OWASP, injections, XSS', status: 'pending', priority: 'high' },
       { id: 'test-6', title: 'Tests de charge', description: 'Performance sous load', status: 'pending', priority: 'low' },
@@ -404,6 +413,22 @@ const getInitialTodos = (): TodoCategory[] => [
       { id: 'bug-5', title: 'Re-renders Context', description: 'Optimiser avec selector hooks (GroupesContext)', status: 'pending', priority: 'medium' },
       { id: 'bug-6', title: 'Auto-save optimisation', description: 'Debounce 500ms peut être amélioré', status: 'pending', priority: 'low' },
       { id: 'bug-7', title: 'Types DraggableAttributes', description: 'Fix types @dnd-kit pour drag & drop', status: 'completed', priority: 'high' },
+    ]
+  },
+  {
+    id: 'workspace',
+    name: 'CutX Workspace Apps',
+    icon: <Sparkles size={18} />,
+    color: '#6366F1',
+    todos: [
+      { id: 'ws-1', title: 'ComingSoonPage component', description: 'Composant réutilisable pour pages en attente', status: 'completed', priority: 'high' },
+      { id: 'ws-2', title: 'CutX Devis - Page workspace', description: 'Gestion devis avec templates et export PDF', status: 'pending', priority: 'critical' },
+      { id: 'ws-3', title: 'CutX Chutes - Marketplace', description: 'Marketplace chutes avec géolocalisation', status: 'pending', priority: 'high' },
+      { id: 'ws-4', title: 'CutX Stock - Inventaire', description: 'Gestion stock en temps réel avec alertes', status: 'pending', priority: 'high' },
+      { id: 'ws-5', title: 'CutX Communauté', description: 'Réseau social menuisiers avec messagerie', status: 'pending', priority: 'medium' },
+      { id: 'ws-6', title: 'CutX Jobs', description: 'Plateforme recrutement métiers du bois', status: 'pending', priority: 'low' },
+      { id: 'ws-7', title: 'CutX Learn', description: 'Plateforme formation avec certifications', status: 'pending', priority: 'low' },
+      { id: 'ws-8', title: 'CutX Vitrine', description: 'Builder site web pour artisans', status: 'pending', priority: 'low' },
     ]
   },
 ];
