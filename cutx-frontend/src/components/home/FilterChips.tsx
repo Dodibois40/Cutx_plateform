@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, ChevronDown, Layers, Ruler, Box, MoreHorizontal } from 'lucide-react';
+import { X, ChevronDown, Layers, Ruler, Box, MoreHorizontal, Palette, Building2, Shield } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { SmartSearchFacets, ParsedFilters } from './types';
 
@@ -32,7 +32,7 @@ const PRODUCT_TYPE_LABELS: Record<string, string> = {
   OSB: 'OSB',
 };
 
-type TabId = 'genres' | 'thicknesses' | 'dimensions' | null;
+type TabId = 'genres' | 'thicknesses' | 'dimensions' | 'decorCategories' | 'manufacturers' | 'properties' | null;
 
 export default function FilterChips({
   facets,
@@ -73,7 +73,10 @@ export default function FilterChips({
   const showFacets = total > 10 && facets && (
     (facets.genres?.length > 0) ||
     (facets.thicknesses?.length > 0) ||
-    (facets.dimensions?.length > 0)
+    (facets.dimensions?.length > 0) ||
+    (facets.decorCategories?.length ?? 0) > 0 ||
+    (facets.manufacturers?.length ?? 0) > 0 ||
+    (facets.properties?.length ?? 0) > 0
   );
 
   if (!hasActiveFilters && !hasParsedFilters && !showFacets) return null;
@@ -115,6 +118,29 @@ export default function FilterChips({
         total: facets.dimensions.length,
       };
     }
+    if (activeTab === 'decorCategories' && facets?.decorCategories) {
+      const items = showMore ? facets.decorCategories : facets.decorCategories.slice(0, VISIBLE_COUNT);
+      return {
+        items: items.map(d => ({ key: d.value, label: d.label, value: d.value, count: d.count })),
+        hasMore: facets.decorCategories.length > VISIBLE_COUNT,
+        total: facets.decorCategories.length,
+      };
+    }
+    if (activeTab === 'manufacturers' && facets?.manufacturers) {
+      const items = showMore ? facets.manufacturers : facets.manufacturers.slice(0, VISIBLE_COUNT);
+      return {
+        items: items.map(m => ({ key: m.value, label: m.label, value: m.value, count: m.count })),
+        hasMore: facets.manufacturers.length > VISIBLE_COUNT,
+        total: facets.manufacturers.length,
+      };
+    }
+    if (activeTab === 'properties' && facets?.properties) {
+      return {
+        items: facets.properties.map(p => ({ key: p.key, label: p.label, value: p.key, count: p.count })),
+        hasMore: false,
+        total: facets.properties.length,
+      };
+    }
     return null;
   };
 
@@ -122,8 +148,8 @@ export default function FilterChips({
 
   return (
     <div className="w-full space-y-3">
-      {/* Combined: Parsed filters + Active filters on same line */}
-      {(hasParsedFilters || hasActiveFilters) && (
+      {/* Combined: Parsed filters + Active filters + Stock toggle on same line */}
+      {(hasParsedFilters || hasActiveFilters || showFacets) && (
         <div className="flex flex-wrap items-center gap-2">
           {/* Parsed filters (detected from query) */}
           {hasParsedFilters && (
@@ -147,37 +173,42 @@ export default function FilterChips({
             </>
           )}
 
-          {/* Separator if both exist */}
-          {hasParsedFilters && hasActiveFilters && (
+          {/* Separator if both parsed filters and non-stock active filters exist */}
+          {hasParsedFilters && activeFilters.some(f => f.type !== 'stock') && (
             <span className="w-px h-5 bg-[var(--cx-border)] mx-1" />
           )}
 
-          {/* Active filters (user-selected) */}
-          {hasActiveFilters && (
-            <>
-              <span className="text-xs font-medium text-[var(--cx-text-muted)] uppercase tracking-wide">
-                {t('filters.active')}
-              </span>
-              {activeFilters.map((filter, idx) => (
-                <button
-                  key={`${filter.type}-${filter.value}-${idx}`}
-                  onClick={() => onClearFilter?.(filter.type, filter.value)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-black text-sm font-medium rounded-full hover:bg-amber-400 transition-colors group"
-                >
-                  {filter.label}
-                  <X className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
-                </button>
-              ))}
-              {activeFilters.length > 1 && (
-                <button
-                  onClick={onClearAllFilters}
-                  className="px-3 py-1.5 text-sm text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] transition-colors"
-                >
-                  {t('filters.clearAll')}
-                </button>
-              )}
-            </>
-          )}
+          {/* Active filters (user-selected, excluding stock which has its own button) */}
+          {(() => {
+            const nonStockFilters = activeFilters.filter(f => f.type !== 'stock');
+            const hasNonStockFilters = nonStockFilters.length > 0;
+            return hasNonStockFilters ? (
+              <>
+                <span className="text-xs font-medium text-[var(--cx-text-muted)] uppercase tracking-wide">
+                  {t('filters.active')}
+                </span>
+                {nonStockFilters.map((filter, idx) => (
+                  <button
+                    key={`${filter.type}-${filter.value}-${idx}`}
+                    onClick={() => onClearFilter?.(filter.type, filter.value)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-black text-sm font-medium rounded-full hover:bg-amber-400 transition-colors group"
+                  >
+                    {filter.label}
+                    <X className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
+                  </button>
+                ))}
+                {nonStockFilters.length > 1 && (
+                  <button
+                    onClick={onClearAllFilters}
+                    className="px-3 py-1.5 text-sm text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] transition-colors"
+                  >
+                    {t('filters.clearAll')}
+                  </button>
+                )}
+              </>
+            ) : null;
+          })()}
+
         </div>
       )}
 
@@ -240,15 +271,78 @@ export default function FilterChips({
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'dimensions' ? 'rotate-180' : ''}`} />
               </button>
             )}
+
+            {/* Decor category tab */}
+            {facets?.decorCategories && facets.decorCategories.length > 0 && (
+              <button
+                onClick={() => handleTabClick('decorCategories')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  activeTab === 'decorCategories'
+                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
+                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Décor
+                <span className="text-[var(--cx-text-muted)]">({facets.decorCategories.length})</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'decorCategories' ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+
+            {/* Manufacturer tab */}
+            {facets?.manufacturers && facets.manufacturers.length > 0 && (
+              <button
+                onClick={() => handleTabClick('manufacturers')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  activeTab === 'manufacturers'
+                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
+                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                Fabricant
+                <span className="text-[var(--cx-text-muted)]">({facets.manufacturers.length})</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'manufacturers' ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+
+            {/* Properties tab */}
+            {facets?.properties && facets.properties.length > 0 && (
+              <button
+                onClick={() => handleTabClick('properties')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  activeTab === 'properties'
+                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
+                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                Propriétés
+                <span className="text-[var(--cx-text-muted)]">({facets.properties.length})</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'properties' ? 'rotate-180' : ''}`} />
+              </button>
+            )}
           </div>
 
           {/* Tab content */}
           {activeTab && currentItems && (
             <div className="flex flex-wrap items-center gap-2 pl-0 py-2 border-t border-[var(--cx-border)]">
-              {currentItems.items.map((item) => (
+              {currentItems.items.map((item) => {
+                // Map tab ID to filter type
+                const filterTypeMap: Record<string, string> = {
+                  thicknesses: 'thickness',
+                  dimensions: 'dimension',
+                  genres: 'genre',
+                  decorCategories: 'decorCategory',
+                  manufacturers: 'manufacturer',
+                  properties: 'property',
+                };
+                const filterType = filterTypeMap[activeTab!] || 'genre';
+
+                return (
                 <button
                   key={item.key}
-                  onClick={() => onFilterClick(activeTab === 'thicknesses' ? 'thickness' : activeTab === 'dimensions' ? 'dimension' : 'genre', item.value)}
+                  onClick={() => onFilterClick(filterType, item.value)}
                   className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                     'isPopular' in item && item.isPopular
                       ? 'bg-[var(--cx-surface-2)] border-amber-500/30 text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/10'
@@ -258,7 +352,8 @@ export default function FilterChips({
                   {item.label}
                   <span className="ml-1.5 text-[var(--cx-text-muted)]">({item.count})</span>
                 </button>
-              ))}
+                );
+              })}
               {currentItems.hasMore && (
                 <button
                   onClick={() => setShowMore(!showMore)}
