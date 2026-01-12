@@ -24,6 +24,12 @@ interface UseCatalogueSearchParams {
   enabled?: boolean;
   /** Utiliser la recherche intelligente (parse "mdf 19" en type:MDF + épaisseur:19mm) */
   useSmartSearch?: boolean;
+  // Filtres explicites pour smart search
+  decorCategory?: string;
+  manufacturer?: string;
+  isHydrofuge?: boolean;
+  isIgnifuge?: boolean;
+  isPreglued?: boolean;
 }
 
 interface CatalogueSearchResult {
@@ -53,6 +59,13 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
           catalogueSlug: searchParams.catalogue || undefined,
           sortBy: searchParams.sortBy,
           sortDirection: searchParams.sortDirection,
+          enStock: searchParams.enStock,
+          // Filtres explicites
+          decorCategory: searchParams.decorCategory,
+          manufacturer: searchParams.manufacturer,
+          isHydrofuge: searchParams.isHydrofuge,
+          isIgnifuge: searchParams.isIgnifuge,
+          isPreglued: searchParams.isPreglued,
         });
 
         return {

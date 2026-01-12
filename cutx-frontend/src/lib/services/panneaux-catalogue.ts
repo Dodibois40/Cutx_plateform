@@ -20,6 +20,8 @@ export interface PanneauCatalogue {
   largeur: number;
   // Champ optionnel pour l'image (vient du catalogue produits)
   imageUrl?: string;
+  // Référence fabricant (ex: "H1180" pour Egger) - pour suggestion de chant
+  refFabricant?: string | null;
 }
 
 // Type retourné par l'API backend (format PostgreSQL)
