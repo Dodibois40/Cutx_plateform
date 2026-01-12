@@ -190,7 +190,8 @@ function panneauToApiSheet(
   panneauId: string,
   panneauNom: string,
   dimensions: { longueur: number; largeur: number; epaisseur: number },
-  hasDecorBois: boolean = false
+  hasDecorBois: boolean = false,
+  pricePerM2?: number
 ): ApiSourceSheet {
   return {
     id: panneauId,
@@ -204,6 +205,7 @@ function panneauToApiSheet(
     trim: { top: 0, left: 0, bottom: 0, right: 0 },
     hasGrain: hasDecorBois,
     grainDirection: hasDecorBois ? 'length' : undefined,
+    pricePerM2,
   };
 }
 
@@ -284,6 +286,7 @@ function apiSheetToPanneauOptimise(
       largeur: usedSheet.sheet.dimensions.width,
       epaisseur: usedSheet.sheet.thickness,
     },
+    prixM2: usedSheet.sheet.pricePerM2,
     debitsPlaces,
     zonesChute,
     surfaceUtilisee,
@@ -331,12 +334,13 @@ export async function optimiserDebitsApi(
   panneauId: string,
   panneauNom: string,
   debits: DebitAOptimiser[],
-  options: OptionsOptimisation & { hasDecorBois?: boolean; signal?: AbortSignal } = {}
+  options: OptionsOptimisation & { hasDecorBois?: boolean; prixM2?: number; signal?: AbortSignal } = {}
 ): Promise<ResultatOptimisation> {
   const {
     margeCoupe = 4,
     respecterSensFil = true,
     hasDecorBois = false,
+    prixM2,
     splitStrategy = 'shorter_leftover',
     optimizationType = 'minimize_waste',
     minOffcutLength = 300,
@@ -362,7 +366,7 @@ export async function optimiserDebitsApi(
   // Convertir les données
   const pieces: ApiCuttingPiece[] = debits.map(debitToApiPiece);
   const sheets: ApiSourceSheet[] = [
-    panneauToApiSheet(panneauId, panneauNom, panneauDimensions, hasDecorBois),
+    panneauToApiSheet(panneauId, panneauNom, panneauDimensions, hasDecorBois, prixM2),
   ];
 
   // Construire la requête
@@ -424,6 +428,7 @@ export async function optimiserParPanneauApi(
     epaisseurs: number[];
     categorie?: string;
     essence?: string | null;
+    prixM2?: number;
   }>,
   options: OptionsOptimisation & { signal?: AbortSignal } = {}
 ): Promise<Map<string, ResultatOptimisation>> {
@@ -494,6 +499,7 @@ export async function optimiserParPanneauApi(
           ...options,
           respecterSensFil: shouldRespectGrain,
           hasDecorBois: shouldRespectGrain, // Traiter le panneau comme ayant un grain si l'utilisateur l'a défini
+          prixM2: panneau.prixM2, // Prix au m² pour le calcul des chutes
           signal: options.signal, // Passer le signal d'annulation
         }
       );
