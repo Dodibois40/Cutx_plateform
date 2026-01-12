@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { usePathname } from '@/i18n/routing';
 import { useUnits, type UnitSystem } from '@/hooks/useUnits';
@@ -13,6 +14,12 @@ export function LocaleSwitcher() {
   const pathname = usePathname();
   const { unit, setUnit } = useUnits();
   const { syncLocale, syncUnit } = usePreferenceSync();
+
+  // Prevent hydration mismatch - Zustand persist reads from localStorage
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const switchLocale = (newLocale: 'fr' | 'en') => {
     if (newLocale === locale) return;
@@ -49,17 +56,17 @@ export function LocaleSwitcher() {
         </button>
       </div>
 
-      {/* Unit Toggle */}
+      {/* Unit Toggle - use 'mm' as default before mount to prevent hydration mismatch */}
       <div className={groupClass}>
         <button
           onClick={() => switchUnit('mm')}
-          className={`${btnBase} ${unit === 'mm' ? btnActive : btnInactive}`}
+          className={`${btnBase} ${(mounted ? unit : 'mm') === 'mm' ? btnActive : btnInactive}`}
         >
           mm
         </button>
         <button
           onClick={() => switchUnit('in')}
-          className={`${btnBase} ${unit === 'in' ? btnActive : btnInactive}`}
+          className={`${btnBase} ${(mounted ? unit : 'mm') === 'in' ? btnActive : btnInactive}`}
         >
           in
         </button>
