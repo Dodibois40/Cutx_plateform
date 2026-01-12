@@ -47,20 +47,25 @@ export function PdfPanelVisualization({
           stroke={colors.border}
           strokeWidth={1}
         />
-        {panneau.debitsPlaces?.map((piece: DebitPlace, index: number) => (
-          <G key={`piece-${index}`}>
-            <Rect
-              x={offsetX + piece.x * scale}
-              y={offsetY + piece.y * scale}
-              width={piece.longueur * scale}
-              height={piece.largeur * scale}
-              fill={colors.piece}
-              stroke={colors.pieceStroke}
-              strokeWidth={0.5}
-            />
-            {renderChantIndicators(piece, offsetX, offsetY, scale)}
-          </G>
-        ))}
+        {panneau.debitsPlaces?.map((piece: DebitPlace, index: number) => {
+          // Si rotation, les dimensions visuelles sont inversées
+          const pieceW = (piece.rotation ? piece.largeur : piece.longueur) * scale;
+          const pieceH = (piece.rotation ? piece.longueur : piece.largeur) * scale;
+          return (
+            <G key={`piece-${index}`}>
+              <Rect
+                x={offsetX + piece.x * scale}
+                y={offsetY + piece.y * scale}
+                width={pieceW}
+                height={pieceH}
+                fill={colors.piece}
+                stroke={colors.pieceStroke}
+                strokeWidth={0.5}
+              />
+              {renderChantIndicators(piece, offsetX, offsetY, scale)}
+            </G>
+          );
+        })}
         {panneau.zonesChute?.map((chute: ZoneChute, index: number) => (
           <Rect
             key={`chute-${index}`}
@@ -90,27 +95,49 @@ function renderChantIndicators(
 
   const x = offsetX + piece.x * scale;
   const y = offsetY + piece.y * scale;
-  const w = piece.longueur * scale;
-  const h = piece.largeur * scale;
 
-  if (piece.chants?.A) {
+  // Si rotation, les dimensions visuelles sont inversées
+  const w = (piece.rotation ? piece.largeur : piece.longueur) * scale;
+  const h = (piece.rotation ? piece.longueur : piece.largeur) * scale;
+
+  // Déterminer quels côtés ont un chant (en tenant compte de la rotation)
+  const chants = piece.chants ?? { A: false, B: false, C: false, D: false };
+  const chantsVisuels = piece.rotation
+    ? {
+        top: chants.B,    // B devient le haut
+        right: chants.A,  // A devient la droite
+        bottom: chants.D, // D devient le bas
+        left: chants.C,   // C devient la gauche
+      }
+    : {
+        top: chants.A,    // A = longueur côté 1 (haut)
+        right: chants.B,  // B = largeur côté 1 (droite)
+        bottom: chants.C, // C = longueur côté 2 (bas)
+        left: chants.D,   // D = largeur côté 2 (gauche)
+      };
+
+  // Haut
+  if (chantsVisuels.top) {
     indicators.push(
-      <Rect key="chant-a" x={x} y={y} width={w} height={chantWidth} fill={colors.chant} />
+      <Rect key="chant-top" x={x} y={y} width={w} height={chantWidth} fill={colors.chant} />
     );
   }
-  if (piece.chants?.C) {
+  // Bas
+  if (chantsVisuels.bottom) {
     indicators.push(
-      <Rect key="chant-c" x={x} y={y + h - chantWidth} width={w} height={chantWidth} fill={colors.chant} />
+      <Rect key="chant-bottom" x={x} y={y + h - chantWidth} width={w} height={chantWidth} fill={colors.chant} />
     );
   }
-  if (piece.chants?.B) {
+  // Gauche
+  if (chantsVisuels.left) {
     indicators.push(
-      <Rect key="chant-b" x={x} y={y} width={chantWidth} height={h} fill={colors.chant} />
+      <Rect key="chant-left" x={x} y={y} width={chantWidth} height={h} fill={colors.chant} />
     );
   }
-  if (piece.chants?.D) {
+  // Droite
+  if (chantsVisuels.right) {
     indicators.push(
-      <Rect key="chant-d" x={x + w - chantWidth} y={y} width={chantWidth} height={h} fill={colors.chant} />
+      <Rect key="chant-right" x={x + w - chantWidth} y={y} width={chantWidth} height={h} fill={colors.chant} />
     );
   }
 
