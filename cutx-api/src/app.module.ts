@@ -15,6 +15,7 @@ import { CaissonsModule } from './caissons/caissons.module';
 import { UsinagesModule } from './usinages/usinages.module';
 import { OptimizationModule } from './optimization/optimization.module';
 import { PanelsReviewModule } from './panels-review/panels-review.module';
+import { PanelsModule } from './panels/panels.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { PanelsReviewModule } from './panels-review/panels-review.module';
     UsinagesModule,
     OptimizationModule,
     PanelsReviewModule,
+    PanelsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
