@@ -1,0 +1,6 @@
+@echo off
+echo Stopping CutX servers...
+taskkill /F /IM node.exe /T 2>nul
+echo Waiting for cleanup...
+timeout /t 3 /nobreak >nul
+echo Servers stopped.
