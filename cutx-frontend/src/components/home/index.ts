@@ -5,3 +5,4 @@ export { default as ProductCard } from './ProductCard';
 export { default as FilterChips } from './FilterChips';
 export { default as SponsoredRow } from './SponsoredRow';
 export { default as PanelActionPopup } from './PanelActionPopup';
+export { default as ProductDetailModal } from './ProductDetailModal';

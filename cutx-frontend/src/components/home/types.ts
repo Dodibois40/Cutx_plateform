@@ -26,6 +26,9 @@ export interface SmartSearchFacets {
   genres: { label: string; count: number; searchTerm: string }[];
   dimensions: { label: string; count: number; length: number; width: number }[];
   thicknesses: { value: number; count: number }[];
+  decorCategories?: { value: string; label: string; count: number }[];
+  manufacturers?: { value: string; label: string; count: number }[];
+  properties?: { key: string; label: string; count: number }[];
 }
 
 export interface ParsedFilters {

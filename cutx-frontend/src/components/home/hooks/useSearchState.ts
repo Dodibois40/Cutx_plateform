@@ -26,6 +26,24 @@ function serializeFilters(filters: ActiveFilter[]): string {
   return filters.map(f => `${f.type}:${f.value}`).join(',');
 }
 
+// Labels for decor categories
+const DECOR_CATEGORY_LABELS: Record<string, string> = {
+  'UNIS': 'Unis',
+  'BOIS': 'Bois',
+  'PIERRE': 'Pierre',
+  'BETON': 'Béton',
+  'METAL': 'Métal',
+  'TEXTILE': 'Textile',
+  'FANTAISIE': 'Fantaisie',
+};
+
+// Labels for properties
+const PROPERTY_LABELS: Record<string, string> = {
+  'hydrofuge': 'Hydrofuge',
+  'ignifuge': 'Ignifugé',
+  'preglued': 'Pré-collé',
+};
+
 // Deserialize filters from URL string
 function deserializeFilters(str: string): ActiveFilter[] {
   if (!str) return [];
@@ -34,6 +52,10 @@ function deserializeFilters(str: string): ActiveFilter[] {
     let label = value;
     if (type === 'thickness') label = `${value}mm`;
     else if (type === 'dimension') label = value.replace('x', ' × ');
+    else if (type === 'stock') label = 'En stock';
+    else if (type === 'decorCategory') label = DECOR_CATEGORY_LABELS[value] || value;
+    else if (type === 'manufacturer') label = value; // Already human-readable
+    else if (type === 'property') label = PROPERTY_LABELS[value] || value;
     return { type, value, label };
   }).filter(f => f.type && f.value);
 }
@@ -116,6 +138,10 @@ export function useSearchState(): UseSearchStateReturn {
     let label = value;
     if (filterType === 'thickness') label = `${value}mm`;
     else if (filterType === 'dimension') label = value.replace('x', ' × ');
+    else if (filterType === 'stock') label = 'En stock';
+    else if (filterType === 'decorCategory') label = DECOR_CATEGORY_LABELS[value] || value;
+    else if (filterType === 'manufacturer') label = value; // Already human-readable
+    else if (filterType === 'property') label = PROPERTY_LABELS[value] || value;
 
     setActiveFilters(prev => {
       const exists = prev.some(f => f.type === filterType && f.value === value);
