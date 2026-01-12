@@ -25,10 +25,34 @@ interface BroadcastMessage {
  */
 export function useOptimizerBroadcast() {
   const channelRef = useRef<BroadcastChannel | null>(null);
+  // Store latest data to respond to REQUEST_DATA
+  const latestDataRef = useRef<OptimizerData | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      channelRef.current = new BroadcastChannel(CHANNEL_NAME);
+      const channel = new BroadcastChannel(CHANNEL_NAME);
+      channelRef.current = channel;
+
+      // Listen for REQUEST_DATA from optimizer window
+      channel.onmessage = (event: MessageEvent<BroadcastMessage>) => {
+        if (event.data.type === 'REQUEST_DATA') {
+          // Send current data if available
+          if (latestDataRef.current) {
+            channel.postMessage({ type: 'DATA_UPDATE', data: latestDataRef.current });
+          } else {
+            // Try to get from localStorage as fallback
+            try {
+              const stored = localStorage.getItem(STORAGE_KEY);
+              if (stored) {
+                const data = JSON.parse(stored) as OptimizerData;
+                channel.postMessage({ type: 'DATA_UPDATE', data });
+              }
+            } catch (e) {
+              console.warn('[OptimizerBroadcast] Failed to respond to REQUEST_DATA:', e);
+            }
+          }
+        }
+      };
     }
     return () => {
       channelRef.current?.close();
@@ -39,11 +63,14 @@ export function useOptimizerBroadcast() {
    * Envoie les données à toutes les fenêtres écoutant le canal
    */
   const broadcastData = useCallback((data: OptimizerData) => {
+    // Store latest data for REQUEST_DATA responses
+    latestDataRef.current = data;
+
     // Sauvegarder dans localStorage (fallback + données initiales)
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.warn('[OptimizerBroadcast] Failed to save to localStorage:', e);
+      // Ignore localStorage errors
     }
 
     // Diffuser via BroadcastChannel
@@ -92,6 +119,12 @@ export function useOptimizerReceiver(
   onDataUpdate: (data: OptimizerData) => void
 ) {
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const onDataUpdateRef = useRef(onDataUpdate);
+
+  // Keep callback ref updated
+  useEffect(() => {
+    onDataUpdateRef.current = onDataUpdate;
+  }, [onDataUpdate]);
 
   // Charger les données initiales depuis localStorage
   useEffect(() => {
@@ -101,12 +134,12 @@ export function useOptimizerReceiver(
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const data = JSON.parse(stored) as OptimizerData;
-        onDataUpdate(data);
+        onDataUpdateRef.current(data);
       }
     } catch (e) {
       console.warn('[OptimizerReceiver] Failed to load from localStorage:', e);
     }
-  }, [onDataUpdate]);
+  }, []); // Run only on mount
 
   // Écouter les mises à jour via BroadcastChannel
   useEffect(() => {
@@ -117,19 +150,75 @@ export function useOptimizerReceiver(
 
     channel.onmessage = (event: MessageEvent<BroadcastMessage>) => {
       const { type, data } = event.data;
-
       if (type === 'DATA_UPDATE' && data) {
-        onDataUpdate(data);
+        onDataUpdateRef.current(data);
       }
     };
 
     // Demander les données actuelles au configurateur
-    channel.postMessage({ type: 'REQUEST_DATA' });
+    // Small delay to ensure sender has set up its listener
+    const timeoutId = setTimeout(() => {
+      channel.postMessage({ type: 'REQUEST_DATA' });
+    }, 100);
 
     return () => {
+      clearTimeout(timeoutId);
       channel.close();
     };
-  }, [onDataUpdate]);
+  }, []); // Run only on mount
+
+  // Also listen for localStorage changes (cross-tab sync)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY && event.newValue) {
+        try {
+          const data = JSON.parse(event.newValue) as OptimizerData;
+          onDataUpdateRef.current(data);
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Polling fallback - check localStorage every 500ms for changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let lastTimestamp = 0;
+
+    const checkForUpdates = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const data = JSON.parse(stored) as OptimizerData;
+          if (data.timestamp > lastTimestamp) {
+            lastTimestamp = data.timestamp;
+            onDataUpdateRef.current(data);
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
+
+    // Initial check
+    checkForUpdates();
+
+    // Poll every 500ms
+    const intervalId = setInterval(checkForUpdates, 500);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   /**
    * Force un rechargement des données depuis localStorage
@@ -139,12 +228,17 @@ export function useOptimizerReceiver(
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const data = JSON.parse(stored) as OptimizerData;
-        onDataUpdate(data);
+        onDataUpdateRef.current(data);
       }
     } catch (e) {
       console.warn('[OptimizerReceiver] Failed to refresh:', e);
     }
-  }, [onDataUpdate]);
+
+    // Also request via BroadcastChannel
+    if (channelRef.current) {
+      channelRef.current.postMessage({ type: 'REQUEST_DATA' });
+    }
+  }, []);
 
   return { refreshData };
 }
