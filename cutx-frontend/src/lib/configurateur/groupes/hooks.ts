@@ -46,6 +46,7 @@ export function useGroupesPanneaux(initialLignes: LignePrestationV3[] = []) {
     const nouveauGroupe: GroupePanneau = {
       id: generateGroupeId(),
       panneau: options.panneau ?? null,
+      chant: options.chant ?? null,
       lignes: options.lignes ?? [],
       isExpanded: options.isExpanded ?? true,
       createdAt: new Date(),
