@@ -61,7 +61,8 @@ export function optimiserDebits(
   panneauId: string,
   panneauNom: string,
   debits: DebitAOptimiser[],
-  options: OptionsOptimisation = {}
+  options: OptionsOptimisation = {},
+  prixM2?: number
 ): ResultatOptimisation {
   const { margeCoupe = MARGE_COUPE_DEFAUT, respecterSensFil = true } = options;
 
@@ -239,6 +240,7 @@ export function optimiserDebits(
       panneauId,
       panneauNom,
       dimensions: { ...panneauDimensions },
+      prixM2,
       debitsPlaces: [],
       zonesChute: [], // L'optimiseur local ne calcule pas les zones de chute détaillées
       surfaceUtilisee: 0,
@@ -353,6 +355,7 @@ export function optimiserParPanneau(
     epaisseurs: number[];
     categorie?: string;
     essence?: string | null;  // Si essence != null, le panneau a un décor bois → respecter sens du fil
+    prixM2?: number;          // Prix au m² pour calcul valeur des chutes
   }>,
   options: OptionsOptimisation = {}
 ): Map<string, ResultatOptimisation> {
@@ -416,7 +419,8 @@ export function optimiserParPanneau(
       {
         ...options,
         respecterSensFil: doitRespecterSensFil,
-      }
+      },
+      panneau.prixM2
     );
 
     resultats.set(panneauId, resultat);

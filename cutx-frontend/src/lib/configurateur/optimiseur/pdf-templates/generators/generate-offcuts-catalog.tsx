@@ -7,6 +7,11 @@ import { OffcutsCatalogDocument } from '../documents/OffcutsCatalogDocument';
 import { formatDateFile } from '../styles/pdf-styles';
 import type { PanneauOptimise, OffcutItem, OffcutsCatalogData, ZoneChute } from '../types';
 
+// Prix par défaut si le panneau n'a pas de prix défini
+const DEFAULT_PRICE_PER_M2 = 50;
+// Ratio pour les chutes (70% du prix neuf = -30%)
+const OFFCUT_PRICE_RATIO = 0.7;
+
 export function collectOffcuts(panneaux: PanneauOptimise[]): OffcutItem[] {
   const offcuts: OffcutItem[] = [];
   const minSize = 200;
@@ -14,11 +19,15 @@ export function collectOffcuts(panneaux: PanneauOptimise[]): OffcutItem[] {
   panneaux.forEach((panneau: PanneauOptimise, panneauIndex: number) => {
     if (!panneau.zonesChute) return;
 
+    // Utiliser le prix réel du panneau ou le prix par défaut
+    const prixM2 = panneau.prixM2 ?? DEFAULT_PRICE_PER_M2;
+
     panneau.zonesChute.forEach((chute: ZoneChute, chuteIndex: number) => {
       if (chute.longueur < minSize || chute.largeur < minSize) return;
 
       const surface = (chute.longueur * chute.largeur) / 1_000_000;
-      const prixEstime = surface * 50 * 0.7;
+      // Prix estimé = surface × prix au m² × ratio chute (70%)
+      const prixEstime = surface * prixM2 * OFFCUT_PRICE_RATIO;
 
       offcuts.push({
         id: `chute-${panneauIndex}-${chuteIndex}`,

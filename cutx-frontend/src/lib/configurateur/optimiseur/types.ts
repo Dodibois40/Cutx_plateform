@@ -53,6 +53,7 @@ export interface PanneauOptimise {
     largeur: number;                 // mm
     epaisseur: number;               // mm
   };
+  prixM2?: number;                   // Prix au m² du panneau (pour calcul chutes)
   debitsPlaces: DebitPlace[];        // Débits placés sur ce panneau
   zonesChute: ZoneChute[];           // Zones de chute (espaces libres)
   surfaceUtilisee: number;           // m²

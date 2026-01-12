@@ -102,6 +102,13 @@ export default function OptimiseurPage() {
         }))
       : lignesPanneau.filter((l) => l.panneauId);
 
+    // Helper pour extraire le prix au m² depuis le dictionnaire prixM2
+    const getPrixM2 = (prixM2: Record<string, number> | undefined): number | undefined => {
+      if (!prixM2) return undefined;
+      const values = Object.values(prixM2);
+      return values.length > 0 ? values[0] : undefined;
+    };
+
     const catalogueFormatted = panneauGlobal
       ? [{
           id: panneauGlobal.id,
@@ -111,6 +118,7 @@ export default function OptimiseurPage() {
           epaisseurs: panneauGlobal.epaisseurs,
           categorie: panneauGlobal.categorie,
           essence: panneauGlobal.essence,
+          prixM2: getPrixM2(panneauGlobal.prixM2),
         }]
       : panneauxCatalogue.map((p) => {
           const dims = getPanneauDimensions(p);
@@ -122,6 +130,7 @@ export default function OptimiseurPage() {
             epaisseurs: p.epaisseurs,
             categorie: p.categorie,
             essence: p.essence,
+            prixM2: getPrixM2(p.prixM2),
           };
         });
 
