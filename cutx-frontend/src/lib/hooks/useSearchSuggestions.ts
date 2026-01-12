@@ -33,11 +33,12 @@ export function useSearchSuggestions({
   threshold = 3,
   enabled = true,
 }: UseSearchSuggestionsParams) {
-  const shouldFetch =
+  const shouldFetch = Boolean(
     enabled &&
     query &&
     query.trim().length >= 3 &&
-    resultsCount <= threshold;
+    resultsCount <= threshold
+  );
 
   const { data, isLoading, isError } = useQuery<SuggestResponse>({
     queryKey: ['search-suggestions', query],
