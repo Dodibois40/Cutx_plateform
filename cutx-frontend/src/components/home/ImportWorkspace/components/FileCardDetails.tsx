@@ -21,7 +21,7 @@ export interface FileCardDetailsProps {
   onChantDrop: (e: React.DragEvent) => void;
   // Actions
   onUnassign: () => void;
-  onSearchPanel?: (query: string) => void;
+  onSearchPanel?: (file: ImportedFileData) => void;
   onSplitByThickness?: (fileId: string) => void;
   onSearchChant?: (file: ImportedFileData) => void;
   onSearchSuggestedChant?: (file: ImportedFileData) => void;
@@ -124,7 +124,7 @@ export function FileCardDetails({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onSearchPanel(file.detection!.panelSearchQuery!);
+              onSearchPanel(file);
             }}
             className="w-full p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition-colors text-left"
           >

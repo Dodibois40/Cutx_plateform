@@ -19,7 +19,7 @@ export interface AccordionFileCardProps {
   onRemove: () => void;
   onUnassign: () => void;
   onDrop: (panel: SearchProduct) => void;
-  onSearchPanel?: (query: string) => void;
+  onSearchPanel?: (file: ImportedFileData) => void;
   onSplitByThickness?: (fileId: string) => void;
   onSearchChant?: (file: ImportedFileData) => void;
   onSearchSuggestedChant?: (file: ImportedFileData) => void;

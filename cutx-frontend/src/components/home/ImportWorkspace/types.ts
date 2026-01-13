@@ -20,8 +20,8 @@ export interface FilesPanelProps {
   // File drop for adding more files
   onFileDrop?: (file: File) => void;
   isImporting?: boolean;
-  // Panel search trigger (for auto-detected panel)
-  onSearchPanel?: (query: string) => void;
+  // Panel search trigger (for auto-detected panel) - pass file to track which file we're searching for
+  onSearchPanel?: (file: ImportedFileData) => void;
   // Split by thickness trigger
   onSplitByThickness?: (fileId: string) => void;
   // Edge banding (chant) - search, suggestion click, drop, and clear
