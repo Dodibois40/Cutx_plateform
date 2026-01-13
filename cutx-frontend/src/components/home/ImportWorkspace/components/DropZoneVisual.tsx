@@ -5,7 +5,7 @@
  * Shows upload icon, instructions, and supported file types
  */
 
-import { Upload, FileSpreadsheet, FileCode, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, FileCode, Loader2, Search } from 'lucide-react';
 
 export interface DropZoneVisualProps {
   isDragging: boolean;
@@ -46,7 +46,7 @@ export function DropZoneVisual({ isDragging, isImporting = false, compact = fals
       <h3 className={`font-semibold mb-2 transition-colors duration-200 ${compact ? 'text-sm' : 'text-lg'} ${
         isDragging ? 'text-amber-500' : 'text-[var(--cx-text)]'
       }`}>
-        {isImporting ? 'Import en cours...' : isDragging ? 'Deposez ici' : 'Glissez vos fichiers'}
+        {isImporting ? 'Import en cours...' : isDragging ? 'Deposez ici' : 'Importez un fichier'}
       </h3>
 
       <p className={`text-[var(--cx-text-muted)] mb-4 ${compact ? 'text-xs max-w-[160px]' : 'text-sm max-w-[180px]'}`}>
@@ -54,22 +54,10 @@ export function DropZoneVisual({ isDragging, isImporting = false, compact = fals
           ? 'Analyse du fichier...'
           : isDragging
           ? 'Relachez pour importer'
-          : 'Importez vos fichiers Excel ou DXF pour commencer'
+          : '.xlsx  .dxf'
         }
       </p>
 
-      {!isDragging && !isImporting && (
-        <div className={`flex flex-col gap-2 text-[var(--cx-text-muted)] ${compact ? 'text-[10px]' : 'text-xs'}`}>
-          <span className="flex items-center gap-1.5 justify-center">
-            <FileSpreadsheet className="w-4 h-4" />
-            .xlsx, .xls
-          </span>
-          <span className="flex items-center gap-1.5 justify-center">
-            <FileCode className="w-4 h-4" />
-            .dxf
-          </span>
-        </div>
-      )}
     </div>
   );
 }

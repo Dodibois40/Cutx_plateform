@@ -24,7 +24,11 @@ export default function WorkspaceBottomBar({
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs text-[var(--cx-text-muted)]">
-            {totalFiles} fichier{totalFiles > 1 ? 's' : ''} • {totalPieces} pièces
+            {totalFiles} fichier{totalFiles > 1 ? 's' : ''} • {totalPieces > 0 ? (
+              <>{totalPieces} pièce{totalPieces > 1 ? 's' : ''}</>
+            ) : (
+              <>{totalFiles} config{totalFiles > 1 ? 's' : ''}</>
+            )}
           </span>
           <span className={`text-xs font-medium ${allAssigned ? 'text-green-500' : 'text-amber-500'}`}>
             {assignedFiles}/{totalFiles}

@@ -10,7 +10,6 @@ import { getSponsored, type CatalogueProduit } from '@/lib/services/catalogue-ap
 import {
   HomeSearchBar,
   SearchResults,
-  PanelActionPopup,
   ProductDetailModal,
 } from '@/components/home';
 import FilesPanel, { DropZoneVisual } from '@/components/home/ImportWorkspace/FilesPanel';
@@ -78,7 +77,6 @@ function HomePageContent() {
     goHome,
   } = useSearchState();
 
-  const [selectedProduct, setSelectedProduct] = useState<SearchProduct | null>(null);
   const [sponsored, setSponsored] = useState<CatalogueProduit[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [isDraggingOnPanel, setIsDraggingOnPanel] = useState(false);
@@ -201,7 +199,7 @@ function HomePageContent() {
     }
   }, [fileImport.importedFiles, selectedFileId]);
 
-  // Handle product click - in chant search mode, assign chant directly
+  // Handle product click - create virtual file or assign chant
   const handleProductClick = useCallback((product: SearchProduct) => {
     if (searchingChantForFileId) {
       // In chant search mode - assign chant and exit mode
@@ -209,8 +207,9 @@ function HomePageContent() {
       setSearchingChantForFileId(null);
       // Don't clear search - user might want to continue browsing
     } else {
-      // Normal mode - open product popup
-      setSelectedProduct(product);
+      // Normal mode - create virtual file in right column (same as drag & drop)
+      fileImport.addVirtualFile(product);
+      console.log('[HomePage] Created virtual file from click:', product.nom);
     }
   }, [searchingChantForFileId, fileImport]);
 
@@ -251,11 +250,6 @@ function HomePageContent() {
     fetchNextPage();
   }, [fetchNextPage]);
 
-  // Close popup
-  const handleClosePopup = useCallback(() => {
-    setSelectedProduct(null);
-  }, []);
-
   // Open product detail modal
   const handleViewDetails = useCallback((productId: string) => {
     setDetailProductId(productId);
@@ -293,12 +287,29 @@ function HomePageContent() {
     await fileImport.processFile(file);
   }, [fileImport]);
 
-  // Handle drop on right panel (from drag event) - supports multiple files
+  // Handle drop on right panel (from drag event) - supports multiple files AND product drops
   const handlePanelDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOnPanel(false);
 
+    // 1. Check for product drop first (from search results drag)
+    if (e.dataTransfer.types.includes('application/json')) {
+      try {
+        const productJson = e.dataTransfer.getData('application/json');
+        if (productJson) {
+          const product = JSON.parse(productJson) as SearchProduct;
+          // Create virtual file with pre-assigned panel
+          fileImport.addVirtualFile(product);
+          console.log('[HomePage] Created virtual file from product drop:', product.nom);
+          return; // Don't process as file drop
+        }
+      } catch (error) {
+        console.error('[HomePage] Error parsing product drop:', error);
+      }
+    }
+
+    // 2. Handle file drops (.xlsx, .xls, .dxf)
     const files = e.dataTransfer.files;
     const supportedExts = ['dxf', 'xlsx', 'xls'];
 
@@ -310,7 +321,7 @@ function HomePageContent() {
         handleFileDrop(file);
       }
     }
-  }, [handleFileDrop]);
+  }, [handleFileDrop, fileImport]);
 
   const handlePanelDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -531,7 +542,7 @@ function HomePageContent() {
                 onClearFilter={removeFilter}
                 onClearAllFilters={clearAllFilters}
                 onLoadMore={handleLoadMore}
-                isDraggable={hasFiles}
+                isDraggable={true}
                 onSearchWithSuggestion={setQuery}
               />
             </div>
@@ -596,19 +607,6 @@ function HomePageContent() {
         </div>
       </main>
 
-      {/* Panel action popup */}
-      <PanelActionPopup
-        open={!!selectedProduct}
-        product={selectedProduct}
-        onClose={handleClosePopup}
-        preImportedFile={fileImport.importedFile}
-        preImportedLines={fileImport.importedLines}
-        preImportError={fileImport.importError}
-        onClearPreImport={fileImport.resetImport}
-        importedFiles={fileImport.filesWithoutPanel}
-        onAssignPanelToFiles={fileImport.assignPanelToFiles}
-      />
-
       {/* Split by thickness modal */}
       <SplitThicknessModal
         open={!!splitModalFileId}
@@ -660,13 +658,23 @@ function EmptyDropZone({ isDragging }: { isDragging: boolean }) {
       <div className="flex-shrink-0 p-4 border-b border-[var(--cx-border)]">
         <div className="flex items-center gap-3">
           <Upload className="w-5 h-5 text-amber-500/70" />
-          <h2 className="text-base font-semibold text-[var(--cx-text)]">Fichiers</h2>
+          <h2 className="text-base font-semibold text-[var(--cx-text)]">Configuration de débits</h2>
         </div>
       </div>
 
       {/* Drop zone content - same visual as AddMoreFilesZone in FilesPanel */}
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <DropZoneVisual isDragging={isDragging} />
+
+        {/* Or separator + drag hint */}
+        {!isDragging && (
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <span className="text-xs text-[var(--cx-text-muted)]/50">ou</span>
+            <p className="text-sm text-[var(--cx-text-muted)] text-center max-w-[200px]">
+              Glissez un panneau depuis<br />le moteur de recherche
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -105,6 +105,7 @@ export interface UseFileImportReturn {
   clearChantFromFile: (fileId: string) => void;
   splitFileByThickness: (fileId: string) => void;
   addMockFile: () => string; // Returns fileId - for onboarding demo
+  addVirtualFile: (product: SearchProduct) => string; // Returns fileId - create virtual file from product
   resetImport: () => void;
   saveToSession: () => void;
   saveMultiToSession: () => void;
@@ -537,6 +538,43 @@ export function useFileImport(): UseFileImportReturn {
     return fileId;
   }, []);
 
+  // Add a virtual file from a product (drag & drop from search) - returns fileId
+  const addVirtualFile = useCallback((product: SearchProduct): string => {
+    const fileId = crypto.randomUUID();
+    const productName = product.nom || product.reference || 'Panneau';
+    const thickness = product.epaisseur || 19;
+
+    const virtualFile: ImportedFileData = {
+      id: fileId,
+      name: `${productName}.config`,
+      lines: [], // Empty - no imported pieces, user will configure manually
+      foundReference: null,
+      thicknessBreakdown: [],
+      primaryThickness: thickness,
+      isMixedThickness: false,
+      detection: {
+        format: 'inconnu',
+        formatLabel: 'Configuration directe',
+        columnsDetected: [],
+        hasEdgeBanding: false,
+        edgeBandingCount: 0,
+        hasMaterial: false,
+        materialHint: null,
+        uniqueDimensions: 0,
+        totalQuantity: 0,
+        panelSearchQuery: null,
+        panelSearchLabel: null,
+        detectedChantNames: [],
+      },
+      // Pre-assign the panel
+      assignedPanel: product,
+    };
+
+    setImportedFiles(prev => [...prev, virtualFile]);
+    console.log('[useFileImport] Created virtual file for:', product.nom);
+    return fileId;
+  }, []);
+
   // Split a file by thickness into multiple sub-files
   const splitFileByThickness = useCallback((fileId: string) => {
     console.log('[splitFileByThickness] Called with fileId:', fileId);
@@ -803,6 +841,7 @@ export function useFileImport(): UseFileImportReturn {
     clearChantFromFile,
     splitFileByThickness,
     addMockFile,
+    addVirtualFile,
     resetImport,
     saveToSession,
     saveMultiToSession,

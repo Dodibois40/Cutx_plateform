@@ -48,6 +48,7 @@ export function AccordionFileCard({
 
   const hasPanel = !!file.assignedPanel;
   const isDxf = file.name.toLowerCase().endsWith('.dxf');
+  const isVirtualFile = file.lines.length === 0; // Virtual file = product dropped without import
   const FileIcon = isDxf ? FileCode : FileSpreadsheet;
 
   // Handle drag events for panel drop
@@ -154,6 +155,12 @@ export function AccordionFileCard({
           {isDragOver && !hasPanel ? (
             <div className={`text-amber-500 font-medium animate-pulse ${isCompact ? 'text-[10px]' : 'text-xs'}`}>
               ↓ Relachez
+            </div>
+          ) : isVirtualFile ? (
+            <div className={`flex items-center ${isCompact ? 'text-[10px]' : 'text-xs'}`}>
+              <span className="text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                Config directe
+              </span>
             </div>
           ) : (
             <div className={`flex items-center gap-1 text-[var(--cx-text-muted)] ${isCompact ? 'text-[10px]' : 'text-xs gap-2'}`}>

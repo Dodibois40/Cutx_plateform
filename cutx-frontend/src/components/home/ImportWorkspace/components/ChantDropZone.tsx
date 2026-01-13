@@ -40,7 +40,7 @@ export function ChantDropZone({
       <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
         <div className="flex items-center gap-2">
           {file.assignedChant.imageUrl && (
-            <div className="relative w-8 h-8 rounded overflow-hidden flex-shrink-0">
+            <div className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0">
               <Image
                 src={file.assignedChant.imageUrl}
                 alt=""
@@ -50,8 +50,8 @@ export function ChantDropZone({
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-amber-400">Bande de chant</p>
-            <p className="text-xs font-medium text-[var(--cx-text)] truncate">
+            <p className="text-sm font-medium text-amber-500">Bande de chant</p>
+            <p className="text-xs text-[var(--cx-text)] truncate">
               {file.assignedChant.nom}
             </p>
             {file.assignedChant.epaisseur && (

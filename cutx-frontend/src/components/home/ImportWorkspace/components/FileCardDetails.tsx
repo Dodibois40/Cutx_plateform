@@ -45,6 +45,13 @@ export function FileCardDetails({
   onClearChant,
 }: FileCardDetailsProps) {
   const hasPanel = !!file.assignedPanel;
+  const isVirtualFile = file.lines.length === 0;
+
+  // Get material from detection or from assigned panel
+  const materialDisplay = file.detection?.materialHint
+    || file.assignedPanel?.type
+    || file.assignedPanel?.categorie
+    || null;
 
   return (
     <div className={`overflow-hidden transition-all duration-200 ${
@@ -79,10 +86,10 @@ export function FileCardDetails({
                 <span className="text-[var(--cx-text)]">{file.detection.edgeBandingCount} pcs</span>
               </div>
             )}
-            {file.detection.materialHint && (
+            {materialDisplay && (
               <div className="flex items-center justify-between">
                 <span>Materiau</span>
-                <span className="text-[var(--cx-text)]">{file.detection.materialHint}</span>
+                <span className="text-[var(--cx-text)]">{materialDisplay}</span>
               </div>
             )}
           </div>
@@ -137,7 +144,8 @@ export function FileCardDetails({
         )}
 
         {/* Edge banding (Chant) section - with drop zone and suggestion */}
-        {(file.detection?.hasEdgeBanding || file.detection?.edgeBandingCount > 0 || file.assignedChant) && (
+        {/* Show for: files with detected chants, files with assigned chant, or virtual files (direct config) */}
+        {(file.detection?.hasEdgeBanding || file.detection?.edgeBandingCount > 0 || file.assignedChant || isVirtualFile) && (
           <ChantDropZone
             file={file}
             isDragOver={isChantDragOver}
@@ -172,7 +180,8 @@ export function FileCardDetails({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-green-500 truncate">
+                <p className="text-sm font-medium text-green-500">Panneau</p>
+                <p className="text-xs text-[var(--cx-text)] truncate">
                   {file.assignedPanel.nom}
                 </p>
                 <p className="text-[10px] text-[var(--cx-text-muted)] truncate">
