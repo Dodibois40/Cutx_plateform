@@ -59,11 +59,25 @@ export interface DxfPanelExtracted {
   };
 }
 
+// Pièce bois massif extraite du DXF (non affectable à un panneau)
+export interface DxfMassifPiece {
+  reference: string;
+  dimensions: {
+    longueur: number;
+    largeur: number;
+    epaisseur: number;
+  };
+  quantite: number;
+  materialType: string;  // Ex: "massif", "chêne massif", etc.
+}
+
 export interface DxfDonneesImportees {
   sourceFileName: string;
   panels: DxfPanelExtracted[];
   projet: string;
   corpsMeuble: string;
+  // Pièces bois massif (non affectables à un panneau mélaminé)
+  massifPieces?: DxfMassifPiece[];
 }
 
 export interface DxfResultatImport {

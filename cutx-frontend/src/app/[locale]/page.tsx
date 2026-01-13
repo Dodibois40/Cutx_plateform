@@ -16,7 +16,8 @@ import FilesPanel, { DropZoneVisual } from '@/components/home/ImportWorkspace/Fi
 import WorkspaceBottomBar from '@/components/home/ImportWorkspace/WorkspaceBottomBar';
 import SplitThicknessModal from '@/components/home/ImportWorkspace/SplitThicknessModal';
 import dynamic from 'next/dynamic';
-import { MULTI_GROUP_CONFIG_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
+import { MULTI_GROUP_CONFIG_KEY, MASSIF_PIECES_STORAGE_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
+import type { DxfMassifPiece } from '@/lib/configurateur/import/types';
 
 // Client-only component - never rendered on server
 const OnboardingGuide = dynamic(
@@ -387,8 +388,22 @@ function HomePageContent() {
       });
     }
 
+    // Collect all massif pieces from all imported files (bois massif = non panel cuts)
+    const allMassifPieces: DxfMassifPiece[] = [];
+    // Include ALL imported files, not just those with panels assigned
+    fileImport.importedFiles.forEach(file => {
+      if (file.massifPieces && file.massifPieces.length > 0) {
+        allMassifPieces.push(...file.massifPieces);
+      }
+    });
+
     // Save to session storage and navigate
     sessionStorage.setItem(MULTI_GROUP_CONFIG_KEY, JSON.stringify(groupConfigs));
+    // Store massif pieces separately (will become unassigned lines in configurateur)
+    if (allMassifPieces.length > 0) {
+      sessionStorage.setItem(MASSIF_PIECES_STORAGE_KEY, JSON.stringify(allMassifPieces));
+      console.log('[Homepage] Stored', allMassifPieces.length, 'massif pieces');
+    }
 
     // Clear all files after configuring
     fileImport.resetImport();

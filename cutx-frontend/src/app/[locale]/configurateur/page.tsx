@@ -28,7 +28,8 @@ import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import { creerNouvelleLigne } from '@/lib/configurateur/constants';
 import { mettreAJourCalculsLigne } from '@/lib/configurateur/calculs';
 import { readImportedLinesFromSession } from '@/components/home/hooks/useFileImport';
-import { MULTI_GROUP_CONFIG_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
+import { MULTI_GROUP_CONFIG_KEY, MASSIF_PIECES_STORAGE_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
+import type { DxfMassifPiece } from '@/lib/configurateur/import/types';
 import type { InitialGroupeData } from '@/contexts/GroupesContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
@@ -219,9 +220,21 @@ function ConfigurateurContent() {
                 imageUrl: config.panel.imageUrl || undefined,
               };
 
+              // Convert SearchProduct chant to ChantGroupe if present
+              const chantGroupe = config.chant ? {
+                id: config.chant.id,
+                reference: config.chant.reference,
+                nom: config.chant.nom,
+                refFabricant: config.chant.refFabricant,
+                epaisseur: config.chant.epaisseur,
+                prixMl: config.chant.prixMl,
+                imageUrl: config.chant.imageUrl,
+              } : undefined;
+
               return {
                 panneau: { type: 'catalogue' as const, panneau: panneauCatalogue },
                 lignes: config.lines,
+                chant: chantGroupe,
               };
             });
 
@@ -230,6 +243,41 @@ function ConfigurateurContent() {
             console.log('[ConfigV3] Groupes crees:', groupesData.length);
           }
         }
+
+        // Read massif pieces (bois massif = non panel cuts) and convert to unassigned lines
+        const massifData = sessionStorage.getItem(MASSIF_PIECES_STORAGE_KEY);
+        if (massifData) {
+          sessionStorage.removeItem(MASSIF_PIECES_STORAGE_KEY);
+          const massifPieces: DxfMassifPiece[] = JSON.parse(massifData);
+          console.log('[ConfigV3] Massif pieces chargees:', massifPieces.length);
+
+          if (massifPieces.length > 0) {
+            // Convert massif pieces to LignePrestationV3 (unassigned lines)
+            const massifLignes: LignePrestationV3[] = massifPieces.flatMap(piece => {
+              const lines: LignePrestationV3[] = [];
+              for (let i = 1; i <= piece.quantite; i++) {
+                const suffixe = piece.quantite > 1 ? ` (${i}/${piece.quantite})` : '';
+                const ligne = creerNouvelleLigne();
+                ligne.reference = `${piece.reference}${suffixe}`;
+                ligne.forme = 'rectangle';
+                ligne.dimensions = {
+                  longueur: piece.dimensions.longueur,
+                  largeur: piece.dimensions.largeur,
+                  epaisseur: piece.dimensions.epaisseur,
+                };
+                // Mark as massif for future identification
+                ligne.materiau = piece.materialType;
+                lines.push(mettreAJourCalculsLigne(ligne));
+              }
+              return lines;
+            });
+
+            // Set as initial unassigned lines
+            setInitialLignes(massifLignes);
+            console.log('[ConfigV3] Lignes massif (non assignees):', massifLignes.length);
+          }
+        }
+
         // Mark multi-import as ready (data processed)
         setIsMultiImportReady(true);
       } catch (err) {

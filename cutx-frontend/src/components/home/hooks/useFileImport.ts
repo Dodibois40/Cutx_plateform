@@ -7,6 +7,7 @@ import { parseExcelAuto, parseDxfFile } from '@/lib/configurateur/import';
 import { creerNouvelleLigne } from '@/lib/configurateur/constants';
 import { mettreAJourCalculsLigne } from '@/lib/configurateur/calculs';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
+import type { DxfMassifPiece } from '@/lib/configurateur/import/types';
 import type { SearchProduct } from '../types';
 
 // Session storage keys
@@ -75,6 +76,8 @@ export interface ImportedFileData {
   parentFileId?: string; // ID of original file if this is a sub-file from split
   splitThickness?: number; // The thickness this sub-file represents
   isSplitChild?: boolean; // True if this is a result of splitting
+  // Bois massif pieces (from DXF - non affectable à un panneau mélaminé)
+  massifPieces?: DxfMassifPiece[];
 }
 
 export interface UseFileImportReturn {
@@ -637,6 +640,7 @@ export function useFileImport(): UseFileImportReturn {
     let foundReference: string | null = null;
     let detectedFormat: DetectedFormat = 'inconnu';
     let materialHint: string | null = null;
+    let dxfMassifPieces: DxfMassifPiece[] | undefined; // Bois massif pieces from DXF
 
     try {
       // Validate file size
@@ -722,6 +726,12 @@ export function useFileImport(): UseFileImportReturn {
         foundReference = donnees.projet || null;
         console.log('[useFileImport] DXF panels count:', donnees.panels.length);
 
+        // Store massif pieces for later (will be added to fileData)
+        if (donnees.massifPieces && donnees.massifPieces.length > 0) {
+          console.log('[useFileImport] DXF massif pieces:', donnees.massifPieces.length);
+          dxfMassifPieces = donnees.massifPieces;
+        }
+
         for (const panel of donnees.panels) {
           for (let i = 1; i <= panel.quantite; i++) {
             const suffixe = panel.quantite > 1 ? ` (${i}/${panel.quantite})` : '';
@@ -747,9 +757,11 @@ export function useFileImport(): UseFileImportReturn {
         throw new Error('Format non supporté. Utilisez .xlsx, .xls ou .dxf');
       }
 
-      console.log('[useFileImport] Import success! Lines:', lines.length);
+      console.log('[useFileImport] Import success! Lines:', lines.length, 'Massif:', dxfMassifPieces?.length || 0);
 
-      if (lines.length === 0) {
+      // Check if we have any content (panels OR massif pieces)
+      const hasMassifPieces = dxfMassifPieces && dxfMassifPieces.length > 0;
+      if (lines.length === 0 && !hasMassifPieces) {
         throw new Error('Aucune pièce trouvée dans le fichier. Vérifiez le format.');
       }
 
@@ -779,6 +791,8 @@ export function useFileImport(): UseFileImportReturn {
         foundReference,
         ...thicknessAnalysis,
         detection,
+        // Include massif pieces if any (from DXF)
+        massifPieces: dxfMassifPieces,
       };
 
       // Add to list (append, don't replace)

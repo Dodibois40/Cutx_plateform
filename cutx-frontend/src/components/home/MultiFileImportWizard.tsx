@@ -19,6 +19,7 @@ import type { ImportedFileData, ThicknessBreakdown } from './hooks/useFileImport
 import type { SearchProduct } from './types';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import MiniPanelSearch from './MiniPanelSearch';
+import type { DxfMassifPiece } from '@/lib/configurateur/import/types';
 
 // === TYPES ===
 
@@ -44,6 +45,8 @@ export interface GroupConfig {
 }
 
 export const MULTI_GROUP_CONFIG_KEY = 'cutx_multi_group_config';
+// Storage key for bois massif pieces (non-panel cuts)
+export const MASSIF_PIECES_STORAGE_KEY = 'cutx_massif_pieces';
 
 // === PROPS ===
 
@@ -259,8 +262,21 @@ export default function MultiFileImportWizard({
       // Convert map to array
       groupConfigs.push(...panelToConfig.values());
 
+      // Collect all massif pieces from all imported files (bois massif = non panel cuts)
+      const allMassifPieces: DxfMassifPiece[] = [];
+      importedFiles.forEach(file => {
+        if (file.massifPieces && file.massifPieces.length > 0) {
+          allMassifPieces.push(...file.massifPieces);
+        }
+      });
+
       // Save to session storage
       sessionStorage.setItem(MULTI_GROUP_CONFIG_KEY, JSON.stringify(groupConfigs));
+      // Store massif pieces separately (will become unassigned lines in configurateur)
+      if (allMassifPieces.length > 0) {
+        sessionStorage.setItem(MASSIF_PIECES_STORAGE_KEY, JSON.stringify(allMassifPieces));
+        console.log('[MultiFileImportWizard] Stored', allMassifPieces.length, 'massif pieces');
+      }
 
       // Navigate to configurateur
       router.push('/configurateur?import=multi');
@@ -271,7 +287,7 @@ export default function MultiFileImportWizard({
     } finally {
       setIsProcessing(false);
     }
-  }, [thicknessGroups, mixedFiles, panelAssignments, mixedFileDecisions, router, onClose, onReset]);
+  }, [thicknessGroups, mixedFiles, panelAssignments, mixedFileDecisions, router, onClose, onReset, importedFiles]);
 
   // Handle close
   const handleClose = useCallback(() => {
