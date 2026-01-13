@@ -27,9 +27,10 @@ import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 import { useSearchState } from '@/components/home/hooks/useSearchState';
 import { useRouter, Link } from '@/i18n/routing';
-import { Upload, ClipboardCheck, Play } from 'lucide-react';
+import { Upload, ClipboardCheck, Play, Settings } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { UserAccountMenu } from '@/components/ui/UserAccountMenu';
+import { useIsAdmin } from '@/lib/hooks/useIsAdmin';
 
 // Fallback for Suspense
 function HomePageLoading() {
@@ -58,6 +59,7 @@ export default function HomePage() {
 function HomePageContent() {
   const t = useTranslations('common');
   const { isSignedIn } = useUser();
+  const { isAdmin } = useIsAdmin();
 
   // Prevent hydration mismatch - render same HTML on server and first client render
   const [mounted, setMounted] = useState(false);
@@ -85,6 +87,8 @@ function HomePageContent() {
   const [showLaunchMessage, setShowLaunchMessage] = useState(false);
   // Chant (edge banding) search mode - tracks which file we're searching chant for
   const [searchingChantForFileId, setSearchingChantForFileId] = useState<string | null>(null);
+  // Panel search mode - tracks which file we're searching panel for (from "Rechercher" button)
+  const [searchingPanelForFileId, setSearchingPanelForFileId] = useState<string | null>(null);
   // Product detail modal
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
 
@@ -199,19 +203,33 @@ function HomePageContent() {
     }
   }, [fileImport.importedFiles, selectedFileId]);
 
-  // Handle product click - create virtual file or assign chant
+  // Handle product click - create virtual file, assign panel, or assign chant
   const handleProductClick = useCallback((product: SearchProduct) => {
     if (searchingChantForFileId) {
       // In chant search mode - assign chant and exit mode
       fileImport.assignChantToFile(searchingChantForFileId, product);
       setSearchingChantForFileId(null);
       // Don't clear search - user might want to continue browsing
+    } else if (searchingPanelForFileId) {
+      // In panel search mode - assign panel to existing file and exit mode
+      fileImport.assignPanelToFile(searchingPanelForFileId, product);
+      setSearchingPanelForFileId(null);
+      console.log('[HomePage] Assigned panel to file from click:', product.nom);
     } else {
       // Normal mode - create virtual file in right column (same as drag & drop)
       fileImport.addVirtualFile(product);
       console.log('[HomePage] Created virtual file from click:', product.nom);
     }
-  }, [searchingChantForFileId, fileImport]);
+  }, [searchingChantForFileId, searchingPanelForFileId, fileImport]);
+
+  // Handle panel search - triggered from FilesPanel "Rechercher" button on detected panel
+  const handleSearchPanel = useCallback((file: import('@/components/home/hooks/useFileImport').ImportedFileData) => {
+    setSearchingPanelForFileId(file.id);
+    // Set search query to detected panel search query
+    const searchTerm = file.detection?.panelSearchQuery || '';
+    setQuery(searchTerm);
+    console.log('[HomePage] Entering panel search mode for file:', file.id);
+  }, [setQuery]);
 
   // Handle chant search - triggered from FilesPanel "Ajouter bande de chant" button
   const handleSearchChant = useCallback((file: import('@/components/home/hooks/useFileImport').ImportedFileData) => {
@@ -239,9 +257,10 @@ function HomePageContent() {
     console.log(`[ChantSuggestion] Searching for chant matching: ${manufacturerRef}`);
   }, [setQuery]);
 
-  // Cancel chant search mode when user clears search or goes home
+  // Cancel search modes when user clears search or goes home
   const handleGoHome = useCallback(() => {
     setSearchingChantForFileId(null);
+    setSearchingPanelForFileId(null);
     goHome();
   }, [goHome]);
 
@@ -442,6 +461,16 @@ function HomePageContent() {
                 <span className="hidden sm:inline">Review</span>
               </Link>
             )}
+            {isAdmin && (
+              <Link
+                href="/admin/fournisseurs"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs text-violet-400/60 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-colors"
+                title="Administration"
+              >
+                <Settings size={14} />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
             <LocaleSwitcher />
           </div>
           {/* Search section - centered or top based on state */}
@@ -581,7 +610,7 @@ function HomePageContent() {
                 onAssignPanel={fileImport.assignPanelToFile}
                 onFileDrop={handleFileDrop}
                 isImporting={fileImport.isImporting}
-                onSearchPanel={setQuery}
+                onSearchPanel={handleSearchPanel}
                 onSplitByThickness={handleOpenSplitModal}
                 onSearchChant={handleSearchChant}
                 onSearchSuggestedChant={handleSearchSuggestedChant}

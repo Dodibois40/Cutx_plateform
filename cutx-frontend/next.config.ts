@@ -34,6 +34,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'panneauxonline.fr',
       },
+      {
+        protocol: 'https',
+        hostname: 'www.barillet-distribution.fr',
+      },
+      {
+        protocol: 'https',
+        hostname: 'barillet-distribution.fr',
+      },
     ],
   },
 };

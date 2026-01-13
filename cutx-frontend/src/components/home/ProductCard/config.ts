@@ -16,6 +16,7 @@ export const PRODUCT_TYPE_CONFIG: Record<string, { label: string; color: string 
 export const SUPPLIER_CONFIG: Record<string, { letter: string; color: string; title: string }> = {
   'Bouney': { letter: 'B', color: 'bg-sky-500/20 text-sky-400 border-sky-500/40', title: 'B comme Bois' },
   'Dispano': { letter: 'D', color: 'bg-rose-500/20 text-rose-400 border-rose-500/40', title: 'Dispano' },
+  'Barrillet': { letter: 'B', color: 'bg-violet-500/20 text-violet-400 border-violet-500/40', title: 'Barrillet Distribution' },
 };
 
 // Calculate panel price from m2 price and dimensions

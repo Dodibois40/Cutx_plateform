@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
@@ -1643,5 +1643,39 @@ export class CataloguesService {
   }> {
     const { analyzeQueryForSuggestions } = await import('./utils/search-suggestions.js');
     return analyzeQueryForSuggestions(this.prisma, query);
+  }
+
+  // ============================================
+  // ADMIN - Gestion des catalogues
+  // ============================================
+
+  /**
+   * Liste tous les catalogues (actifs et inactifs)
+   * Réservé aux administrateurs
+   */
+  async findAllCataloguesAdmin(): Promise<Catalogue[]> {
+    return this.prisma.catalogue.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Active/désactive un catalogue
+   * @param id - ID du catalogue
+   * @returns Le catalogue mis à jour
+   */
+  async toggleCatalogueActive(id: string): Promise<Catalogue> {
+    const catalogue = await this.prisma.catalogue.findUnique({
+      where: { id },
+    });
+
+    if (!catalogue) {
+      throw new NotFoundException(`Catalogue avec l'ID "${id}" non trouvé`);
+    }
+
+    return this.prisma.catalogue.update({
+      where: { id },
+      data: { isActive: !catalogue.isActive },
+    });
   }
 }

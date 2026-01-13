@@ -1,21 +1,82 @@
 import {
   Controller,
   Get,
+  Patch,
   Param,
   Query,
   NotFoundException,
+  UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { CataloguesService } from './catalogues.service';
+import { ClerkAuthGuard } from '../common/guards/clerk-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { UsersService } from '../users/users.service';
+import type { ClerkUser } from '../common/decorators/current-user.decorator';
 
 @Controller('catalogues')
 export class CataloguesController {
-  constructor(private readonly cataloguesService: CataloguesService) {}
+  constructor(
+    private readonly cataloguesService: CataloguesService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  /**
+   * Verifier que l'utilisateur est admin
+   */
+  private async checkAdmin(clerkUser: ClerkUser): Promise<void> {
+    const user = await this.usersService.findOrCreate({
+      clerkId: clerkUser.clerkId,
+      email: clerkUser.email,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+    });
+
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Acces reserve aux administrateurs');
+    }
+  }
 
   @Get()
   async findAll() {
     const catalogues = await this.cataloguesService.findAllCatalogues();
     return { catalogues };
   }
+
+  // =============================================
+  // ENDPOINTS ADMIN (auth requise)
+  // =============================================
+
+  /**
+   * GET /api/catalogues/admin
+   * Liste tous les catalogues (actifs et inactifs) - Admin only
+   */
+  @Get('admin')
+  @UseGuards(ClerkAuthGuard)
+  async findAllAdmin(@CurrentUser() clerkUser: ClerkUser) {
+    await this.checkAdmin(clerkUser);
+    const catalogues = await this.cataloguesService.findAllCataloguesAdmin();
+    return { catalogues };
+  }
+
+  /**
+   * PATCH /api/catalogues/admin/:id/toggle
+   * Active/désactive un catalogue - Admin only
+   */
+  @Patch('admin/:id/toggle')
+  @UseGuards(ClerkAuthGuard)
+  async toggleActive(
+    @Param('id') id: string,
+    @CurrentUser() clerkUser: ClerkUser,
+  ) {
+    await this.checkAdmin(clerkUser);
+    const catalogue = await this.cataloguesService.toggleCatalogueActive(id);
+    return { catalogue };
+  }
+
+  // =============================================
+  // ENDPOINTS PUBLICS
+  // =============================================
 
   @Get('search')
   async searchPanels(

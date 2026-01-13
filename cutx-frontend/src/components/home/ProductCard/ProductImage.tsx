@@ -19,10 +19,13 @@ export default function ProductImage({ imageUrl, alt, size, isSponsored, classNa
   const config = SIZE_CONFIG[size];
   const roundedClass = size === 'lg' ? 'rounded-xl' : size === 'md' ? 'rounded-lg' : 'rounded';
 
+  // Barrillet blocks hotlinking, so we need to use unoptimized images
+  const isBarrillet = imageUrl?.includes('barillet-distribution.fr');
+
   return (
     <div className={`relative flex-shrink-0 ${config.container} bg-[var(--cx-surface-2)] ${roundedClass} overflow-hidden ${className}`}>
       {imageUrl ? (
-        <Image src={imageUrl} alt={alt} fill className="object-cover" sizes={config.image} />
+        <Image src={imageUrl} alt={alt} fill className="object-cover" sizes={config.image} unoptimized={isBarrillet} />
       ) : (
         <div className="flex items-center justify-center w-full h-full">
           <ImageIcon className={`${config.icon} text-[var(--cx-text-muted)]`} />
