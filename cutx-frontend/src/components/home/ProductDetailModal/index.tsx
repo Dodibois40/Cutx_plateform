@@ -510,7 +510,7 @@ export default function ProductDetailModal({
                   {details.defaultLength && details.defaultWidth && details.defaultThickness && details.defaultLength > 100 && (() => {
                     // Densities by panel type (kg/m³)
                     const densities: Record<string, number> = {
-                      COMPACT: 1400,
+                      COMPACT: 1350,           // HPL compact (corrigé de 1400)
                       STRATIFIE: 1400,
                       MDF: 750,
                       MELAMINE: 650,
@@ -519,8 +519,10 @@ export default function ProductDetailModal({
                       OSB: 600,
                       MASSIF: 700,
                       PLACAGE: 600,
+                      SOLID_SURFACE: 1680,     // Corian, Kerrock, HI-MACS
+                      PLAN_DE_TRAVAIL: 1680,   // Plans de travail (souvent solid surface)
                     };
-                    const density = densities[details.panelType || ''] || 650;
+                    const density = densities[details.productType || ''] || 650;
                     const weight = (details.defaultLength / 1000) * (details.defaultWidth / 1000) * (details.defaultThickness / 1000) * density;
                     return weight > 0.5 ? (
                       <DetailCard
