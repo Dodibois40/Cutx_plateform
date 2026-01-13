@@ -9,6 +9,27 @@ import { X, ArrowRight, Plus } from 'lucide-react';
 import Image from 'next/image';
 import type { ImportedFileData } from '../../hooks/useFileImport';
 
+/**
+ * Check if a manufacturer ref is a valid decor reference (Egger, Polyrey, etc.)
+ * Only suggest edge bands when we have a real decor ref, not a product code
+ */
+function isValidDecorRef(ref: string | null | undefined): boolean {
+  if (!ref) return false;
+
+  // Known manufacturer decor patterns:
+  // Egger: H1180, U999, W1000, F244, ST37, etc.
+  // Polyrey: B015, B068, N118, etc.
+  // Pfleiderer: R4262, R5613, etc.
+  const validPatterns = [
+    /^[HUWF]\d{3,4}$/i,      // Egger decors: H1180, U999, W1000, F244
+    /^ST\d{1,2}$/i,          // Egger finishes: ST37, ST9
+    /^[A-Z]\d{3,4}$/i,       // Polyrey: B015, N118 (single letter + 3-4 digits)
+    /^R\d{4}$/i,             // Pfleiderer: R4262
+  ];
+
+  return validPatterns.some(pattern => pattern.test(ref));
+}
+
 export interface ChantDropZoneProps {
   file: ImportedFileData;
   isDragOver: boolean;
@@ -32,7 +53,9 @@ export function ChantDropZone({
 }: ChantDropZoneProps) {
   const hasChant = !!file.assignedChant;
   const hasPanel = !!file.assignedPanel;
-  const suggestedRef = hasPanel && file.assignedPanel?.refFabricant;
+  const rawRef = file.assignedPanel?.refFabricant;
+  // Only suggest if it's a valid decor ref (H1180, W1000, etc.), not a product code (40306625)
+  const suggestedRef = hasPanel && isValidDecorRef(rawRef) ? rawRef : null;
 
   // If chant is assigned - show with remove option
   if (hasChant && file.assignedChant) {
