@@ -85,9 +85,10 @@ export default function AtelierPage() {
   const [showList, setShowList] = useState(false);
   const [selectedPiece, setSelectedPiece] = useState<string | null>(null);
 
-  // Touch handling
+  // Touch handling (only for panel swipes, not list)
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const listHandleRef = useRef<HTMLDivElement>(null);
 
   // Wake Lock
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -185,32 +186,27 @@ export default function AtelierPage() {
     };
   }, [requestWakeLock, releaseWakeLock]);
 
-  // Touch handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // Touch handlers for PANEL only (not list - list has its own scroll)
+  const handlePanelTouchStart = (e: React.TouchEvent) => {
+    // Only track swipes when list is hidden
+    if (showList) return;
     setTouchStartY(e.touches[0].clientY);
     setTouchStartX(e.touches[0].clientX);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartY === null || touchStartX === null || !data) return;
+  const handlePanelTouchEnd = (e: React.TouchEvent) => {
+    if (showList || touchStartY === null || touchStartX === null || !data) return;
 
     const deltaY = e.changedTouches[0].clientY - touchStartY;
     const deltaX = e.changedTouches[0].clientX - touchStartX;
     const threshold = 60;
 
-    // Vertical swipe priority (for list)
-    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > threshold) {
-      if (deltaY < 0 && !showList) {
-        // Swipe up → show list
-        setShowList(true);
-      } else if (deltaY > 0 && showList) {
-        // Swipe down → hide list
-        setShowList(false);
-        setSelectedPiece(null);
-      }
+    // Swipe up → show list
+    if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY < -threshold) {
+      setShowList(true);
     }
-    // Horizontal swipe (change panel, only when list is hidden)
-    else if (!showList && Math.abs(deltaX) > threshold) {
+    // Horizontal swipe → change panel
+    else if (Math.abs(deltaX) > threshold) {
       if (deltaX > 0 && currentIndex > 0) {
         setCurrentIndex(prev => prev - 1);
       } else if (deltaX < 0 && currentIndex < data.sheets.length - 1) {
@@ -220,6 +216,24 @@ export default function AtelierPage() {
 
     setTouchStartY(null);
     setTouchStartX(null);
+  };
+
+  // Drag handle touch for closing list (separate from scroll)
+  const [handleTouchStartY, setHandleTouchStartY] = useState<number | null>(null);
+
+  const handleDragHandleTouchStart = (e: React.TouchEvent) => {
+    setHandleTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleDragHandleTouchEnd = (e: React.TouchEvent) => {
+    if (handleTouchStartY === null) return;
+    const deltaY = e.changedTouches[0].clientY - handleTouchStartY;
+    // Swipe down on handle → close list
+    if (deltaY > 60) {
+      setShowList(false);
+      setSelectedPiece(null);
+    }
+    setHandleTouchStartY(null);
   };
 
   const goToNext = () => {
@@ -294,8 +308,8 @@ export default function AtelierPage() {
     <div
       ref={containerRef}
       className="fixed inset-0 bg-[#0A0A0A] flex flex-col select-none overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={handlePanelTouchStart}
+      onTouchEnd={handlePanelTouchEnd}
     >
       {/* Mini header - only when not fullscreen */}
       {!isFullscreen && (
@@ -496,35 +510,43 @@ export default function AtelierPage() {
         </footer>
       )}
 
-      {/* Slide-up List Panel */}
+      {/* Fullscreen List Panel - covers entire screen */}
       <div
-        className={`absolute inset-x-0 bottom-0 bg-[#111] border-t border-[#333] rounded-t-2xl transition-transform duration-300 ease-out ${
+        className={`absolute inset-0 bg-[#0A0A0A] transition-transform duration-300 ease-out z-50 ${
           showList ? 'translate-y-0' : 'translate-y-full'
         }`}
-        style={{ height: '70%', maxHeight: '70vh' }}
       >
-        {/* Handle bar */}
+        {/* Drag handle area - ONLY this triggers close on swipe */}
         <div
-          className="flex flex-col items-center py-3 cursor-pointer"
+          ref={listHandleRef}
+          className="flex flex-col items-center py-4 cursor-pointer bg-[#111] border-b border-[#333]"
           onClick={() => setShowList(false)}
+          onTouchStart={handleDragHandleTouchStart}
+          onTouchEnd={handleDragHandleTouchEnd}
         >
-          <div className="w-12 h-1 bg-[#444] rounded-full mb-2" />
+          <div className="w-16 h-1.5 bg-[#444] rounded-full mb-3" />
           <div className="flex items-center gap-2 text-[#888]">
-            <ChevronDown size={16} />
-            <span className="text-xs">Fermer</span>
+            <ChevronDown size={18} />
+            <span className="text-sm font-medium">Glisser pour fermer</span>
           </div>
         </div>
 
         {/* List header */}
-        <div className="px-4 pb-2 border-b border-[#222]">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <List size={18} className="text-[#FF6B4A]" />
-            {totalPieces} pièces sur ce panneau
+        <div className="px-4 py-3 border-b border-[#222] bg-[#0A0A0A]">
+          <h3 className="text-xl font-semibold text-white flex items-center gap-3">
+            <List size={20} className="text-[#FF6B4A]" />
+            {totalPieces} pièces
+            <span className="text-[#666] text-base font-normal ml-2">
+              Panneau {currentIndex + 1}/{data.sheets.length}
+            </span>
           </h3>
         </div>
 
-        {/* List content */}
-        <div className="overflow-y-auto" style={{ height: 'calc(100% - 100px)' }}>
+        {/* List content - scrollable without triggering close */}
+        <div
+          className="overflow-y-auto overscroll-contain"
+          style={{ height: 'calc(100% - 120px)' }}
+        >
           {currentSheet.placements.map((piece, i) => {
             const edgingCount = getEdgingCount(piece.edging);
             const isSelected = selectedPiece === piece.pieceId;
@@ -536,35 +558,36 @@ export default function AtelierPage() {
                   setSelectedPiece(piece.pieceId);
                   setShowList(false);
                 }}
-                className={`flex items-center gap-4 px-4 py-3 border-b border-[#1A1A1A] cursor-pointer transition-colors ${
-                  isSelected ? 'bg-[#4A90D9]/20' : 'hover:bg-[#1A1A1A]'
+                className={`flex items-center gap-4 px-4 py-4 border-b border-[#1A1A1A] cursor-pointer transition-colors active:bg-[#222] ${
+                  isSelected ? 'bg-[#4A90D9]/20' : ''
                 }`}
               >
                 {/* Index */}
-                <div className="w-8 h-8 rounded-lg bg-[#222] flex items-center justify-center text-sm font-bold text-white">
+                <div className="w-10 h-10 rounded-lg bg-[#1A1A1A] flex items-center justify-center text-base font-bold text-white shrink-0">
                   {i + 1}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="text-base font-semibold text-white truncate">
+                  <div className="text-lg font-semibold text-white truncate">
                     {piece.reference || piece.name}
                   </div>
-                  <div className="text-sm text-[#888]">
+                  <div className="text-base text-[#888]">
                     {piece.length} × {piece.width} mm
+                    {piece.rotated && <span className="text-[#666] ml-2">(pivoté)</span>}
                   </div>
                 </div>
 
                 {/* Edging badge */}
                 {edgingCount > 0 && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-[#FBBF24]/10 rounded">
-                    <div className="w-3 h-3 bg-[#FBBF24] rounded-sm" />
-                    <span className="text-xs font-medium text-[#FBBF24]">{edgingCount} chant{edgingCount > 1 ? 's' : ''}</span>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-[#FBBF24]/15 rounded-lg shrink-0">
+                    <div className="w-4 h-4 bg-[#FBBF24] rounded" />
+                    <span className="text-sm font-semibold text-[#FBBF24]">{edgingCount}</span>
                   </div>
                 )}
 
                 {/* Arrow */}
-                <ChevronRight size={18} className="text-[#444]" />
+                <ChevronRight size={20} className="text-[#555] shrink-0" />
               </div>
             );
           })}
