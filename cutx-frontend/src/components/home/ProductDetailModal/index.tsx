@@ -408,11 +408,11 @@ export default function ProductDetailModal({
                   )}
 
                   {/* Decor */}
-                  {(details.decorCode || details.decorName) && (
+                  {(details.decorCode || details.decorName || details.decor) && (
                     <DetailCard
                       icon={<Palette className="w-4 h-4" />}
                       label="Décor"
-                      value={details.decorName || details.decorCode || ''}
+                      value={details.decorName || details.decor || details.decorCode || ''}
                       subValue={details.decorCode ? `Code: ${details.decorCode}` : undefined}
                     />
                   )}

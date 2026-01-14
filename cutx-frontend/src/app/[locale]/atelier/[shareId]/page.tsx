@@ -2,7 +2,19 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, RotateCcw, Layers } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
+  RotateCcw,
+  Layers,
+  Maximize,
+  List,
+  X
+} from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
@@ -53,13 +65,15 @@ interface ShareResponse {
   expiresAt: string;
 }
 
-// Couleur unique pour les pièces - neutre pour bien voir les chants
-const PIECE_COLOR = '#3A4A5A'; // gris-bleu neutre
-const PIECE_BORDER = '#4A5A6A';
+// Couleur neutre pour les pièces
+const PIECE_COLOR = '#3D4F5F';
+const PIECE_BORDER = '#526270';
+const PIECE_SELECTED = '#4A90D9';
 
 export default function AtelierPage() {
   const params = useParams();
   const shareId = params.shareId as string;
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // States
   const [data, setData] = useState<ShareData | null>(null);
@@ -67,14 +81,46 @@ export default function AtelierPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLandscape, setIsLandscape] = useState(true);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchDelta, setTouchDelta] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showList, setShowList] = useState(false);
+  const [selectedPiece, setSelectedPiece] = useState<string | null>(null);
+
+  // Touch handling
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // Wake Lock
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
-  // Request Wake Lock
+  // Fullscreen API
+  const enterFullscreen = useCallback(async () => {
+    if (containerRef.current && document.fullscreenEnabled) {
+      try {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (err) {
+        console.log('Fullscreen non supporté');
+      }
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Wake Lock
   const requestWakeLock = useCallback(async () => {
     if ('wakeLock' in navigator) {
       try {
@@ -85,7 +131,6 @@ export default function AtelierPage() {
     }
   }, []);
 
-  // Release Wake Lock
   const releaseWakeLock = useCallback(async () => {
     if (wakeLockRef.current) {
       await wakeLockRef.current.release();
@@ -142,36 +187,55 @@ export default function AtelierPage() {
 
   // Touch handlers
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isTransitioning) return;
-    setTouchStart(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
+    setTouchStartX(e.touches[0].clientX);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStart === null || isTransitioning) return;
-    setTouchDelta(e.touches[0].clientX - touchStart);
-  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY === null || touchStartX === null || !data) return;
 
-  const handleTouchEnd = () => {
-    if (touchStart === null || !data) return;
-    const threshold = 80;
-    if (touchDelta > threshold && currentIndex > 0) goToPrev();
-    else if (touchDelta < -threshold && currentIndex < data.sheets.length - 1) goToNext();
-    setTouchStart(null);
-    setTouchDelta(0);
+    const deltaY = e.changedTouches[0].clientY - touchStartY;
+    const deltaX = e.changedTouches[0].clientX - touchStartX;
+    const threshold = 60;
+
+    // Vertical swipe priority (for list)
+    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > threshold) {
+      if (deltaY < 0 && !showList) {
+        // Swipe up → show list
+        setShowList(true);
+      } else if (deltaY > 0 && showList) {
+        // Swipe down → hide list
+        setShowList(false);
+        setSelectedPiece(null);
+      }
+    }
+    // Horizontal swipe (change panel, only when list is hidden)
+    else if (!showList && Math.abs(deltaX) > threshold) {
+      if (deltaX > 0 && currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+      } else if (deltaX < 0 && currentIndex < data.sheets.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      }
+    }
+
+    setTouchStartY(null);
+    setTouchStartX(null);
   };
 
   const goToNext = () => {
-    if (!data || currentIndex >= data.sheets.length - 1 || isTransitioning) return;
-    setIsTransitioning(true);
+    if (!data || currentIndex >= data.sheets.length - 1) return;
     setCurrentIndex(prev => prev + 1);
-    setTimeout(() => setIsTransitioning(false), 200);
   };
 
   const goToPrev = () => {
-    if (currentIndex <= 0 || isTransitioning) return;
-    setIsTransitioning(true);
+    if (currentIndex <= 0) return;
     setCurrentIndex(prev => prev - 1);
-    setTimeout(() => setIsTransitioning(false), 200);
+  };
+
+  // Get edging count for a piece
+  const getEdgingCount = (edging?: Placement['edging']) => {
+    if (!edging) return 0;
+    return [edging.top, edging.bottom, edging.left, edging.right].filter(Boolean).length;
   };
 
   // Portrait - Rotate message
@@ -179,11 +243,11 @@ export default function AtelierPage() {
     return (
       <div className="fixed inset-0 bg-[#0A0A0A] flex items-center justify-center">
         <div className="text-center px-8">
-          <div className="w-16 h-16 mx-auto mb-6 text-[#FF6B4A] animate-pulse">
-            <RotateCcw size={64} className="animate-[spin_2s_ease-in-out_infinite]" style={{ animationDirection: 'reverse' }} />
+          <div className="w-16 h-16 mx-auto mb-6 text-[#FF6B4A]">
+            <RotateCcw size={64} className="animate-[spin_3s_ease-in-out_infinite]" style={{ animationDirection: 'reverse' }} />
           </div>
           <h2 className="text-xl font-semibold text-white mb-2">Tournez votre écran</h2>
-          <p className="text-sm text-[#A0A0A0]">Cette vue nécessite le mode paysage</p>
+          <p className="text-sm text-[#888]">Mode paysage requis</p>
         </div>
       </div>
     );
@@ -194,7 +258,7 @@ export default function AtelierPage() {
     return (
       <div className="fixed inset-0 bg-[#0A0A0A] flex flex-col items-center justify-center gap-4">
         <Loader2 size={40} className="text-[#FF6B4A] animate-spin" />
-        <p className="text-sm text-[#A0A0A0]">Chargement du plan de découpe...</p>
+        <p className="text-sm text-[#888]">Chargement...</p>
       </div>
     );
   }
@@ -203,11 +267,9 @@ export default function AtelierPage() {
   if (error || !data) {
     return (
       <div className="fixed inset-0 bg-[#0A0A0A] flex flex-col items-center justify-center gap-4">
-        <div className="w-16 h-16 rounded-full bg-[#FF6B4A]/10 flex items-center justify-center">
-          <AlertTriangle size={32} className="text-[#FF6B4A]" />
-        </div>
+        <AlertTriangle size={48} className="text-[#FF6B4A]" />
         <h2 className="text-xl font-semibold text-white">Erreur</h2>
-        <p className="text-sm text-[#A0A0A0]">{error || 'Données non disponibles'}</p>
+        <p className="text-sm text-[#888]">{error || 'Données non disponibles'}</p>
       </div>
     );
   }
@@ -215,248 +277,299 @@ export default function AtelierPage() {
   const currentSheet = data.sheets[currentIndex];
   const totalPieces = currentSheet.placements.length;
 
-  // Calculate scale
-  const maxWidth = window.innerWidth - 180;
-  const maxHeight = window.innerHeight - 120;
-  const scaleX = maxWidth / currentSheet.length;
-  const scaleY = maxHeight / currentSheet.width;
-  const scale = Math.min(scaleX, scaleY) * 0.92;
+  // Calculate scale to fill screen
+  const padding = isFullscreen ? 20 : 60;
+  const headerHeight = isFullscreen ? 0 : 48;
+  const footerHeight = isFullscreen ? 0 : 40;
+  const availableWidth = (typeof window !== 'undefined' ? window.innerWidth : 800) - padding * 2;
+  const availableHeight = (typeof window !== 'undefined' ? window.innerHeight : 600) - headerHeight - footerHeight - padding;
+
+  const scaleX = availableWidth / currentSheet.length;
+  const scaleY = availableHeight / currentSheet.width;
+  const scale = Math.min(scaleX, scaleY);
   const svgWidth = currentSheet.length * scale;
   const svgHeight = currentSheet.width * scale;
 
   return (
     <div
-      className="fixed inset-0 bg-[#0A0A0A] flex flex-col select-none"
+      ref={containerRef}
+      className="fixed inset-0 bg-[#0A0A0A] flex flex-col select-none overflow-hidden"
       onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-[#1F1F1F]">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#FF6B4A]/10 flex items-center justify-center">
-              <Layers size={18} className="text-[#FF6B4A]" />
-            </div>
-            <span className="text-2xl font-semibold text-white">
-              {currentIndex + 1}<span className="text-[#666666]">/{data.sheets.length}</span>
+      {/* Mini header - only when not fullscreen */}
+      {!isFullscreen && (
+        <header className="h-12 flex items-center justify-between px-4 bg-[#111] border-b border-[#222] shrink-0">
+          <div className="flex items-center gap-3">
+            <Layers size={18} className="text-[#FF6B4A]" />
+            <span className="text-lg font-semibold text-white">
+              {currentIndex + 1}<span className="text-[#555]">/{data.sheets.length}</span>
+            </span>
+            <span className="text-xs text-[#666] max-w-[150px] truncate">
+              {currentSheet.materialName}
             </span>
           </div>
-          <div className="h-6 w-px bg-[#2A2A2A]" />
-          <span className="text-sm text-[#A0A0A0] max-w-[200px] truncate">
-            {currentSheet.materialName}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1A1A1A] rounded-lg border border-[#2A2A2A]">
-            <span className="text-xs text-[#A0A0A0]">{totalPieces} pièces</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-            <span className="text-sm font-medium text-emerald-500">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#888] px-2 py-1 bg-[#1A1A1A] rounded">
+              {totalPieces} pièces
+            </span>
+            <span className="text-xs font-medium text-emerald-400 px-2 py-1 bg-emerald-500/10 rounded">
               {Math.round(currentSheet.efficiency)}%
             </span>
+            <button
+              onClick={enterFullscreen}
+              className="p-2 text-[#888] hover:text-white hover:bg-[#222] rounded transition-colors"
+              title="Plein écran"
+            >
+              <Maximize size={18} />
+            </button>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      {/* Main */}
-      <main className="flex-1 flex items-center justify-center relative px-16">
-        {/* Nav buttons */}
-        <button
-          onClick={goToPrev}
-          disabled={currentIndex === 0}
-          className={`absolute left-3 top-1/2 -translate-y-1/2 w-12 h-20 rounded-xl
-            flex items-center justify-center transition-all duration-200
-            ${currentIndex === 0
-              ? 'bg-[#111111] text-[#333333] cursor-not-allowed'
-              : 'bg-[#1A1A1A] border border-[#2A2A2A] text-[#A0A0A0] hover:bg-[#222222] hover:border-[#3A3A3A] hover:text-white'
-            }`}
-        >
-          <ChevronLeft size={24} />
-        </button>
+      {/* Main - Panneau plein écran */}
+      <main className="flex-1 flex items-center justify-center relative">
+        {/* Fullscreen header overlay */}
+        {isFullscreen && (
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-2 bg-gradient-to-b from-black/60 to-transparent z-10">
+            <div className="flex items-center gap-3">
+              <span className="text-lg font-bold text-white">
+                {currentIndex + 1}/{data.sheets.length}
+              </span>
+              <span className="text-sm text-white/70">{totalPieces} pièces</span>
+              <span className="text-sm font-medium text-emerald-400">{Math.round(currentSheet.efficiency)}%</span>
+            </div>
+            <button
+              onClick={exitFullscreen}
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        )}
 
-        {/* SVG */}
-        <div
-          className="transition-transform duration-200"
-          style={{ transform: `translateX(${touchDelta * 0.2}px)` }}
-        >
-          <svg
-            width={svgWidth}
-            height={svgHeight}
-            viewBox={`0 0 ${currentSheet.length} ${currentSheet.width}`}
-            className="overflow-visible"
-            style={{ filter: 'drop-shadow(0 4px 24px rgba(0,0,0,0.4))' }}
+        {/* Nav arrows */}
+        {currentIndex > 0 && (
+          <button
+            onClick={goToPrev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-16 bg-white/5 hover:bg-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-all z-10"
           >
-            {/* Background - angles droits pour un vrai panneau */}
+            <ChevronLeft size={24} />
+          </button>
+        )}
+        {currentIndex < data.sheets.length - 1 && (
+          <button
+            onClick={goToNext}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-16 bg-white/5 hover:bg-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-all z-10"
+          >
+            <ChevronRight size={24} />
+          </button>
+        )}
+
+        {/* SVG Panel - Maximum size */}
+        <svg
+          width={svgWidth}
+          height={svgHeight}
+          viewBox={`0 0 ${currentSheet.length} ${currentSheet.width}`}
+          style={{ maxWidth: '100%', maxHeight: '100%' }}
+        >
+          {/* Background */}
+          <rect
+            x={0} y={0}
+            width={currentSheet.length}
+            height={currentSheet.width}
+            fill="#1E1E1E"
+            stroke="#3A3A3A"
+            strokeWidth="3"
+          />
+
+          {/* Grid */}
+          <defs>
+            <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#2A2A2A" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect x={0} y={0} width={currentSheet.length} height={currentSheet.width} fill="url(#grid)" />
+
+          {/* Free spaces (chutes) */}
+          {currentSheet.freeSpaces?.map((space, i) => (
             <rect
-              x={0} y={0}
-              width={currentSheet.length}
-              height={currentSheet.width}
-              fill="#2A2A2A"
-              stroke="#444444"
-              strokeWidth="2"
+              key={`chute-${i}`}
+              x={space.x} y={space.y}
+              width={space.length} height={space.width}
+              fill="rgba(255,107,74,0.08)"
+              stroke="#FF6B4A"
+              strokeWidth="1"
+              strokeDasharray="10 5"
+              strokeOpacity="0.4"
             />
+          ))}
 
-            {/* Grid pattern */}
-            <defs>
-              <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
-                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#222222" strokeWidth="1" />
-              </pattern>
-            </defs>
-            <rect x={0} y={0} width={currentSheet.length} height={currentSheet.width} fill="url(#grid)" />
+          {/* Pieces */}
+          {currentSheet.placements.map((piece) => {
+            const isSelected = selectedPiece === piece.pieceId;
+            const minDim = Math.min(piece.length, piece.width);
+            const showText = minDim > 60;
+            const fontSize = Math.max(Math.min(minDim * 0.2, 32), 16);
 
-            {/* Free spaces */}
-            {currentSheet.freeSpaces?.map((space, i) => (
-              <rect
-                key={`chute-${i}`}
-                x={space.x} y={space.y}
-                width={space.length} height={space.width}
-                fill="rgba(255, 107, 74, 0.05)"
-                stroke="#FF6B4A"
-                strokeWidth="1"
-                strokeDasharray="8 4"
-                strokeOpacity="0.3"
-              />
-            ))}
+            return (
+              <g key={piece.pieceId} onClick={() => setSelectedPiece(isSelected ? null : piece.pieceId)}>
+                {/* Piece rectangle */}
+                <rect
+                  x={piece.x} y={piece.y}
+                  width={piece.length} height={piece.width}
+                  fill={isSelected ? PIECE_SELECTED : PIECE_COLOR}
+                  stroke={isSelected ? '#6BB5FF' : PIECE_BORDER}
+                  strokeWidth={isSelected ? 3 : 1.5}
+                  style={{ cursor: 'pointer' }}
+                />
 
-            {/* Pieces */}
-            {currentSheet.placements.map((piece) => {
-              const minDim = Math.min(piece.length, piece.width);
-              // Seuils plus bas pour afficher le texte
-              const showLabel = piece.length > 80 && piece.width > 40;
-              const showDims = piece.length > 120 && piece.width > 60;
-              // Taille de texte adaptative mais plus grande
-              const labelSize = Math.max(Math.min(minDim * 0.18, 28), 14);
-              const dimsSize = Math.max(Math.min(minDim * 0.12, 18), 10);
-
-              return (
-                <g key={piece.pieceId}>
-                  {/* Pièce - couleur neutre uniforme, angles droits */}
-                  <rect
-                    x={piece.x} y={piece.y}
-                    width={piece.length} height={piece.width}
-                    fill={PIECE_COLOR}
-                    stroke={PIECE_BORDER}
-                    strokeWidth="1.5"
-                  />
-
-                  {/* Référence - bien visible */}
-                  {showLabel && (
+                {/* Reference text */}
+                {showText && (
+                  <>
                     <text
                       x={piece.x + piece.length / 2}
-                      y={piece.y + piece.width / 2 - (showDims ? dimsSize * 0.8 : 0)}
+                      y={piece.y + piece.width / 2 - fontSize * 0.3}
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fill="white"
-                      fontSize={labelSize}
-                      fontWeight="600"
-                      fontFamily="Inter, system-ui, sans-serif"
+                      fontSize={fontSize}
+                      fontWeight="700"
+                      fontFamily="system-ui, -apple-system, sans-serif"
                     >
                       {piece.reference || piece.name}
                     </text>
-                  )}
-
-                  {/* Dimensions */}
-                  {showDims && (
                     <text
                       x={piece.x + piece.length / 2}
-                      y={piece.y + piece.width / 2 + labelSize * 0.6}
+                      y={piece.y + piece.width / 2 + fontSize * 0.6}
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize={dimsSize}
+                      fill="rgba(255,255,255,0.6)"
+                      fontSize={fontSize * 0.6}
                       fontWeight="500"
-                      fontFamily="Inter, system-ui, sans-serif"
+                      fontFamily="system-ui, -apple-system, sans-serif"
                     >
                       {piece.length} × {piece.width}
                     </text>
-                  )}
+                  </>
+                )}
 
-                  {/* Indicateurs de chants - jaune vif pour bien ressortir */}
-                  {piece.edging?.top && (
-                    <line x1={piece.x + 4} y1={piece.y + 3} x2={piece.x + piece.length - 4} y2={piece.y + 3} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
-                  )}
-                  {piece.edging?.bottom && (
-                    <line x1={piece.x + 4} y1={piece.y + piece.width - 3} x2={piece.x + piece.length - 4} y2={piece.y + piece.width - 3} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
-                  )}
-                  {piece.edging?.left && (
-                    <line x1={piece.x + 3} y1={piece.y + 4} x2={piece.x + 3} y2={piece.y + piece.width - 4} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
-                  )}
-                  {piece.edging?.right && (
-                    <line x1={piece.x + piece.length - 3} y1={piece.y + 4} x2={piece.x + piece.length - 3} y2={piece.y + piece.width - 4} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
-                  )}
-                </g>
-              );
-            })}
+                {/* Edging indicators - Yellow */}
+                {piece.edging?.top && (
+                  <rect x={piece.x + 2} y={piece.y + 2} width={piece.length - 4} height={6} fill="#FBBF24" />
+                )}
+                {piece.edging?.bottom && (
+                  <rect x={piece.x + 2} y={piece.y + piece.width - 8} width={piece.length - 4} height={6} fill="#FBBF24" />
+                )}
+                {piece.edging?.left && (
+                  <rect x={piece.x + 2} y={piece.y + 2} width={6} height={piece.width - 4} fill="#FBBF24" />
+                )}
+                {piece.edging?.right && (
+                  <rect x={piece.x + piece.length - 8} y={piece.y + 2} width={6} height={piece.width - 4} fill="#FBBF24" />
+                )}
+              </g>
+            );
+          })}
+        </svg>
 
-            {/* Dimensions labels */}
-            <text
-              x={currentSheet.length / 2}
-              y={-12}
-              textAnchor="middle"
-              fill="#666666"
-              fontSize="20"
-              fontFamily="Inter, sans-serif"
-            >
-              {currentSheet.length} mm
-            </text>
-            <text
-              x={-12}
-              y={currentSheet.width / 2}
-              textAnchor="middle"
-              fill="#666666"
-              fontSize="20"
-              fontFamily="Inter, sans-serif"
-              transform={`rotate(-90, -12, ${currentSheet.width / 2})`}
-            >
-              {currentSheet.width} mm
-            </text>
-          </svg>
-        </div>
-
-        <button
-          onClick={goToNext}
-          disabled={currentIndex === data.sheets.length - 1}
-          className={`absolute right-3 top-1/2 -translate-y-1/2 w-12 h-20 rounded-xl
-            flex items-center justify-center transition-all duration-200
-            ${currentIndex === data.sheets.length - 1
-              ? 'bg-[#111111] text-[#333333] cursor-not-allowed'
-              : 'bg-[#1A1A1A] border border-[#2A2A2A] text-[#A0A0A0] hover:bg-[#222222] hover:border-[#3A3A3A] hover:text-white'
-            }`}
-        >
-          <ChevronRight size={24} />
-        </button>
+        {/* Swipe up indicator */}
+        {!showList && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/30 animate-bounce">
+            <ChevronUp size={20} />
+            <span className="text-xs">Liste</span>
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="flex flex-col items-center gap-2 py-3 border-t border-[#1F1F1F]">
-        {/* Dots */}
-        <div className="flex items-center gap-2">
+      {/* Footer dots - only when not fullscreen */}
+      {!isFullscreen && !showList && (
+        <footer className="h-10 flex items-center justify-center gap-2 bg-[#111] border-t border-[#222] shrink-0">
           {data.sheets.map((_, i) => (
             <button
               key={i}
-              onClick={() => {
-                if (!isTransitioning) {
-                  setIsTransitioning(true);
-                  setCurrentIndex(i);
-                  setTimeout(() => setIsTransitioning(false), 200);
-                }
-              }}
-              className={`h-2 rounded-full transition-all duration-200 ${
-                i === currentIndex
-                  ? 'w-6 bg-[#FF6B4A]'
-                  : 'w-2 bg-[#2A2A2A] hover:bg-[#3A3A3A]'
+              onClick={() => setCurrentIndex(i)}
+              className={`h-2 rounded-full transition-all ${
+                i === currentIndex ? 'w-6 bg-[#FF6B4A]' : 'w-2 bg-[#333] hover:bg-[#444]'
               }`}
             />
           ))}
+        </footer>
+      )}
+
+      {/* Slide-up List Panel */}
+      <div
+        className={`absolute inset-x-0 bottom-0 bg-[#111] border-t border-[#333] rounded-t-2xl transition-transform duration-300 ease-out ${
+          showList ? 'translate-y-0' : 'translate-y-full'
+        }`}
+        style={{ height: '70%', maxHeight: '70vh' }}
+      >
+        {/* Handle bar */}
+        <div
+          className="flex flex-col items-center py-3 cursor-pointer"
+          onClick={() => setShowList(false)}
+        >
+          <div className="w-12 h-1 bg-[#444] rounded-full mb-2" />
+          <div className="flex items-center gap-2 text-[#888]">
+            <ChevronDown size={16} />
+            <span className="text-xs">Fermer</span>
+          </div>
         </div>
-        <p className="text-xs text-[#666666] flex items-center gap-2">
-          <ChevronLeft size={12} />
-          <span>Swipe pour naviguer</span>
-          <ChevronRight size={12} />
-        </p>
-      </footer>
+
+        {/* List header */}
+        <div className="px-4 pb-2 border-b border-[#222]">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <List size={18} className="text-[#FF6B4A]" />
+            {totalPieces} pièces sur ce panneau
+          </h3>
+        </div>
+
+        {/* List content */}
+        <div className="overflow-y-auto" style={{ height: 'calc(100% - 100px)' }}>
+          {currentSheet.placements.map((piece, i) => {
+            const edgingCount = getEdgingCount(piece.edging);
+            const isSelected = selectedPiece === piece.pieceId;
+
+            return (
+              <div
+                key={piece.pieceId}
+                onClick={() => {
+                  setSelectedPiece(piece.pieceId);
+                  setShowList(false);
+                }}
+                className={`flex items-center gap-4 px-4 py-3 border-b border-[#1A1A1A] cursor-pointer transition-colors ${
+                  isSelected ? 'bg-[#4A90D9]/20' : 'hover:bg-[#1A1A1A]'
+                }`}
+              >
+                {/* Index */}
+                <div className="w-8 h-8 rounded-lg bg-[#222] flex items-center justify-center text-sm font-bold text-white">
+                  {i + 1}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-semibold text-white truncate">
+                    {piece.reference || piece.name}
+                  </div>
+                  <div className="text-sm text-[#888]">
+                    {piece.length} × {piece.width} mm
+                  </div>
+                </div>
+
+                {/* Edging badge */}
+                {edgingCount > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-[#FBBF24]/10 rounded">
+                    <div className="w-3 h-3 bg-[#FBBF24] rounded-sm" />
+                    <span className="text-xs font-medium text-[#FBBF24]">{edgingCount} chant{edgingCount > 1 ? 's' : ''}</span>
+                  </div>
+                )}
+
+                {/* Arrow */}
+                <ChevronRight size={18} className="text-[#444]" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
