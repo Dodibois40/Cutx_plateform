@@ -15,6 +15,7 @@ import {
   Settings2,
   RefreshCw,
   ExternalLink,
+  Smartphone,
 } from 'lucide-react';
 import type { LignePrestationV3 } from '@/lib/configurateur/types';
 import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
@@ -24,6 +25,7 @@ import VisualisationPanneau from '@/components/configurateur/optimiseur/Visualis
 import InfoPanneauSelected from '@/components/configurateur/optimiseur/InfoPanneauSelected';
 import RecapDebits from '@/components/configurateur/optimiseur/RecapDebits';
 import { ExportPdfModal } from '@/components/configurateur/optimiseur/ExportPdfModal';
+import { QrShareModal } from '@/components/configurateur/optimiseur/QrShareModal';
 import { useOptimizerReceiver, type OptimizerData } from '@/lib/hooks/useOptimizerBroadcast';
 
 // Dimensions standard des panneaux bruts (mm) - fallback
@@ -70,6 +72,9 @@ export default function OptimiseurPage() {
 
   // Export PDF
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Partage mobile
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Ref pour annuler les requêtes API
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -463,6 +468,14 @@ export default function OptimiseurPage() {
                 <FileDown size={16} />
                 <span>DXF</span>
               </button>
+              <button
+                className="btn-export btn-share"
+                onClick={() => setShowShareModal(true)}
+                title="Envoyer sur mobile"
+              >
+                <Smartphone size={16} />
+                <span>Mobile</span>
+              </button>
             </>
           )}
         </div>
@@ -625,6 +638,13 @@ export default function OptimiseurPage() {
         />
       )}
 
+      {/* Modal Partage Mobile */}
+      <QrShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        panneaux={tousLesPanneaux.map(p => p.resultat.panneaux[p.indexDansResultat]).filter(Boolean)}
+      />
+
       <style jsx>{`
         .optimizer-page {
           min-height: 100vh;
@@ -779,6 +799,18 @@ export default function OptimiseurPage() {
           background: var(--admin-olive-bg);
           border-color: var(--admin-olive);
           color: var(--admin-olive);
+        }
+
+        .btn-share {
+          background: #3b82f6;
+          border-color: #3b82f6;
+          color: white;
+        }
+
+        .btn-share:hover {
+          background: #2563eb;
+          border-color: #2563eb;
+          color: white;
         }
 
         .fallback-notice {

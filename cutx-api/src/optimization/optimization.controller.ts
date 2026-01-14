@@ -3,19 +3,29 @@ import {
   Post,
   Body,
   Get,
+  Param,
   HttpCode,
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OptimizationService } from './optimization.service';
+import { OptimizationShareService } from './optimization-share.service';
 import { OptimizationRequestDto } from './dto/optimization.dto';
+import {
+  ShareOptimizationRequestDto,
+  ShareOptimizationResponseDto,
+  GetSharedOptimizationResponseDto,
+} from './dto/share.dto';
 import { OptimizationError, CuttingPiece, SourceSheet } from './types/cutting.types';
 
 @ApiTags('optimization')
 @Controller('optimization')
 export class OptimizationController {
-  constructor(private readonly optimizationService: OptimizationService) {}
+  constructor(
+    private readonly optimizationService: OptimizationService,
+    private readonly shareService: OptimizationShareService,
+  ) {}
 
   @Post('calculate')
   @HttpCode(HttpStatus.OK)
@@ -218,6 +228,59 @@ export class OptimizationController {
       message: result.message,
       plan: result.plan,
       textReport: this.optimizationService.generateTextReport(result.plan),
+    };
+  }
+
+  // =============================================================================
+  // PARTAGE MOBILE
+  // =============================================================================
+
+  @Post('share')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Partager une optimisation pour mobile',
+    description: 'Stocke temporairement une optimisation et retourne un ID de partage (valide 24h)',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Partage cree',
+    type: ShareOptimizationResponseDto,
+  })
+  createShare(@Body() data: ShareOptimizationRequestDto): ShareOptimizationResponseDto {
+    const { shareId, expiresAt } = this.shareService.create(data);
+
+    // Construire l'URL frontend (sera configurable)
+    const baseUrl = process.env.FRONTEND_URL || 'https://cutx.app';
+    const shareUrl = `${baseUrl}/atelier/${shareId}`;
+
+    return {
+      shareId,
+      shareUrl,
+      expiresAt,
+    };
+  }
+
+  @Get('share/:shareId')
+  @ApiOperation({
+    summary: 'Recuperer une optimisation partagee',
+    description: 'Retourne les donnees d\'une optimisation partagee par son ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Donnees du partage',
+    type: GetSharedOptimizationResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Partage non trouve ou expire',
+  })
+  getShare(@Param('shareId') shareId: string): GetSharedOptimizationResponseDto {
+    const stored = this.shareService.get(shareId);
+
+    return {
+      data: stored.data,
+      createdAt: stored.createdAt,
+      expiresAt: stored.expiresAt,
     };
   }
 }
