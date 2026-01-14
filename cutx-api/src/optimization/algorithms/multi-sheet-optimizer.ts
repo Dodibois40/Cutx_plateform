@@ -93,16 +93,27 @@ function groupPiecesByMaterial(
 // VALIDATION
 // =============================================================================
 
+interface FilterResult {
+  validPieces: CuttingPiece[];
+  oversizedPieces: CuttingPiece[];
+  warnings: string[];
+}
+
 /**
- * Valide que toutes les pieces peuvent theoriquement rentrer dans un panneau
+ * Filtre les pieces qui peuvent rentrer dans un panneau
+ * Les pieces trop grandes sont retournees separement au lieu de throw une erreur
  */
-function validatePieces(
+function filterPieces(
   pieces: CuttingPiece[],
   sheet: SourceSheet,
   params: OptimizationParams,
-): void {
+): FilterResult {
   const usableLength = sheet.dimensions.length - sheet.trim.left - sheet.trim.right;
   const usableWidth = sheet.dimensions.width - sheet.trim.top - sheet.trim.bottom;
+
+  const validPieces: CuttingPiece[] = [];
+  const oversizedPieces: CuttingPiece[] = [];
+  const warnings: string[] = [];
 
   for (const piece of pieces) {
     const finalLength = piece.dimensions.length + (piece.expansion?.length || 0);
@@ -117,33 +128,31 @@ function validatePieces(
       : false;
 
     if (!fitsNormal && !fitsRotated) {
-      throw new OptimizationError(
-        `La piece "${piece.name}" (${finalLength}x${finalWidth}mm) est trop grande pour le panneau (${usableLength}x${usableWidth}mm)`,
-        'PIECE_TOO_LARGE',
-        {
-          pieceId: piece.id,
-          pieceDimensions: { length: finalLength, width: finalWidth },
-          sheetDimensions: { length: usableLength, width: usableWidth },
-        },
+      // Piece trop grande - l'ajouter aux oversized
+      oversizedPieces.push(piece);
+      warnings.push(
+        `Pièce "${piece.name}" (${finalLength}x${finalWidth}mm) trop grande pour le panneau (${usableLength}x${usableWidth}mm)`,
       );
+      continue;
     }
 
     // Verifier compatibilite grain
     if (params.forceGrainMatch && piece.hasGrain && sheet.hasGrain) {
-      // Les directions de grain doivent correspondre ou la piece doit pouvoir tourner
       if (piece.grainDirection !== sheet.grainDirection && !piece.canRotate) {
-        throw new OptimizationError(
-          `La piece "${piece.name}" a un sens de fil incompatible avec le panneau`,
-          'GRAIN_MISMATCH',
-          {
-            pieceId: piece.id,
-            pieceGrain: piece.grainDirection,
-            sheetGrain: sheet.grainDirection,
-          },
+        // Incompatibilite de grain - l'ajouter aux oversized
+        oversizedPieces.push(piece);
+        warnings.push(
+          `Pièce "${piece.name}" a un sens de fil incompatible avec le panneau`,
         );
+        continue;
       }
     }
+
+    // Piece valide
+    validPieces.push(piece);
   }
+
+  return { validPieces, oversizedPieces, warnings };
 }
 
 // =============================================================================
@@ -154,6 +163,7 @@ export interface OptimizeResult {
   plan: CuttingPlan;
   success: boolean;
   message: string;
+  warnings?: string[];
 }
 
 /**
@@ -188,13 +198,28 @@ export async function optimizeCuttingPlan(
   let allUnplacedPieces: CuttingPiece[] = [];
   let sheetIndex = 0;
 
+  let allWarnings: string[] = [];
+
   // Traiter chaque groupe
   for (const group of groups) {
-    // Valider les pieces du groupe
-    validatePieces(group.pieces, group.sheet, fullParams);
+    // Filtrer les pieces (au lieu de valider et throw)
+    const { validPieces, oversizedPieces, warnings } = filterPieces(
+      group.pieces,
+      group.sheet,
+      fullParams,
+    );
+
+    // Collecter les warnings et les pieces surdimensionnees
+    allWarnings = allWarnings.concat(warnings);
+    allUnplacedPieces = allUnplacedPieces.concat(oversizedPieces);
+
+    // Si aucune piece valide, passer au groupe suivant
+    if (validPieces.length === 0) {
+      continue;
+    }
 
     // Trier les pieces selon la strategie
-    const sortedPieces = sortPieces(group.pieces, fullParams.sortingStrategy);
+    const sortedPieces = sortPieces(validPieces, fullParams.sortingStrategy);
 
     // Expendre les quantites en pieces individuelles
     const expandedPieces = expandPieceQuantities(sortedPieces);
@@ -291,11 +316,17 @@ export async function optimizeCuttingPlan(
   };
 
   const success = allUnplacedPieces.length === 0;
-  const message = success
-    ? `Optimisation reussie: ${stats.placedPieces} pieces sur ${stats.totalSheets} panneaux (${stats.globalEfficiency.toFixed(1)}% efficacite)`
-    : `Optimisation partielle: ${stats.unplacedPieces} pieces n'ont pas pu etre placees`;
+  let message: string;
 
-  return { plan, success, message };
+  if (success) {
+    message = `Optimisation reussie: ${stats.placedPieces} pieces sur ${stats.totalSheets} panneaux (${stats.globalEfficiency.toFixed(1)}% efficacite)`;
+  } else if (allWarnings.length > 0) {
+    message = `Optimisation partielle: ${stats.unplacedPieces} piece(s) non placee(s). ${allWarnings[0]}`;
+  } else {
+    message = `Optimisation partielle: ${stats.unplacedPieces} pieces n'ont pas pu etre placees`;
+  }
+
+  return { plan, success, message, warnings: allWarnings.length > 0 ? allWarnings : undefined };
 }
 
 // =============================================================================
@@ -520,14 +551,28 @@ export async function smartOptimize(
   const usedSheets: UsedSheet[] = [];
   let allUnplacedPieces: CuttingPiece[] = [];
   let sheetIndex = 0;
+  let allWarnings: string[] = [];
 
   // Traiter chaque groupe
   for (const group of groups) {
-    // Valider les pieces du groupe
-    validatePieces(group.pieces, group.sheet, fullParams);
+    // Filtrer les pieces (au lieu de valider et throw)
+    const { validPieces, oversizedPieces, warnings } = filterPieces(
+      group.pieces,
+      group.sheet,
+      fullParams,
+    );
+
+    // Collecter les warnings et les pieces surdimensionnees
+    allWarnings = allWarnings.concat(warnings);
+    allUnplacedPieces = allUnplacedPieces.concat(oversizedPieces);
+
+    // Si aucune piece valide, passer au groupe suivant
+    if (validPieces.length === 0) {
+      continue;
+    }
 
     // Trier les pieces selon la strategie
-    const sortedPieces = sortPieces(group.pieces, fullParams.sortingStrategy);
+    const sortedPieces = sortPieces(validPieces, fullParams.sortingStrategy);
 
     let remainingPieces = [...sortedPieces];
 
@@ -620,9 +665,15 @@ export async function smartOptimize(
   };
 
   const success = allUnplacedPieces.length === 0;
-  const message = success
-    ? `Optimisation intelligente reussie: ${stats.placedPieces} pieces sur ${stats.totalSheets} panneaux (${stats.globalEfficiency.toFixed(1)}% efficacite)`
-    : `Optimisation partielle: ${stats.unplacedPieces} pieces n'ont pas pu etre placees`;
+  let message: string;
 
-  return { plan, success, message };
+  if (success) {
+    message = `Optimisation intelligente reussie: ${stats.placedPieces} pieces sur ${stats.totalSheets} panneaux (${stats.globalEfficiency.toFixed(1)}% efficacite)`;
+  } else if (allWarnings.length > 0) {
+    message = `Optimisation partielle: ${stats.unplacedPieces} piece(s) non placee(s). ${allWarnings[0]}`;
+  } else {
+    message = `Optimisation partielle: ${stats.unplacedPieces} pieces n'ont pas pu etre placees`;
+  }
+
+  return { plan, success, message, warnings: allWarnings.length > 0 ? allWarnings : undefined };
 }

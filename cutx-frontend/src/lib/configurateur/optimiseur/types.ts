@@ -72,6 +72,7 @@ export interface ResultatOptimisation {
   surfaceTotaleDebits: number;       // Surface totale des débits
   surfaceTotalePanneaux: number;     // Surface totale des panneaux utilisés
   tauxRemplissageMoyen: number;      // Moyenne des taux de remplissage
+  warnings?: string[];               // Avertissements (ex: pièces trop grandes)
 }
 
 /**

@@ -9,8 +9,6 @@ import type { PanneauOptimise, OffcutItem, OffcutsCatalogData, ZoneChute } from 
 
 // Prix par défaut si le panneau n'a pas de prix défini
 const DEFAULT_PRICE_PER_M2 = 50;
-// Ratio pour les chutes (70% du prix neuf = -30%)
-const OFFCUT_PRICE_RATIO = 0.7;
 
 export function collectOffcuts(panneaux: PanneauOptimise[]): OffcutItem[] {
   const offcuts: OffcutItem[] = [];
@@ -26,8 +24,8 @@ export function collectOffcuts(panneaux: PanneauOptimise[]): OffcutItem[] {
       if (chute.longueur < minSize || chute.largeur < minSize) return;
 
       const surface = (chute.longueur * chute.largeur) / 1_000_000;
-      // Prix estimé = surface × prix au m² × ratio chute (70%)
-      const prixEstime = surface * prixM2 * OFFCUT_PRICE_RATIO;
+      // Prix estimé = surface × prix au m² (100%, négociation sur marketplace)
+      const prixEstime = surface * prixM2;
 
       offcuts.push({
         id: `chute-${panneauIndex}-${chuteIndex}`,

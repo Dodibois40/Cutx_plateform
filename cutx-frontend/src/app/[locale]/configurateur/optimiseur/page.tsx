@@ -33,10 +33,15 @@ const DIMENSIONS_PANNEAU_BRUT_DEFAULT = {
 } as const;
 
 function getPanneauDimensions(panneau: PanneauCatalogue): { longueur: number; largeur: number } {
-  return {
-    longueur: panneau.longueur ?? DIMENSIONS_PANNEAU_BRUT_DEFAULT.longueur,
-    largeur: panneau.largeur ?? DIMENSIONS_PANNEAU_BRUT_DEFAULT.largeur,
-  };
+  // Gérer le cas où longueur pourrait être 'Variable' (string) au lieu d'un nombre
+  // Ce cas ne devrait pas arriver avec PanneauCatalogue mais on sécurise
+  const longueur = typeof panneau.longueur === 'number' && panneau.longueur > 0
+    ? panneau.longueur
+    : DIMENSIONS_PANNEAU_BRUT_DEFAULT.longueur;
+  const largeur = typeof panneau.largeur === 'number' && panneau.largeur > 0
+    ? panneau.largeur
+    : DIMENSIONS_PANNEAU_BRUT_DEFAULT.largeur;
+  return { longueur, largeur };
 }
 
 export default function OptimiseurPage() {
@@ -58,6 +63,7 @@ export default function OptimiseurPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiResults, setApiResults] = useState<Map<string, ResultatOptimisation>>(new Map());
   const [showFallbackNotice, setShowFallbackNotice] = useState(false);
+  const [optimizationWarnings, setOptimizationWarnings] = useState<string[]>([]);
 
   // Options d'optimisation
   const [splitStrategy, setSplitStrategy] = useState<SplitStrategy>('vertical_first');
@@ -103,11 +109,23 @@ export default function OptimiseurPage() {
       : lignesPanneau.filter((l) => l.panneauId);
 
     // Helper pour extraire le prix au m² depuis le dictionnaire prixM2
-    const getPrixM2 = (prixM2: Record<string, number> | undefined): number | undefined => {
+    // Le dictionnaire est indexé par épaisseur (ex: {"12": 137.01, "6": 96.00})
+    const getPrixM2 = (prixM2: Record<string, number> | undefined, epaisseur?: number): number | undefined => {
       if (!prixM2) return undefined;
+      // Chercher le prix pour l'épaisseur spécifique
+      if (epaisseur !== undefined) {
+        const key = String(epaisseur);
+        if (prixM2[key] !== undefined) {
+          return prixM2[key];
+        }
+      }
+      // Fallback: prendre la première valeur si l'épaisseur n'est pas trouvée
       const values = Object.values(prixM2);
       return values.length > 0 ? values[0] : undefined;
     };
+
+    // Trouver l'épaisseur utilisée dans le projet
+    const epaisseurProjet = lignesPanneau[0]?.dimensions.epaisseur;
 
     const catalogueFormatted = panneauGlobal
       ? [{
@@ -118,10 +136,13 @@ export default function OptimiseurPage() {
           epaisseurs: panneauGlobal.epaisseurs,
           categorie: panneauGlobal.categorie,
           essence: panneauGlobal.essence,
-          prixM2: getPrixM2(panneauGlobal.prixM2),
+          prixM2: getPrixM2(panneauGlobal.prixM2, epaisseurProjet),
         }]
       : panneauxCatalogue.map((p) => {
           const dims = getPanneauDimensions(p);
+          // Trouver l'épaisseur utilisée pour ce panneau spécifique
+          const lignesPourPanneau = lignesPanneau.filter(l => l.panneauId === p.id);
+          const epaisseurPanneau = lignesPourPanneau[0]?.dimensions.epaisseur;
           return {
             id: p.id,
             nom: p.nom,
@@ -130,7 +151,7 @@ export default function OptimiseurPage() {
             epaisseurs: p.epaisseurs,
             categorie: p.categorie,
             essence: p.essence,
-            prixM2: getPrixM2(p.prixM2),
+            prixM2: getPrixM2(p.prixM2, epaisseurPanneau),
           };
         });
 
@@ -194,6 +215,7 @@ export default function OptimiseurPage() {
       setIsLoading(true);
       setApiError(null);
       setShowFallbackNotice(false);
+      setOptimizationWarnings([]);
 
       try {
         const results = await optimiserParPanneauApi(
@@ -207,6 +229,15 @@ export default function OptimiseurPage() {
 
         if (abortController.signal.aborted) return;
         setApiResults(results);
+
+        // Collecter les warnings de tous les résultats
+        const allWarnings: string[] = [];
+        results.forEach((result) => {
+          if (result.warnings && result.warnings.length > 0) {
+            allWarnings.push(...result.warnings);
+          }
+        });
+        setOptimizationWarnings(allWarnings);
       } catch (error) {
         if (abortController.signal.aborted) return;
         console.error('[OptimiseurPage] API error:', error);
@@ -445,6 +476,26 @@ export default function OptimiseurPage() {
             L'optimisation intelligente n'est pas disponible. Résultats calculés localement.
           </span>
           <button onClick={() => setShowFallbackNotice(false)}>
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* Bannière d'avertissement pour pièces trop grandes */}
+      {optimizationWarnings.length > 0 && (
+        <div className="warning-notice">
+          <AlertTriangle size={16} />
+          <div className="warning-content">
+            <span className="warning-title">
+              {optimizationWarnings.length} pièce(s) non placée(s)
+            </span>
+            <ul className="warning-list">
+              {optimizationWarnings.map((warning, index) => (
+                <li key={index}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+          <button onClick={() => setOptimizationWarnings([])}>
             &times;
           </button>
         </div>
@@ -752,6 +803,48 @@ export default function OptimiseurPage() {
           cursor: pointer;
           color: inherit;
           line-height: 1;
+        }
+
+        .warning-notice {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          padding: 0.75rem 1rem;
+          background: var(--admin-status-error-bg, #fef2f2);
+          border-bottom: 1px solid var(--admin-status-error-border, #fecaca);
+          color: var(--admin-status-error, #dc2626);
+          font-size: 0.8125rem;
+        }
+
+        .warning-notice .warning-content {
+          flex: 1;
+        }
+
+        .warning-notice .warning-title {
+          font-weight: 600;
+          display: block;
+          margin-bottom: 0.25rem;
+        }
+
+        .warning-notice .warning-list {
+          margin: 0;
+          padding-left: 1rem;
+          font-size: 0.75rem;
+          opacity: 0.9;
+        }
+
+        .warning-notice .warning-list li {
+          margin-bottom: 0.125rem;
+        }
+
+        .warning-notice button {
+          background: none;
+          border: none;
+          font-size: 1.25rem;
+          cursor: pointer;
+          color: inherit;
+          line-height: 1;
+          padding: 0;
         }
 
         .page-content {
