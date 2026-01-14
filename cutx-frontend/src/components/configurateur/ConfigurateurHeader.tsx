@@ -231,6 +231,10 @@ export default function ConfigurateurHeader({
           onSelectCatalogue={(produit: ProduitCatalogue) => {
             if (onSelectPanneau) {
               const produitAvecId = produit as ProduitCatalogue & { id: string };
+              // Extraire le prix: utiliser ?? pour préserver 0 comme valeur valide
+              const prix = produit.prixVenteM2 ?? produit.prixAchatM2 ?? 0;
+              // Gérer longueur 'Variable' avec fallback
+              const longueur = typeof produit.longueur === 'number' ? produit.longueur : 2800;
               const panneau: PanneauCatalogue = {
                 id: produitAvecId.id || produit.reference,
                 nom: `${produit.nom} (${produit.reference})`,
@@ -238,13 +242,13 @@ export default function ConfigurateurHeader({
                 essence: null,
                 epaisseurs: produit.epaisseur ? [produit.epaisseur] : [19],
                 prixM2: produit.epaisseur
-                  ? { [produit.epaisseur.toString()]: produit.prixVenteM2 || produit.prixAchatM2 || 0 }
-                  : { '19': produit.prixVenteM2 || produit.prixAchatM2 || 0 },
+                  ? { [produit.epaisseur.toString()]: prix }
+                  : { '19': prix },
                 fournisseur: produit.marque || 'BOUNEY',
                 disponible: produit.stock === 'EN STOCK',
                 description: `${produit.marque} - ${produit.type}`,
                 ordre: 0,
-                longueur: produit.longueur,
+                longueur,
                 largeur: produit.largeur,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),

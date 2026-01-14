@@ -84,16 +84,14 @@ export class OptimizationController {
       return {
         success: result.success,
         message: result.message,
+        warnings: result.warnings,
         plan: result.plan,
         reusableOffcuts: result.reusableOffcuts,
       };
     } catch (error) {
       if (error instanceof OptimizationError) {
-        throw new BadRequestException({
-          error: error.code,
-          message: error.message,
-          details: error.details,
-        });
+        // Pass the message directly to ensure it's properly returned
+        throw new BadRequestException(error.message);
       }
       throw error;
     }

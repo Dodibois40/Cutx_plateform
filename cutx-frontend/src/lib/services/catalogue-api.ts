@@ -85,9 +85,10 @@ function transformPanel(panel: ApiPanel): CatalogueProduit {
   const longueur: number | 'Variable' = panel.isVariableLength ? 'Variable' : panel.defaultLength;
 
   // Prix: selon le type de produit
-  const prixM2 = panel.pricePerM2 || undefined;
-  const prixMl = panel.pricePerMl || undefined;
-  const prixUnit = panel.pricePerUnit || undefined;
+  // Utiliser ?? pour préserver les prix à 0 et ne transformer que null en undefined
+  const prixM2 = panel.pricePerM2 ?? undefined;
+  const prixMl = panel.pricePerMl ?? undefined;
+  const prixUnit = panel.pricePerUnit ?? undefined;
 
   return {
     id: panel.id,

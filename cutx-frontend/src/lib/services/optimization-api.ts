@@ -126,6 +126,7 @@ interface ApiReusableOffcut {
 interface ApiOptimizationResponse {
   success: boolean;
   message: string;
+  warnings?: string[];
   plan: ApiCuttingPlan;
   reusableOffcuts?: ApiReusableOffcut[];
 }
@@ -234,11 +235,18 @@ function apiPlacementToDebitPlace(
 
 /**
  * Convertit une feuille utilisée API en panneau optimisé frontend
+ * @param usedSheet - Feuille utilisée retournée par l'API
+ * @param debitsMap - Map des débits originaux pour récupérer les infos
+ * @param fallbackPrixM2 - Prix au m² de fallback si l'API ne le renvoie pas
  */
 function apiSheetToPanneauOptimise(
   usedSheet: ApiUsedSheet,
-  debitsMap: Map<string, DebitAOptimiser>
+  debitsMap: Map<string, DebitAOptimiser>,
+  fallbackPrixM2?: number
 ): PanneauOptimise {
+  // Déterminer le prix au m² (API ou fallback)
+  const finalPrixM2 = usedSheet.sheet.pricePerM2 ?? fallbackPrixM2;
+
   const debitsPlaces: DebitPlace[] = usedSheet.placements.map((placement) => {
     const originalDebit = debitsMap.get(placement.pieceId);
     if (!originalDebit) {
@@ -286,7 +294,7 @@ function apiSheetToPanneauOptimise(
       largeur: usedSheet.sheet.dimensions.width,
       epaisseur: usedSheet.sheet.thickness,
     },
-    prixM2: usedSheet.sheet.pricePerM2,
+    prixM2: finalPrixM2,
     debitsPlaces,
     zonesChute,
     surfaceUtilisee,
@@ -298,13 +306,17 @@ function apiSheetToPanneauOptimise(
 
 /**
  * Convertit une réponse API complète en résultat d'optimisation frontend
+ * @param response - Réponse de l'API d'optimisation
+ * @param debitsMap - Map des débits originaux
+ * @param fallbackPrixM2 - Prix au m² de fallback si l'API ne le renvoie pas
  */
 function apiResponseToResultat(
   response: ApiOptimizationResponse,
-  debitsMap: Map<string, DebitAOptimiser>
+  debitsMap: Map<string, DebitAOptimiser>,
+  fallbackPrixM2?: number
 ): ResultatOptimisation {
   const panneaux = response.plan.sheets.map((sheet) =>
-    apiSheetToPanneauOptimise(sheet, debitsMap)
+    apiSheetToPanneauOptimise(sheet, debitsMap, fallbackPrixM2)
   );
 
   // Trouver les débits non placés
@@ -319,6 +331,7 @@ function apiResponseToResultat(
     surfaceTotaleDebits: response.plan.stats.totalUsedArea / 1_000_000,
     surfaceTotalePanneaux: panneaux.reduce((sum, p) => sum + p.surfaceTotale, 0),
     tauxRemplissageMoyen: response.plan.stats.globalEfficiency,
+    warnings: response.warnings,
   };
 }
 
@@ -336,6 +349,13 @@ export async function optimiserDebitsApi(
   debits: DebitAOptimiser[],
   options: OptionsOptimisation & { hasDecorBois?: boolean; prixM2?: number; signal?: AbortSignal } = {}
 ): Promise<ResultatOptimisation> {
+  // DEBUG: Log à l'entrée de optimiserDebitsApi
+  console.warn('⚡ [OptimizationAPI] optimiserDebitsApi CALLED', {
+    panneauNom: panneauNom?.substring(0, 40),
+    debitsCount: debits.length,
+    prixM2: options.prixM2,
+  });
+
   const {
     margeCoupe = 4,
     respecterSensFil = true,
@@ -396,7 +416,17 @@ export async function optimiserDebitsApi(
       }
     );
 
-    return apiResponseToResultat(response, debitsMap);
+    // DEBUG: Log la réponse brute de l'API
+    console.warn('🔴 [API Response] Réponse brute:', JSON.stringify({
+      sheets: response.plan.sheets.map(s => ({
+        materialName: s.sheet.materialName?.substring(0, 40),
+        pricePerM2: s.sheet.pricePerM2,
+        pricePerSheet: s.sheet.pricePerSheet,
+      })),
+    }, null, 2));
+    console.warn('🔴 [API Response] fallbackPrixM2:', prixM2);
+
+    return apiResponseToResultat(response, debitsMap, prixM2);
   } catch (error) {
     // Re-throw AbortError sans log
     if (error instanceof Error && error.name === 'AbortError') {
@@ -432,6 +462,12 @@ export async function optimiserParPanneauApi(
   }>,
   options: OptionsOptimisation & { signal?: AbortSignal } = {}
 ): Promise<Map<string, ResultatOptimisation>> {
+  // DEBUG: Log immédiat au début de la fonction
+  console.warn('🔥🔥🔥 [OptimizationAPI] optimiserParPanneauApi CALLED! 🔥🔥🔥');
+  console.warn('[OptimizationAPI] lignes count:', lignes.length);
+  console.warn('[OptimizationAPI] panneauxCatalogue count:', panneauxCatalogue.length);
+  console.warn('[OptimizationAPI] First panneau prixM2:', panneauxCatalogue[0]?.prixM2);
+
   const resultats = new Map<string, ResultatOptimisation>();
 
   // Filtrer les lignes valides
@@ -484,6 +520,14 @@ export async function optimiserParPanneauApi(
     // 1. Le panneau a un décor bois naturel, OU
     // 2. L'utilisateur a explicitement défini un sensDuFil sur au moins une pièce
     const shouldRespectGrain = hasDecorBois || hasUserDefinedGrain;
+
+    // DEBUG: Log prix before sending to API (warn pour être visible)
+    console.warn('[OptimizationAPI] Envoi API:', {
+      panneauNom: panneau.nom?.substring(0, 40),
+      panneauId: panneauId,
+      prixM2: panneau.prixM2,
+      hasPrixM2: panneau.prixM2 !== undefined,
+    });
 
     try {
       const resultat = await optimiserDebitsApi(

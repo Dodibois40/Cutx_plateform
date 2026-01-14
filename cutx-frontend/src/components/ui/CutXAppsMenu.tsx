@@ -13,6 +13,8 @@ import {
   User,
   MessageCircle,
   Box,
+  CheckSquare,
+  Sparkles,
 } from 'lucide-react';
 
 interface AppItem {
@@ -127,6 +129,16 @@ export function CutXAppsMenu() {
           href: '/chutes',
           available: true,
         },
+        {
+          id: 'taches',
+          name: 'Tâches',
+          description: 'Gestion collaborative',
+          icon: <CheckSquare size={24} strokeWidth={1.8} />,
+          iconBg: 'rgba(249, 115, 22, 0.12)',
+          iconColor: '#f97316',
+          href: '/taches',
+          available: true,
+        },
       ],
     },
     {
@@ -177,6 +189,16 @@ export function CutXAppsMenu() {
           iconBg: 'rgba(249, 115, 22, 0.12)',
           iconColor: '#f97316',
           href: '/vitrine',
+          available: true,
+        },
+        {
+          id: 'logo-maker',
+          name: 'Logo Maker',
+          description: 'Création IA',
+          icon: <Sparkles size={24} strokeWidth={1.8} />,
+          iconBg: 'rgba(168, 85, 247, 0.12)',
+          iconColor: '#a855f7',
+          href: '/logo-maker',
           available: true,
         },
         {
@@ -342,7 +364,7 @@ export function CutXAppsMenu() {
                 </div>
 
                 {/* Category apps */}
-                <div className="flex flex-wrap gap-1">
+                <div className="grid grid-cols-2 gap-1">
                   {category.apps.map((app) => (
                     <button
                       key={app.id}
@@ -354,6 +376,7 @@ export function CutXAppsMenu() {
                         rounded-lg
                         text-left
                         transition-all duration-150
+                        w-full
                         ${app.available
                           ? 'hover:bg-[rgba(255,255,255,0.06)] cursor-pointer'
                           : 'opacity-60 cursor-default hover:opacity-70'

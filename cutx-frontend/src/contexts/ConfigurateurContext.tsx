@@ -66,6 +66,7 @@ import type { PanneauGroupe } from '@/lib/configurateur/groupes/types';
 export interface InitialGroupeData {
   panneau: PanneauGroupe;
   lignes?: LignePrestationV3[];
+  chant?: import('@/lib/configurateur/groupes/types').ChantGroupe | null;
 }
 
 export interface InitialData {

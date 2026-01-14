@@ -463,7 +463,6 @@ export function useFileImport(): UseFileImportReturn {
     setImportedFiles(prev => prev.map(f =>
       f.id === fileId ? { ...f, assignedPanel: panel } : f
     ));
-    console.log('[useFileImport] Assigned panel to file:', fileId, panel.nom);
   }, []);
 
   // Assign a panel to multiple files
