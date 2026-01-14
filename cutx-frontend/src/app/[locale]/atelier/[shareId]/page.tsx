@@ -53,21 +53,9 @@ interface ShareResponse {
   expiresAt: string;
 }
 
-// Couleurs pour les pièces - palette cohérente avec le design system
-const PIECE_COLORS = [
-  '#FF6B4A', // coral (accent principal)
-  '#10B981', // emerald
-  '#3B82F6', // blue
-  '#8B5CF6', // violet
-  '#F59E0B', // amber
-  '#EC4899', // pink
-  '#06B6D4', // cyan
-  '#84CC16', // lime
-];
-
-function getPieceColor(index: number): string {
-  return PIECE_COLORS[index % PIECE_COLORS.length];
-}
+// Couleur unique pour les pièces - neutre pour bien voir les chants
+const PIECE_COLOR = '#3A4A5A'; // gris-bleu neutre
+const PIECE_BORDER = '#4A5A6A';
 
 export default function AtelierPage() {
   const params = useParams();
@@ -297,17 +285,17 @@ export default function AtelierPage() {
             width={svgWidth}
             height={svgHeight}
             viewBox={`0 0 ${currentSheet.length} ${currentSheet.width}`}
-            className="rounded-xl overflow-hidden"
+            className="overflow-visible"
             style={{ filter: 'drop-shadow(0 4px 24px rgba(0,0,0,0.4))' }}
           >
-            {/* Background */}
+            {/* Background - angles droits pour un vrai panneau */}
             <rect
               x={0} y={0}
               width={currentSheet.length}
               height={currentSheet.width}
-              fill="#1A1A1A"
-              stroke="#2A2A2A"
-              strokeWidth="4"
+              fill="#2A2A2A"
+              stroke="#444444"
+              strokeWidth="2"
             />
 
             {/* Grid pattern */}
@@ -333,65 +321,70 @@ export default function AtelierPage() {
             ))}
 
             {/* Pieces */}
-            {currentSheet.placements.map((piece, i) => {
-              const color = getPieceColor(i);
+            {currentSheet.placements.map((piece) => {
               const minDim = Math.min(piece.length, piece.width);
-              const showLabel = piece.length > 120 && piece.width > 60;
-              const showDims = piece.length > 180 && piece.width > 90;
+              // Seuils plus bas pour afficher le texte
+              const showLabel = piece.length > 80 && piece.width > 40;
+              const showDims = piece.length > 120 && piece.width > 60;
+              // Taille de texte adaptative mais plus grande
+              const labelSize = Math.max(Math.min(minDim * 0.18, 28), 14);
+              const dimsSize = Math.max(Math.min(minDim * 0.12, 18), 10);
 
               return (
                 <g key={piece.pieceId}>
+                  {/* Pièce - couleur neutre uniforme, angles droits */}
                   <rect
                     x={piece.x} y={piece.y}
                     width={piece.length} height={piece.width}
-                    fill={color}
-                    fillOpacity={0.9}
-                    rx="4"
-                    stroke="rgba(255,255,255,0.2)"
-                    strokeWidth="1"
+                    fill={PIECE_COLOR}
+                    stroke={PIECE_BORDER}
+                    strokeWidth="1.5"
                   />
 
+                  {/* Référence - bien visible */}
                   {showLabel && (
                     <text
                       x={piece.x + piece.length / 2}
-                      y={piece.y + piece.width / 2 - (showDims ? minDim * 0.06 : 0)}
+                      y={piece.y + piece.width / 2 - (showDims ? dimsSize * 0.8 : 0)}
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fill="white"
-                      fontSize={Math.min(minDim * 0.12, 24)}
-                      fontWeight="500"
-                      fontFamily="Inter, sans-serif"
+                      fontSize={labelSize}
+                      fontWeight="600"
+                      fontFamily="Inter, system-ui, sans-serif"
                     >
                       {piece.reference || piece.name}
                     </text>
                   )}
 
+                  {/* Dimensions */}
                   {showDims && (
                     <text
                       x={piece.x + piece.length / 2}
-                      y={piece.y + piece.width / 2 + minDim * 0.1}
+                      y={piece.y + piece.width / 2 + labelSize * 0.6}
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      fill="rgba(255,255,255,0.6)"
-                      fontSize={Math.min(minDim * 0.08, 16)}
-                      fontFamily="Inter, sans-serif"
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize={dimsSize}
+                      fontWeight="500"
+                      fontFamily="Inter, system-ui, sans-serif"
                     >
                       {piece.length} × {piece.width}
                     </text>
                   )}
 
-                  {/* Edging indicators */}
+                  {/* Indicateurs de chants - jaune vif pour bien ressortir */}
                   {piece.edging?.top && (
-                    <line x1={piece.x + 8} y1={piece.y + 2} x2={piece.x + piece.length - 8} y2={piece.y + 2} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                    <line x1={piece.x + 4} y1={piece.y + 3} x2={piece.x + piece.length - 4} y2={piece.y + 3} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
                   )}
                   {piece.edging?.bottom && (
-                    <line x1={piece.x + 8} y1={piece.y + piece.width - 2} x2={piece.x + piece.length - 8} y2={piece.y + piece.width - 2} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                    <line x1={piece.x + 4} y1={piece.y + piece.width - 3} x2={piece.x + piece.length - 4} y2={piece.y + piece.width - 3} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
                   )}
                   {piece.edging?.left && (
-                    <line x1={piece.x + 2} y1={piece.y + 8} x2={piece.x + 2} y2={piece.y + piece.width - 8} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                    <line x1={piece.x + 3} y1={piece.y + 4} x2={piece.x + 3} y2={piece.y + piece.width - 4} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
                   )}
                   {piece.edging?.right && (
-                    <line x1={piece.x + piece.length - 2} y1={piece.y + 8} x2={piece.x + piece.length - 2} y2={piece.y + piece.width - 8} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                    <line x1={piece.x + piece.length - 3} y1={piece.y + 4} x2={piece.x + piece.length - 3} y2={piece.y + piece.width - 4} stroke="#FBBF24" strokeWidth="5" strokeLinecap="square" />
                   )}
                 </g>
               );

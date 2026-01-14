@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(if [ -f \"C:\\\\TODO\\\\la-manufacture-os\\\\logo-base64.txt\" ])",
+      "Bash(then wc -c \"C:\\\\TODO\\\\la-manufacture-os\\\\logo-base64.txt\")",
+      "Bash(else echo \"File not found\")",
+      "Bash(fi)",
+      "Bash(node extract-logo.js:*)",
+      "Bash(npm run dev:*)",
+      "Bash(cat:*)",
+      "Bash(npm run build:*)",
+      "Bash(tree:*)",
+      "Bash(node --check:*)"
+    ]
+  }
+}
