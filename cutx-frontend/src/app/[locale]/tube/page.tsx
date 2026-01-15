@@ -15,6 +15,7 @@ interface LocalShort {
   likes: number;
   query: string;
   localPath: string;
+  cdnPath?: string;
 }
 
 const videos = localShortsData as LocalShort[];
@@ -176,7 +177,7 @@ export default function TubePage() {
                   if (el) videoRefs.current.set(video.id, el);
                   else videoRefs.current.delete(video.id);
                 }}
-                src={video.localPath}
+                src={video.cdnPath || video.localPath}
                 className="absolute inset-0 w-full h-full object-contain"
                 playsInline
                 loop
