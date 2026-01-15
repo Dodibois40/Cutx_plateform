@@ -607,6 +607,7 @@ enum ProductType {
   MASSIF
   CHANT
   SOLID_SURFACE
+  PANNEAU_DECO    // Panneaux décoratifs (fraisés 3D, texturés, etc.)
 }
 
 enum ProductSubType {
