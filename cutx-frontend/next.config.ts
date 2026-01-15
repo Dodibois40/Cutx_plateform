@@ -42,6 +42,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'barillet-distribution.fr',
       },
+      {
+        protocol: 'https',
+        hostname: 'staticmedia.wilsonart.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'pub-6ea9d9f4ee2044609922012b9586d129.r2.dev',
+      },
     ],
   },
 };

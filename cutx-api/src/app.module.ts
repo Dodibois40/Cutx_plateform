@@ -17,6 +17,7 @@ import { OptimizationModule } from './optimization/optimization.module';
 import { PanelsReviewModule } from './panels-review/panels-review.module';
 import { PanelsModule } from './panels/panels.module';
 import { TubeModule } from './tube/tube.module';
+import { R2StorageModule } from './r2-storage/r2-storage.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { TubeModule } from './tube/tube.module';
     PanelsReviewModule,
     PanelsModule,
     TubeModule,
+    R2StorageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

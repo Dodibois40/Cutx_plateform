@@ -13,8 +13,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 
 // Type for uploaded file (from @types/multer)
 type MulterFile = {
@@ -33,6 +32,7 @@ import { UpdatePanelDto, MarkCorrectionDto } from './dto';
 import { ClerkAuthGuard } from '../common/guards/clerk-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
+import { R2StorageService } from '../r2-storage/r2-storage.service';
 import type { ClerkUser } from '../common/decorators/current-user.decorator';
 import {
   PanelReviewStatus,
@@ -52,6 +52,7 @@ export class PanelsReviewController {
   constructor(
     private readonly panelsReviewService: PanelsReviewService,
     private readonly usersService: UsersService,
+    private readonly r2StorageService: R2StorageService,
   ) {}
 
   /**
@@ -224,20 +225,12 @@ export class PanelsReviewController {
 
   /**
    * POST /api/panels-review/:id/upload-image
-   * Upload an image for a panel
+   * Upload an image for a panel to Cloudflare R2
    */
   @Post(':id/upload-image')
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/panels',
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          callback(null, `panel-${uniqueSuffix}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, callback) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return callback(
@@ -263,10 +256,19 @@ export class PanelsReviewController {
       throw new BadRequestException('No file uploaded');
     }
 
-    // Build the URL for the uploaded image
-    const imageUrl = `/uploads/panels/${file.filename}`;
+    if (!this.r2StorageService.isReady()) {
+      throw new BadRequestException(
+        'R2 Storage is not configured - check server logs',
+      );
+    }
 
-    // Update the panel with the new image URL
-    return this.panelsReviewService.updatePanel(id, { imageUrl });
+    // Upload to R2
+    const result = await this.r2StorageService.uploadPanelImage(
+      file.buffer,
+      file.originalname,
+    );
+
+    // Update the panel with the R2 CDN URL
+    return this.panelsReviewService.updatePanel(id, { imageUrl: result.url });
   }
 }
