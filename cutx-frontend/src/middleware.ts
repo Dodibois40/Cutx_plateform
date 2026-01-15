@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   "/:locale",
   "/:locale/sign-in(.*)",
   "/:locale/sign-up(.*)",
+  "/:locale/tube(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhook(.*)",
@@ -32,7 +33,7 @@ export default clerkMiddleware(async (auth, req) => {
 export const config = {
   matcher: [
     // Skip Next.js internals, static files, caisson-designer, and PWA files
-    "/((?!_next|caisson-designer|sw\\.js|manifest\\.json|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json)).*)",
+    "/((?!_next|caisson-designer|shorts|sw\\.js|manifest\\.json|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|json|mp4|webm|ogg|mov)).*)",
     // Always run for API routes
     "/(api|trpc)(.*)",
   ],
