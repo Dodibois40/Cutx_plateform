@@ -7,6 +7,7 @@ import { CutXAppsMenu } from '@/components/ui/CutXAppsMenu';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useCatalogueSearch } from '@/lib/hooks/useCatalogueSearch';
 import { getSponsored, type CatalogueProduit } from '@/lib/services/catalogue-api';
+import { extractDecorFromName } from '@/lib/services/panneaux-catalogue';
 import {
   HomeSearchBar,
   SearchResults,
@@ -94,6 +95,13 @@ function HomePageContent() {
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
   // Search category: panels (panneaux), chants (bandes de chant), all (tous)
   const [searchCategory, setSearchCategory] = useState<'panels' | 'chants' | 'all'>('all');
+  // Suggested chant for the panel being searched
+  const [suggestedChant, setSuggestedChant] = useState<{
+    chant: SearchProduct | null;
+    reason: string;
+    panelIsRealWood?: boolean;
+    thicknessVariants?: { thickness: number; chant: SearchProduct }[];
+  } | null>(null);
 
   // File import hook for DXF/XLSX dropped on homepage
   const fileImport = useFileImport();
@@ -208,6 +216,59 @@ function HomePageContent() {
     }
   }, [fileImport.importedFiles, selectedFileId]);
 
+  // Fetch suggested chant when entering chant search mode
+  useEffect(() => {
+    if (!searchingChantForFileId) {
+      setSuggestedChant(null);
+      return;
+    }
+    const file = fileImport.importedFiles.find(f => f.id === searchingChantForFileId);
+    if (!file?.assignedPanel?.id) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
+    fetch(`${apiUrl}/api/panels/${file.assignedPanel.id}/best-matching-chant`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.chant) {
+          // Map thickness variants to SearchProduct format
+          const thicknessVariants = (data.thicknessVariants || []).map(
+            (v: { thickness: number; chant: { id: string; reference: string; name: string; imageUrl?: string; pricePerMl?: number; defaultThickness?: number; defaultWidth?: number; stockStatus?: string; catalogue?: { name: string } } }) => ({
+              thickness: v.thickness,
+              chant: {
+                id: v.chant.id,
+                reference: v.chant.reference,
+                nom: v.chant.name,
+                imageUrl: v.chant.imageUrl,
+                prixMl: v.chant.pricePerMl,
+                epaisseur: v.chant.defaultThickness,
+                largeur: v.chant.defaultWidth,
+                stock: v.chant.stockStatus,
+                fournisseur: v.chant.catalogue?.name,
+              },
+            })
+          );
+
+          setSuggestedChant({
+            chant: {
+              id: data.chant.id,
+              reference: data.chant.reference,
+              nom: data.chant.name,
+              imageUrl: data.chant.imageUrl,
+              prixMl: data.chant.pricePerMl,
+              epaisseur: data.chant.defaultThickness,
+              largeur: data.chant.defaultWidth,
+              stock: data.chant.stockStatus,
+              fournisseur: data.chant.catalogue?.name,
+            },
+            reason: data.reason,
+            panelIsRealWood: data.panelIsRealWood,
+            thicknessVariants,
+          });
+        }
+      })
+      .catch(err => console.error('[SuggestedChant] Error:', err));
+  }, [searchingChantForFileId, fileImport.importedFiles]);
+
   // Handle product click - create virtual file, assign panel, or assign chant
   const handleProductClick = useCallback((product: SearchProduct) => {
     if (searchingChantForFileId) {
@@ -239,9 +300,11 @@ function HomePageContent() {
   // Handle chant search - triggered from FilesPanel "Ajouter bande de chant" button
   const handleSearchChant = useCallback((file: import('@/components/home/hooks/useFileImport').ImportedFileData) => {
     setSearchingChantForFileId(file.id);
-    // Set search query to detected chant name or "chant" keyword
-    const searchTerm = file.detection?.detectedChantNames?.[0] || 'chant';
-    setQuery(searchTerm);
+    // Activate Chants filter
+    setSearchCategory('chants');
+    // Extract decor from assigned panel name as search suggestion
+    const decor = file.assignedPanel?.nom ? extractDecorFromName(file.assignedPanel.nom) : null;
+    setQuery(decor || '');
   }, [setQuery]);
 
   // Handle clear chant - triggered from FilesPanel
@@ -608,6 +671,99 @@ function HomePageContent() {
                     Tous
                   </button>
                 </div>
+
+                {/* Suggested chant - shown when in chant search mode */}
+                {searchingChantForFileId && suggestedChant?.chant && (
+                  <div className="mt-4 p-4 bg-gradient-to-r from-amber-500/10 to-transparent border border-amber-500/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-semibold text-amber-500 uppercase tracking-wide">
+                        Chant suggéré
+                      </span>
+                      {suggestedChant.panelIsRealWood && (
+                        <span className="text-[10px] px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">
+                          Panneau plaqué bois
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Thickness variants selector */}
+                    {suggestedChant.thicknessVariants && suggestedChant.thicknessVariants.length > 1 && (
+                      <div className="mb-3">
+                        <span className="text-[10px] text-[var(--cx-text-muted)] uppercase tracking-wide mr-2">
+                          Épaisseurs disponibles :
+                        </span>
+                        <div className="inline-flex gap-1 mt-1">
+                          {suggestedChant.thicknessVariants.map((variant) => (
+                            <button
+                              key={variant.thickness}
+                              onClick={() => {
+                                setSuggestedChant(prev => prev ? {
+                                  ...prev,
+                                  chant: variant.chant,
+                                } : null);
+                              }}
+                              className={`px-2 py-1 text-xs rounded transition-colors ${
+                                suggestedChant.chant?.epaisseur === variant.thickness
+                                  ? 'bg-amber-500 text-white font-medium'
+                                  : 'bg-[var(--cx-surface-2)] text-[var(--cx-text-muted)] hover:bg-amber-500/20 hover:text-amber-500'
+                              }`}
+                            >
+                              {variant.thickness}mm
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        if (suggestedChant.chant) {
+                          handleProductClick(suggestedChant.chant);
+                        }
+                      }}
+                      className="w-full flex items-center gap-4 p-3 bg-[var(--cx-surface-1)] hover:bg-[var(--cx-surface-2)] border border-[var(--cx-border)] rounded-lg transition-colors text-left group"
+                    >
+                      {suggestedChant.chant.imageUrl && (
+                        <img
+                          src={suggestedChant.chant.imageUrl}
+                          alt=""
+                          className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[var(--cx-text)] truncate group-hover:text-amber-500 transition-colors">
+                          {suggestedChant.chant.nom}
+                        </p>
+                        <p className="text-xs text-[var(--cx-text-muted)] mt-1">
+                          {suggestedChant.reason}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-[var(--cx-text-tertiary)]">
+                          {suggestedChant.chant.largeur && (
+                            <span>{suggestedChant.chant.largeur}mm</span>
+                          )}
+                          {suggestedChant.chant.epaisseur && (
+                            <span>ép. {suggestedChant.chant.epaisseur}mm</span>
+                          )}
+                          {suggestedChant.chant.prixMl && (
+                            <span className="text-amber-500 font-medium">
+                              {suggestedChant.chant.prixMl.toFixed(2)}€/mL
+                            </span>
+                          )}
+                          {suggestedChant.chant.fournisseur && (
+                            <span className="text-[var(--cx-text-muted)]">
+                              {suggestedChant.chant.fournisseur}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </div>
+                    </button>
+                  </div>
+                )}
               </div>
               <SearchResults
                 query={debouncedQuery}
