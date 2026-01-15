@@ -16,7 +16,7 @@ import { UsinagesModule } from './usinages/usinages.module';
 import { OptimizationModule } from './optimization/optimization.module';
 import { PanelsReviewModule } from './panels-review/panels-review.module';
 import { PanelsModule } from './panels/panels.module';
-import { TubeModule } from './tube/tube.module';
+// import { TubeModule } from './tube/tube.module'; // TODO: Add when ready
 
 @Module({
   imports: [
@@ -42,7 +42,7 @@ import { TubeModule } from './tube/tube.module';
     OptimizationModule,
     PanelsReviewModule,
     PanelsModule,
-    TubeModule,
+    // TubeModule, // TODO: Add when ready
   ],
   controllers: [AppController],
   providers: [AppService],
