@@ -401,6 +401,8 @@ export async function smartSearch(
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
     enStock?: boolean;
+    /** Catégorie: 'panels' (panneaux), 'chants' (bandes de chant), 'all' (tous) */
+    category?: 'panels' | 'chants' | 'all';
     // Filtres explicites
     decorCategory?: string;
     manufacturer?: string;
@@ -418,6 +420,8 @@ export async function smartSearch(
   if (options?.sortBy) queryParams.append('sortBy', options.sortBy);
   if (options?.sortDirection) queryParams.append('sortDirection', options.sortDirection);
   if (options?.enStock) queryParams.append('enStock', 'true');
+  // Catégorie: panels | chants | all
+  if (options?.category) queryParams.append('category', options.category);
   // Filtres explicites
   if (options?.decorCategory) queryParams.append('decorCategory', options.decorCategory);
   if (options?.manufacturer) queryParams.append('manufacturer', options.manufacturer);

@@ -24,6 +24,8 @@ interface UseCatalogueSearchParams {
   enabled?: boolean;
   /** Utiliser la recherche intelligente (parse "mdf 19" en type:MDF + épaisseur:19mm) */
   useSmartSearch?: boolean;
+  /** Catégorie: 'panels' (panneaux), 'chants' (bandes de chant), 'all' (tous) */
+  category?: 'panels' | 'chants' | 'all';
   // Filtres explicites pour smart search
   decorCategory?: string;
   manufacturer?: string;
@@ -60,6 +62,8 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
           sortBy: searchParams.sortBy,
           sortDirection: searchParams.sortDirection,
           enStock: searchParams.enStock,
+          // Catégorie: panels | chants | all
+          category: searchParams.category,
           // Filtres explicites
           decorCategory: searchParams.decorCategory,
           manufacturer: searchParams.manufacturer,

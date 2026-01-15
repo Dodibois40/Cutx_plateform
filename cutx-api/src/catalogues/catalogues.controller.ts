@@ -1,13 +1,18 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Query,
+  Req,
   NotFoundException,
   UseGuards,
   ForbiddenException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { CataloguesService } from './catalogues.service';
 import { ClerkAuthGuard } from '../common/guards/clerk-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -165,6 +170,8 @@ export class CataloguesController {
     @Query('sortBy') sortBy?: string,
     @Query('sortDirection') sortDirection?: string,
     @Query('enStock') enStock?: string,
+    // Catégorie: 'panels' | 'chants' | 'all' (défaut: 'all')
+    @Query('category') category?: string,
     // Nouveaux filtres explicites
     @Query('decorCategory') decorCategory?: string,
     @Query('manufacturer') manufacturer?: string,
@@ -195,6 +202,8 @@ export class CataloguesController {
       sortBy,
       sortDirection: sortDirection as 'asc' | 'desc' | undefined,
       enStock: enStock === 'true',
+      // Catégorie: panels | chants | all
+      category: category as 'panels' | 'chants' | 'all' | undefined,
       // Nouveaux filtres explicites
       decorCategory: decorCategory || undefined,
       manufacturer: manufacturer || undefined,
@@ -261,6 +270,25 @@ export class CataloguesController {
     return this.cataloguesService.getFilterOptions(catalogueSlug);
   }
 
+  /**
+   * GET /api/catalogues/popular
+   * Retourne les panneaux les plus vus
+   */
+  @Get('popular')
+  async getPopular(
+    @Query('limit') limit?: string,
+    @Query('period') period?: string, // 'week' | 'all'
+    @Query('category') category?: string, // 'panels' | 'chants' | 'all'
+  ) {
+    const panels = await this.cataloguesService.findPopular({
+      limit: limit ? parseInt(limit, 10) : 10,
+      period: period as 'week' | 'all' | undefined,
+      category: category as 'panels' | 'chants' | 'all' | undefined,
+    });
+
+    return { panels };
+  }
+
   @Get(':slug')
   async findOne(@Param('slug') slug: string) {
     const catalogue = await this.cataloguesService.findCatalogueBySlug(slug);
@@ -309,5 +337,27 @@ export class CataloguesController {
       throw new NotFoundException(`Panel "${reference}" not found in catalogue "${slug}"`);
     }
     return panel;
+  }
+
+  // =============================================
+  // VIEW TRACKING - Tracking des vues produits
+  // =============================================
+
+  /**
+   * POST /api/catalogues/panels/:id/view
+   * Incrémente le compteur de vues d'un panneau
+   * Rate limited: 1 vue par IP/user par panneau toutes les 5 min
+   */
+  @Post('panels/:id/view')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async trackView(@Param('id') panelId: string, @Req() req: Request) {
+    // Récupérer l'IP pour le rate limiting
+    const ip = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+    const viewerKey = Array.isArray(ip) ? ip[0] : ip;
+
+    // Fire and forget - ne pas bloquer la réponse
+    this.cataloguesService.trackPanelView(panelId, viewerKey).catch(() => {
+      // Silently ignore errors
+    });
   }
 }

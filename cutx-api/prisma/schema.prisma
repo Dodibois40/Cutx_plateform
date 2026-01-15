@@ -136,6 +136,9 @@ model Panel {
   isFullRoll       Boolean           @default(false)  // Vente en rouleau complet (pas au mètre)
   lamellaType      LamellaType?
   manufacturer     String?
+  viewCount        Int               @default(0)     // Total des vues
+  weeklyViews      Int               @default(0)     // Vues de la semaine (reset hebdo)
+  lastViewedAt     DateTime?                         // Dernière vue
   panelSubType     ProductSubType?
   panelType        ProductType?
   productCategory  ProductCategory?
@@ -157,6 +160,8 @@ model Panel {
   @@index([decorCategory])
   @@index([panelType])
   @@index([manufacturer])
+  @@index([viewCount(sort: Desc)])
+  @@index([weeklyViews(sort: Desc)])
 }
 
 model Devis {
@@ -269,6 +274,18 @@ model CutxImportSession {
 
   @@index([expiresAt])
   @@index([createdAt])
+}
+
+// Rate limiting pour le tracking des vues (éviter le spam)
+model PanelViewLog {
+  id        String   @id @default(cuid())
+  panelId   String
+  viewerKey String   // Hash IP ou UserId
+  viewedAt  DateTime @default(now())
+
+  @@unique([panelId, viewerKey])
+  @@index([viewedAt])
+  @@index([panelId])
 }
 
 model Fitting {

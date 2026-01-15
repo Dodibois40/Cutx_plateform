@@ -92,6 +92,8 @@ function HomePageContent() {
   const [searchingPanelForFileId, setSearchingPanelForFileId] = useState<string | null>(null);
   // Product detail modal
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
+  // Search category: panels (panneaux), chants (bandes de chant), all (tous)
+  const [searchCategory, setSearchCategory] = useState<'panels' | 'chants' | 'all'>('all');
 
   // File import hook for DXF/XLSX dropped on homepage
   const fileImport = useFileImport();
@@ -178,6 +180,8 @@ function HomePageContent() {
     useSmartSearch: true,
     enabled: combinedQuery.length >= 2,
     enStock: explicitFilters.enStock || undefined,
+    // Catégorie: panels | chants | all
+    category: searchCategory,
     decorCategory: explicitFilters.decorCategory,
     manufacturer: explicitFilters.manufacturer,
     isHydrofuge: explicitFilters.isHydrofuge || undefined,
@@ -570,6 +574,41 @@ function HomePageContent() {
           {/* Results section */}
           {hasSearched && (
             <div className="flex-1 overflow-y-auto relative z-10">
+              {/* Category tabs - Panneaux | Chants | Tous */}
+              <div className="w-full max-w-6xl mx-auto px-4 pt-4">
+                <div className="flex items-center gap-1 p-1 bg-[var(--cx-surface-1)] border border-[var(--cx-border)] rounded-lg w-fit">
+                  <button
+                    onClick={() => setSearchCategory('panels')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      searchCategory === 'panels'
+                        ? 'bg-amber-500/20 text-amber-500'
+                        : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
+                    }`}
+                  >
+                    Panneaux
+                  </button>
+                  <button
+                    onClick={() => setSearchCategory('chants')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      searchCategory === 'chants'
+                        ? 'bg-amber-500/20 text-amber-500'
+                        : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
+                    }`}
+                  >
+                    Chants
+                  </button>
+                  <button
+                    onClick={() => setSearchCategory('all')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      searchCategory === 'all'
+                        ? 'bg-amber-500/20 text-amber-500'
+                        : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
+                    }`}
+                  >
+                    Tous
+                  </button>
+                </div>
+              </div>
               <SearchResults
                 query={debouncedQuery}
                 results={searchProducts}

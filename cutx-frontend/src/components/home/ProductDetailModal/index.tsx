@@ -154,6 +154,8 @@ export default function ProductDetailModal({
       .then(([panelData, relatedData]) => {
         setDetails(panelData);
         setRelated(Array.isArray(relatedData) ? relatedData : []);
+        // Track view (fire and forget)
+        fetch(`${API_URL}/api/catalogues/panels/${productId}/view`, { method: 'POST' }).catch(() => {});
       })
       .catch((err) => {
         console.error('Error fetching panel details:', err);
