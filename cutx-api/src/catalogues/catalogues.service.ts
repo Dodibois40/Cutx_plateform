@@ -1469,11 +1469,11 @@ export class CataloguesService {
       FROM thick_facets
       UNION ALL
       SELECT
-        'decor' as facet_type, value as key1, NULL as key2, count
+        'decor' as facet_type, value::text as key1, NULL as key2, count
       FROM decor_facets
       UNION ALL
       SELECT
-        'manu' as facet_type, value as key1, NULL as key2, count
+        'manu' as facet_type, value::text as key1, NULL as key2, count
       FROM manu_facets
     `;
 
