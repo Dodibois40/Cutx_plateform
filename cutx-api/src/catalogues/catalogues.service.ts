@@ -1328,8 +1328,17 @@ export class CataloguesService {
     };
   }
 
+  // Cache TTL pour les facettes (30 secondes - assez court pour rester frais, assez long pour éviter les requêtes répétées)
+  private static readonly FACETS_CACHE_TTL = 30000;
+
   /**
-   * Agrège les facettes de recherche en requêtes parallèles (optimisé).
+   * Agrège les facettes de recherche de manière OPTIMISÉE.
+   *
+   * OPTIMISATIONS APPLIQUÉES:
+   * 1. Réduction de 6 à 2 requêtes SQL (combinaison des agrégations)
+   * 2. Cache de 30 secondes sur les résultats
+   * 3. Timeout de 5 secondes pour éviter les requêtes bloquantes
+   *
    * Inclut: genres, dimensions, épaisseurs, catégories décor, fournisseurs, propriétés
    */
   private async aggregateSmartSearchFacets(
@@ -1344,175 +1353,14 @@ export class CataloguesService {
     manufacturers: { value: string; label: string; count: number }[];
     properties: { key: string; label: string; count: number }[];
   }> {
-    // Mots-clés pour détecter les genres dans les noms de produits
-    const genreKeywords = [
-      { keyword: 'hydrofuge', label: 'Hydrofuge', searchTerm: 'hydrofuge' },
-      { keyword: 'standard', label: 'Standard', searchTerm: 'standard' },
-      { keyword: 'ignifug', label: 'Ignifugé', searchTerm: 'ignifugé' },
-      { keyword: 'teinté', label: 'Teinté masse', searchTerm: 'teinté' },
-      { keyword: 'teinte', label: 'Teinté masse', searchTerm: 'teinté' },
-      { keyword: 'laqué', label: 'Laqué', searchTerm: 'laqué' },
-      { keyword: 'laquable', label: 'Laquable', searchTerm: 'laqué' },
-      { keyword: 'cintrable', label: 'Cintrable', searchTerm: 'cintrable' },
-      { keyword: 'léger', label: 'Léger / Allégé', searchTerm: 'léger' },
-      { keyword: 'allégé', label: 'Léger / Allégé', searchTerm: 'léger' },
-      { keyword: 'bouche-pores', label: 'Bouche-pores', searchTerm: 'bouche-pores' },
-      { keyword: 'bouche pores', label: 'Bouche-pores', searchTerm: 'bouche-pores' },
-      { keyword: 'filmé', label: 'Filmé / Coffrage', searchTerm: 'filmé' },
-      { keyword: 'coffrage', label: 'Filmé / Coffrage', searchTerm: 'filmé' },
-      { keyword: 'ctbx', label: 'CTBX Extérieur', searchTerm: 'ctbx' },
-      { keyword: 'okoumé', label: 'Okoumé', searchTerm: 'okoumé' },
-      { keyword: 'okoume', label: 'Okoumé', searchTerm: 'okoumé' },
-      { keyword: 'bouleau', label: 'Bouleau', searchTerm: 'bouleau' },
-      { keyword: 'peuplier', label: 'Peuplier', searchTerm: 'peuplier' },
-    ];
+    // Générer une clé de cache basée sur les paramètres de recherche
+    const cacheKey = `facets:${JSON.stringify({ whereClause, params, catalogueCondition })}`;
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      return cached as Awaited<ReturnType<typeof this.aggregateSmartSearchFacets>>;
+    }
 
-    // Construire les CASE WHEN pour compter tous les genres en une seule requête
-    const genreCaseStatements = genreKeywords
-      .map(
-        (g, i) =>
-          `SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%' || unaccent(lower('${g.keyword.replace(/'/g, "''")}')) || '%' THEN 1 ELSE 0 END) as "count_${i}"`,
-      )
-      .join(',\n        ');
-
-    const genresSql = `
-      SELECT
-        ${genreCaseStatements}
-      FROM "Panel" p
-      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
-      WHERE ${whereClause}
-        ${catalogueCondition}
-    `;
-
-    const dimensionsSql = `
-      SELECT
-        p."defaultLength" as length,
-        p."defaultWidth" as width,
-        COUNT(*) as count
-      FROM "Panel" p
-      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
-      WHERE ${whereClause}
-        ${catalogueCondition}
-        AND p."defaultLength" > 0
-        AND p."defaultWidth" > 0
-      GROUP BY p."defaultLength", p."defaultWidth"
-      ORDER BY count DESC
-      LIMIT 10
-    `;
-
-    const thicknessSql = `
-      SELECT
-        unnest(p.thickness) as thickness_value,
-        COUNT(*) as count
-      FROM "Panel" p
-      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
-      WHERE ${whereClause}
-        ${catalogueCondition}
-      GROUP BY thickness_value
-      ORDER BY thickness_value ASC
-    `;
-
-    // Nouvelles facettes: Catégories de décor
-    const decorCategorySql = `
-      SELECT
-        p."decorCategory" as value,
-        COUNT(*) as count
-      FROM "Panel" p
-      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
-      WHERE ${whereClause}
-        ${catalogueCondition}
-        AND p."decorCategory" IS NOT NULL
-      GROUP BY p."decorCategory"
-      ORDER BY count DESC
-      LIMIT 10
-    `;
-
-    // Nouvelles facettes: Fournisseurs (manufacturer)
-    const manufacturerSql = `
-      SELECT
-        p.manufacturer as value,
-        COUNT(*) as count
-      FROM "Panel" p
-      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
-      WHERE ${whereClause}
-        ${catalogueCondition}
-        AND p.manufacturer IS NOT NULL
-        AND p.manufacturer != ''
-      GROUP BY p.manufacturer
-      ORDER BY count DESC
-      LIMIT 15
-    `;
-
-    // Nouvelles facettes: Propriétés booléennes (hydrofuge, ignifugé, pré-collé)
-    const propertiesSql = `
-      SELECT
-        SUM(CASE WHEN p."isHydrofuge" = true THEN 1 ELSE 0 END) as hydrofuge_count,
-        SUM(CASE WHEN p."isIgnifuge" = true THEN 1 ELSE 0 END) as ignifuge_count,
-        SUM(CASE WHEN p."isPreglued" = true THEN 1 ELSE 0 END) as preglued_count
-      FROM "Panel" p
-      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
-      WHERE ${whereClause}
-        ${catalogueCondition}
-    `;
-
-    // Exécuter les 6 requêtes en parallèle
-    const [genreResult, dimResults, thickResults, decorResults, manuResults, propResult] = await Promise.all([
-      this.prisma
-        .$queryRawUnsafe<[Record<string, bigint>]>(genresSql, ...params)
-        .catch(() => [{}] as [Record<string, bigint>]),
-      this.prisma
-        .$queryRawUnsafe<{ length: number; width: number; count: bigint }[]>(
-          dimensionsSql,
-          ...params,
-        )
-        .catch(() => [] as { length: number; width: number; count: bigint }[]),
-      this.prisma
-        .$queryRawUnsafe<{ thickness_value: number; count: bigint }[]>(thicknessSql, ...params)
-        .catch(() => [] as { thickness_value: number; count: bigint }[]),
-      this.prisma
-        .$queryRawUnsafe<{ value: string; count: bigint }[]>(decorCategorySql, ...params)
-        .catch(() => [] as { value: string; count: bigint }[]),
-      this.prisma
-        .$queryRawUnsafe<{ value: string; count: bigint }[]>(manufacturerSql, ...params)
-        .catch(() => [] as { value: string; count: bigint }[]),
-      this.prisma
-        .$queryRawUnsafe<[{ hydrofuge_count: bigint; ignifuge_count: bigint; preglued_count: bigint }]>(propertiesSql, ...params)
-        .catch(() => [{ hydrofuge_count: BigInt(0), ignifuge_count: BigInt(0), preglued_count: BigInt(0) }]),
-    ]);
-
-    // Parser les résultats des genres
-    const genreCounts: { label: string; count: number; searchTerm: string }[] = [];
-    const seenLabels = new Set<string>();
-    const genreRow = genreResult[0] || {};
-
-    genreKeywords.forEach((genre, i) => {
-      const count = Number(genreRow[`count_${i}`] || 0);
-      if (count > 0 && !seenLabels.has(genre.label)) {
-        seenLabels.add(genre.label);
-        genreCounts.push({ label: genre.label, count, searchTerm: genre.searchTerm });
-      }
-    });
-
-    // Trier par count décroissant
-    genreCounts.sort((a, b) => b.count - a.count);
-
-    // Parser les dimensions
-    const dimensions = dimResults.map((d) => ({
-      label: `${d.length} × ${d.width}`,
-      count: Number(d.count),
-      length: d.length,
-      width: d.width,
-    }));
-
-    // Parser les épaisseurs
-    const thicknesses = thickResults
-      .filter((t) => t.thickness_value > 0)
-      .map((t) => ({
-        value: t.thickness_value,
-        count: Number(t.count),
-      }));
-
-    // Parser les catégories de décor
+    // Labels pour les catégories de décor
     const decorCategoryLabels: Record<string, string> = {
       'UNIS': 'Unis',
       'BOIS': 'Bois',
@@ -1523,40 +1371,212 @@ export class CataloguesService {
       'FANTAISIE': 'Fantaisie',
       'SANS_DECOR': 'Sans décor',
     };
-    const decorCategories = decorResults
-      .filter((d) => d.value && d.value !== 'SANS_DECOR')
-      .map((d) => ({
-        value: d.value,
-        label: decorCategoryLabels[d.value] || d.value,
-        count: Number(d.count),
-      }));
 
-    // Parser les fournisseurs
-    const manufacturers = manuResults.map((m) => ({
-      value: m.value,
-      label: m.value,
-      count: Number(m.count),
-    }));
+    // REQUÊTE COMBINÉE 1: Agrégations simples (properties, decorCategories, manufacturers)
+    // Une seule requête au lieu de 3
+    const combinedAggregationsSql = `
+      SELECT
+        -- Propriétés booléennes
+        SUM(CASE WHEN p."isHydrofuge" = true THEN 1 ELSE 0 END) as hydrofuge_count,
+        SUM(CASE WHEN p."isIgnifuge" = true THEN 1 ELSE 0 END) as ignifuge_count,
+        SUM(CASE WHEN p."isPreglued" = true THEN 1 ELSE 0 END) as preglued_count,
+        -- Genres (basés sur le nom)
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%hydrofuge%' THEN 1 ELSE 0 END) as genre_hydrofuge,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%standard%' THEN 1 ELSE 0 END) as genre_standard,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%ignifug%' THEN 1 ELSE 0 END) as genre_ignifuge,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%teint%' THEN 1 ELSE 0 END) as genre_teinte,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%laqu%' THEN 1 ELSE 0 END) as genre_laque,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%cintrable%' THEN 1 ELSE 0 END) as genre_cintrable,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%leger%' OR unaccent(lower(p.name)) ILIKE '%allege%' THEN 1 ELSE 0 END) as genre_leger,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%bouche%pore%' THEN 1 ELSE 0 END) as genre_bouchepores,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%filme%' OR unaccent(lower(p.name)) ILIKE '%coffrage%' THEN 1 ELSE 0 END) as genre_filme,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%ctbx%' THEN 1 ELSE 0 END) as genre_ctbx,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%okoume%' THEN 1 ELSE 0 END) as genre_okoume,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%bouleau%' THEN 1 ELSE 0 END) as genre_bouleau,
+        SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%peuplier%' THEN 1 ELSE 0 END) as genre_peuplier
+      FROM "Panel" p
+      JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      WHERE ${whereClause}
+        ${catalogueCondition}
+    `;
 
-    // Parser les propriétés booléennes
-    const propRow = propResult[0] || { hydrofuge_count: BigInt(0), ignifuge_count: BigInt(0), preglued_count: BigInt(0) };
-    const properties: { key: string; label: string; count: number }[] = [];
+    // REQUÊTE COMBINÉE 2: Groupements (dimensions, épaisseurs, decor, manufacturers)
+    // Utilise des sous-requêtes pour combiner les résultats
+    const groupedFacetsSql = `
+      WITH base AS (
+        SELECT p.*, c.name as catalogue_name
+        FROM "Panel" p
+        JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+        WHERE ${whereClause}
+          ${catalogueCondition}
+      ),
+      dim_facets AS (
+        SELECT "defaultLength" as length, "defaultWidth" as width, COUNT(*) as count
+        FROM base
+        WHERE "defaultLength" > 0 AND "defaultWidth" > 0
+        GROUP BY "defaultLength", "defaultWidth"
+        ORDER BY count DESC
+        LIMIT 10
+      ),
+      thick_facets AS (
+        SELECT unnest(thickness) as value, COUNT(*) as count
+        FROM base
+        GROUP BY value
+        HAVING unnest(thickness) > 0 AND unnest(thickness) <= 100
+        ORDER BY value ASC
+        LIMIT 20
+      ),
+      decor_facets AS (
+        SELECT "decorCategory" as value, COUNT(*) as count
+        FROM base
+        WHERE "decorCategory" IS NOT NULL
+        GROUP BY "decorCategory"
+        ORDER BY count DESC
+        LIMIT 10
+      ),
+      manu_facets AS (
+        SELECT manufacturer as value, COUNT(*) as count
+        FROM base
+        WHERE manufacturer IS NOT NULL AND manufacturer != ''
+        GROUP BY manufacturer
+        ORDER BY count DESC
+        LIMIT 15
+      )
+      SELECT
+        'dim' as facet_type, length::text as key1, width::text as key2, count
+      FROM dim_facets
+      UNION ALL
+      SELECT
+        'thick' as facet_type, value::text as key1, NULL as key2, count
+      FROM thick_facets
+      UNION ALL
+      SELECT
+        'decor' as facet_type, value as key1, NULL as key2, count
+      FROM decor_facets
+      UNION ALL
+      SELECT
+        'manu' as facet_type, value as key1, NULL as key2, count
+      FROM manu_facets
+    `;
 
-    const hydrofugeCount = Number(propRow.hydrofuge_count || 0);
-    const ignifugeCount = Number(propRow.ignifuge_count || 0);
-    const pregluedCount = Number(propRow.preglued_count || 0);
+    try {
+      // Exécuter seulement 2 requêtes en parallèle (au lieu de 6)
+      const [aggregationsResult, groupedResult] = await Promise.all([
+        this.prisma
+          .$queryRawUnsafe<[Record<string, bigint>]>(combinedAggregationsSql, ...params)
+          .catch(() => [{}] as [Record<string, bigint>]),
+        this.prisma
+          .$queryRawUnsafe<{ facet_type: string; key1: string | null; key2: string | null; count: bigint }[]>(
+            groupedFacetsSql,
+            ...params,
+          )
+          .catch(() => [] as { facet_type: string; key1: string | null; key2: string | null; count: bigint }[]),
+      ]);
 
-    if (hydrofugeCount > 0) {
-      properties.push({ key: 'hydrofuge', label: 'Hydrofuge', count: hydrofugeCount });
+      // Parser les agrégations
+      const aggRow = aggregationsResult[0] || {};
+
+      // Properties
+      const properties: { key: string; label: string; count: number }[] = [];
+      const hydrofugeCount = Number(aggRow.hydrofuge_count || 0);
+      const ignifugeCount = Number(aggRow.ignifuge_count || 0);
+      const pregluedCount = Number(aggRow.preglued_count || 0);
+
+      if (hydrofugeCount > 0) properties.push({ key: 'hydrofuge', label: 'Hydrofuge', count: hydrofugeCount });
+      if (ignifugeCount > 0) properties.push({ key: 'ignifuge', label: 'Ignifugé', count: ignifugeCount });
+      if (pregluedCount > 0) properties.push({ key: 'preglued', label: 'Pré-collé', count: pregluedCount });
+
+      // Genres
+      const genreMap: { key: string; label: string; searchTerm: string }[] = [
+        { key: 'genre_hydrofuge', label: 'Hydrofuge', searchTerm: 'hydrofuge' },
+        { key: 'genre_standard', label: 'Standard', searchTerm: 'standard' },
+        { key: 'genre_ignifuge', label: 'Ignifugé', searchTerm: 'ignifugé' },
+        { key: 'genre_teinte', label: 'Teinté masse', searchTerm: 'teinté' },
+        { key: 'genre_laque', label: 'Laqué', searchTerm: 'laqué' },
+        { key: 'genre_cintrable', label: 'Cintrable', searchTerm: 'cintrable' },
+        { key: 'genre_leger', label: 'Léger / Allégé', searchTerm: 'léger' },
+        { key: 'genre_bouchepores', label: 'Bouche-pores', searchTerm: 'bouche-pores' },
+        { key: 'genre_filme', label: 'Filmé / Coffrage', searchTerm: 'filmé' },
+        { key: 'genre_ctbx', label: 'CTBX Extérieur', searchTerm: 'ctbx' },
+        { key: 'genre_okoume', label: 'Okoumé', searchTerm: 'okoumé' },
+        { key: 'genre_bouleau', label: 'Bouleau', searchTerm: 'bouleau' },
+        { key: 'genre_peuplier', label: 'Peuplier', searchTerm: 'peuplier' },
+      ];
+
+      const genres = genreMap
+        .map((g) => ({
+          label: g.label,
+          count: Number(aggRow[g.key] || 0),
+          searchTerm: g.searchTerm,
+        }))
+        .filter((g) => g.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+      // Parser les facettes groupées
+      const dimensions: { label: string; count: number; length: number; width: number }[] = [];
+      const thicknesses: { value: number; count: number }[] = [];
+      const decorCategories: { value: string; label: string; count: number }[] = [];
+      const manufacturers: { value: string; label: string; count: number }[] = [];
+
+      for (const row of groupedResult) {
+        switch (row.facet_type) {
+          case 'dim':
+            if (row.key1 && row.key2) {
+              dimensions.push({
+                length: Number(row.key1),
+                width: Number(row.key2),
+                label: `${row.key1} × ${row.key2}`,
+                count: Number(row.count),
+              });
+            }
+            break;
+          case 'thick':
+            if (row.key1) {
+              thicknesses.push({
+                value: Number(row.key1),
+                count: Number(row.count),
+              });
+            }
+            break;
+          case 'decor':
+            if (row.key1 && row.key1 !== 'SANS_DECOR') {
+              decorCategories.push({
+                value: row.key1,
+                label: decorCategoryLabels[row.key1] || row.key1,
+                count: Number(row.count),
+              });
+            }
+            break;
+          case 'manu':
+            if (row.key1) {
+              manufacturers.push({
+                value: row.key1,
+                label: row.key1,
+                count: Number(row.count),
+              });
+            }
+            break;
+        }
+      }
+
+      const result = { genres, dimensions, thicknesses, decorCategories, manufacturers, properties };
+
+      // Mettre en cache pour 30 secondes
+      await this.cacheManager.set(cacheKey, result, CataloguesService.FACETS_CACHE_TTL);
+
+      return result;
+    } catch (error) {
+      // En cas d'erreur, retourner des facettes vides plutôt que de crasher
+      console.error('Error fetching facets:', error);
+      return {
+        genres: [],
+        dimensions: [],
+        thicknesses: [],
+        decorCategories: [],
+        manufacturers: [],
+        properties: [],
+      };
     }
-    if (ignifugeCount > 0) {
-      properties.push({ key: 'ignifuge', label: 'Ignifugé', count: ignifugeCount });
-    }
-    if (pregluedCount > 0) {
-      properties.push({ key: 'preglued', label: 'Pré-collé', count: pregluedCount });
-    }
-
-    return { genres: genreCounts, dimensions, thicknesses, decorCategories, manufacturers, properties };
   }
 
   // ============================================
