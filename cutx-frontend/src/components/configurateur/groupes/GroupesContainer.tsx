@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { useGroupes } from '@/contexts/GroupesContext';
 import type { LignePrestationV3, TypeFinition } from '@/lib/configurateur/types';
-import type { PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
+import { getLocalSuggestedDecor, type PanneauCatalogue } from '@/lib/services/panneaux-catalogue';
 import type { DragEndResult, GroupeWarning, ChantGroupe } from '@/lib/configurateur/groupes/types';
 import { GroupePanneau } from './GroupePanneau';
 import { ZoneNonAssignee } from './ZoneNonAssignee';
@@ -255,17 +255,20 @@ export function GroupesContainer({
   }, [onSelectPanneau, updatePanneauGroupe]);
 
   const handleSelectChantGroupe = useCallback((groupeId: string) => {
-    // Récupérer la référence fabricant du panneau pour suggérer un chant correspondant
+    // Récupérer le décor du panneau pour suggérer un chant correspondant
     const groupe = groupes.find(g => g.id === groupeId);
-    const refFabricant = groupe?.panneau?.type === 'catalogue'
-      ? groupe.panneau.panneau.refFabricant
-      : null;
+    let suggestedDecor: string | null = null;
 
-    console.log('[GroupesContainer] handleSelectChantGroupe called, groupeId:', groupeId, 'refFabricant:', refFabricant);
+    if (groupe?.panneau?.type === 'catalogue') {
+      // Utiliser la fonction d'extraction de décor (decorName > decorCode > extraction du nom)
+      suggestedDecor = getLocalSuggestedDecor(groupe.panneau.panneau);
+    }
+
+    console.log('[GroupesContainer] handleSelectChantGroupe called, groupeId:', groupeId, 'suggestedDecor:', suggestedDecor);
 
     onSelectChant((chant) => {
       updateChantGroupe(groupeId, chant);
-    }, refFabricant);
+    }, suggestedDecor);
   }, [onSelectChant, updateChantGroupe, groupes]);
 
   const handleClearChantGroupe = useCallback((groupeId: string) => {

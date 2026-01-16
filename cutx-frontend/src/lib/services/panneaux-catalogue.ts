@@ -22,6 +22,9 @@ export interface PanneauCatalogue {
   imageUrl?: string;
   // Référence fabricant (ex: "H1180" pour Egger) - pour suggestion de chant
   refFabricant?: string | null;
+  // Champs de décor pour matching chant
+  decorCode?: string | null;
+  decorName?: string | null;
 }
 
 // Type retourné par l'API backend (format PostgreSQL)
@@ -47,6 +50,10 @@ interface ApiPanel {
   };
   createdAt: string;
   updatedAt: string;
+  // Champs de décor
+  manufacturerRef?: string | null;
+  decorCode?: string | null;
+  decorName?: string | null;
 }
 
 // Mapping material -> categorie
@@ -109,6 +116,10 @@ function transformApiPanel(panel: ApiPanel): PanneauCatalogue {
     longueur: panel.defaultLength,
     largeur: panel.defaultWidth,
     imageUrl: panel.imageUrl || undefined,
+    // Champs de décor pour matching chant
+    refFabricant: panel.manufacturerRef || null,
+    decorCode: panel.decorCode || null,
+    decorName: panel.decorName || null,
   };
 }
 
@@ -226,3 +237,93 @@ export const CATEGORIES_PANNEAUX_LABELS: Record<CategoriePanneau, string> = {
   cp: 'Contreplaqué',
   bois_massif: 'Bois massif',
 };
+
+// Liste des décors connus pour extraction depuis le nom
+const DECORS_CONNUS = [
+  'chêne',
+  'noyer',
+  'châtaignier',
+  'hêtre',
+  'frêne',
+  'érable',
+  'merisier',
+  'bouleau',
+  'acacia',
+  'teck',
+  'wengé',
+  'zebrano',
+  'orme',
+  'pin',
+  'sapin',
+  'mélèze',
+  'olivier',
+  'cerisier',
+  'aulne',
+  'tilleul',
+  'peuplier',
+  'bambou',
+  'blanc',
+  'noir',
+  'gris',
+  'beige',
+  'anthracite',
+  'crème',
+  'taupe',
+  'sable',
+  'béton',
+  'marbre',
+  'pierre',
+  'ardoise',
+  'granit',
+  'onyx',
+];
+
+/**
+ * Extrait le décor d'un nom de panneau en cherchant des mots-clés connus
+ * @param name - Le nom du panneau
+ * @returns Le décor trouvé ou null
+ */
+export function extractDecorFromName(name: string): string | null {
+  const nameLower = name.toLowerCase();
+  for (const decor of DECORS_CONNUS) {
+    if (nameLower.includes(decor)) {
+      return decor.charAt(0).toUpperCase() + decor.slice(1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Récupère le décor suggéré pour un panneau (pour pré-remplir la recherche de chant)
+ * Stratégie : decorName > decorCode > extraction du nom
+ * @param panelId - L'ID du panneau
+ * @returns Le décor suggéré et sa source
+ */
+export async function getSuggestedDecor(
+  panelId: string
+): Promise<{ decor: string | null; source: string | null }> {
+  try {
+    return await apiCall<{ decor: string | null; source: string | null }>(
+      `/api/panels/${panelId}/suggested-decor`
+    );
+  } catch {
+    return { decor: null, source: null };
+  }
+}
+
+/**
+ * Extrait le décor suggéré d'un panneau (version synchrone, sans appel API)
+ * Utilise les données locales du panneau
+ * @param panneau - Le panneau
+ * @returns Le décor suggéré ou null
+ */
+export function getLocalSuggestedDecor(panneau: PanneauCatalogue): string | null {
+  // Priorité : decorName > decorCode > extraction du nom
+  if (panneau.decorName) {
+    return panneau.decorName;
+  }
+  if (panneau.decorCode) {
+    return panneau.decorCode;
+  }
+  return extractDecorFromName(panneau.nom);
+}

@@ -3,6 +3,13 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { Catalogue, Category, Panel, Prisma } from '@prisma/client';
+import {
+  SEARCH_CONSTANTS,
+  CACHE_CONSTANTS,
+  STOCK_STATUS,
+  PANEL_TYPES,
+  SORT_FIELD_MAP,
+} from './catalogues.constants';
 
 // Type for full-text search results
 interface FullTextSearchResult {
@@ -226,6 +233,10 @@ export class CataloguesService {
     });
   }
 
+  /**
+   * @deprecated Utiliser findAllPanels() pour une recherche plus complète
+   * Cette méthode est conservée pour la rétrocompatibilité avec /api/catalogues/search
+   */
   async searchPanels(
     query: string,
     limit: number = 20,

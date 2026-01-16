@@ -533,9 +533,26 @@ export function buildSmartSearchSQL(parsed: ParsedSmartQuery): {
   searchTerms.push(...parsed.subcategories);
   // Add all colors, woods, decors, qualifiers (usually one each, but could be multiple)
   searchTerms.push(...parsed.colors);
-  searchTerms.push(...parsed.woods);
   searchTerms.push(...parsed.decors);
   searchTerms.push(...parsed.colorQualifiers);
+
+  // Pour les essences de bois, inclure tous les synonymes (ex: "chêne" → cherche aussi "oak")
+  for (const wood of parsed.woods) {
+    const synonyms = WOOD_SYNONYMS[wood] || WOOD_SYNONYMS[wood.toLowerCase()] || [wood];
+    const allVariants = [wood, ...synonyms.filter(s => s.toLowerCase() !== wood.toLowerCase())];
+
+    // Construire une condition OR pour tous les synonymes
+    const woodConditions = allVariants.map(() => {
+      const condition = `unaccent(lower(p.name)) ILIKE '%' || unaccent(lower($${paramIndex})) || '%'`;
+      paramIndex++;
+      return condition;
+    });
+
+    if (woodConditions.length > 0) {
+      whereParts.push(`(${woodConditions.join(' OR ')})`);
+      params.push(...allVariants);
+    }
+  }
 
   for (const term of searchTerms) {
     whereParts.push(`(

@@ -1,6 +1,7 @@
 'use client';
 
 import '@/app/styles/cutx.css';
+import './ConfigurateurV3.css';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
@@ -150,7 +151,7 @@ function ConfigurateurContent() {
   const [selecteurChantOpen, setSelecteurChantOpen] = useState(false);
   // Utiliser un ref pour le callback afin d'éviter les problèmes de closure
   const selecteurChantCallbackRef = useRef<((c: ChantGroupe) => void) | null>(null);
-  const [selecteurChantSuggestedRef, setSelecteurChantSuggestedRef] = useState<string | null>(null);
+  const [selecteurChantSuggestedDecor, setSelecteurChantSuggestedDecor] = useState<string | null>(null);
 
   // State pour le popup multicouche (mode groupes)
   const [multicoucheGroupesOpen, setMulticoucheGroupesOpen] = useState(false);
@@ -213,11 +214,11 @@ function ConfigurateurContent() {
   }, [selecteurPanneauCallback]);
 
   // Handler pour ouvrir le sélecteur de chant (mode groupes)
-  const handleSelectChantGroupes = useCallback((callback: (chant: ChantGroupe) => void, suggestedRef?: string | null) => {
-    console.log('[ConfigV3] handleSelectChantGroupes called, suggestedRef:', suggestedRef);
+  const handleSelectChantGroupes = useCallback((callback: (chant: ChantGroupe) => void, suggestedDecor?: string | null) => {
+    console.log('[ConfigV3] handleSelectChantGroupes called, suggestedDecor:', suggestedDecor);
     // Stocker le callback dans le ref (évite les problèmes de closure)
     selecteurChantCallbackRef.current = callback;
-    setSelecteurChantSuggestedRef(suggestedRef ?? null);
+    setSelecteurChantSuggestedDecor(suggestedDecor ?? null);
     setSelecteurChantOpen(true);
   }, []);
 
@@ -235,7 +236,7 @@ function ConfigurateurContent() {
     }
     setSelecteurChantOpen(false);
     selecteurChantCallbackRef.current = null;
-    setSelecteurChantSuggestedRef(null);
+    setSelecteurChantSuggestedDecor(null);
   }, []);
 
   // Handler pour ouvrir le popup multicouche en mode édition (pour un groupe existant)
@@ -786,10 +787,10 @@ function ConfigurateurContent() {
         isOpen={selecteurChantOpen}
         onClose={() => {
           setSelecteurChantOpen(false);
-          setSelecteurChantSuggestedRef(null);
+          setSelecteurChantSuggestedDecor(null);
         }}
         onSelect={handleChantSelected}
-        suggestedRef={selecteurChantSuggestedRef}
+        suggestedDecor={selecteurChantSuggestedDecor}
       />
 
       {/* Popup Multicouche (mode groupes) */}
@@ -820,192 +821,6 @@ function ConfigurateurContent() {
         }}
       />
 
-      <style jsx>{`
-        .configurateur {
-          min-height: 100vh;
-          padding-bottom: 100px;
-          background: var(--cx-surface-0);
-        }
-
-        /* Warning Banner */
-        .warning-banner {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin: 10px 24px 16px;
-          padding: 12px 16px;
-          font-size: var(--cx-text-sm);
-          font-weight: 500;
-          color: #f59e0b;
-          background: rgba(245, 158, 11, 0.08);
-          border: 1px solid rgba(245, 158, 11, 0.25);
-          border-radius: var(--cx-radius-lg);
-        }
-
-        .warning-banner svg {
-          flex-shrink: 0;
-          opacity: 0.9;
-        }
-
-        /* Toast */
-        .toast-container {
-          padding: 12px 24px;
-        }
-
-        .toast {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 12px 16px;
-          border-radius: var(--cx-radius-lg);
-          animation: cx-slide-up var(--cx-transition-base);
-        }
-
-        .toast--success {
-          background: var(--cx-success-muted);
-          border-left: 3px solid var(--cx-success);
-        }
-
-        .toast--warning {
-          background: var(--cx-warning-muted);
-          border-left: 3px solid var(--cx-warning);
-        }
-
-        .toast--error {
-          background: var(--cx-error-muted);
-          border-left: 3px solid var(--cx-error);
-        }
-
-        .toast-icon {
-          flex-shrink: 0;
-          margin-top: 1px;
-        }
-
-        .toast--success .toast-icon { color: var(--cx-success); }
-        .toast--warning .toast-icon { color: var(--cx-warning); }
-        .toast--error .toast-icon { color: var(--cx-error); }
-
-        .toast-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .toast-message {
-          margin: 0;
-          font-size: var(--cx-text-sm);
-          font-weight: 500;
-          color: var(--cx-text-primary);
-        }
-
-        .toast-details {
-          margin: 8px 0 0 0;
-          padding-left: 16px;
-          font-size: var(--cx-text-xs);
-          color: var(--cx-text-secondary);
-          list-style-type: disc;
-        }
-
-        .toast-details li {
-          margin-bottom: 2px;
-        }
-
-        .toast-close {
-          flex-shrink: 0;
-          padding: 4px;
-          background: transparent;
-          border: none;
-          color: var(--cx-text-muted);
-          cursor: pointer;
-          border-radius: var(--cx-radius-sm);
-          transition: all var(--cx-transition-fast);
-        }
-
-        .toast-close:hover {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--cx-text-primary);
-        }
-
-        /* Table Section */
-        .table-section {
-          padding: 0 24px;
-          margin-top: 10px;
-        }
-
-        /* Action Bar */
-        .action-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          padding: 16px 24px;
-        }
-
-        .action-bar-left {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .action-bar-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .save-indicator {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 10px;
-          font-size: var(--cx-text-xs);
-          color: var(--cx-accent);
-          background: var(--cx-accent-subtle);
-          border-radius: var(--cx-radius-md);
-        }
-
-        /* Pricing Section */
-        .pricing-section {
-          padding: 0 24px 16px;
-        }
-
-        /* Validation Section */
-        .validation-section {
-          padding: 0 24px 16px;
-        }
-
-        .validation-banner {
-          padding: 12px 16px;
-          background: var(--cx-error-muted);
-          border-radius: var(--cx-radius-lg);
-          border-left: 3px solid var(--cx-error);
-        }
-
-        .validation-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 8px;
-          font-size: var(--cx-text-sm);
-          font-weight: 600;
-          color: var(--cx-error);
-        }
-
-        .validation-list {
-          margin: 0;
-          padding-left: 24px;
-          font-size: var(--cx-text-sm);
-          color: var(--cx-text-secondary);
-          list-style-type: disc;
-        }
-
-        .validation-list li {
-          margin-bottom: 4px;
-        }
-
-        .validation-list li:last-child {
-          margin-bottom: 0;
-        }
-      `}</style>
     </div>
   );
 }

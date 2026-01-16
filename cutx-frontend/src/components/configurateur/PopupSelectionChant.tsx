@@ -28,8 +28,8 @@ interface PopupSelectionChantProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (chant: ChantGroupe) => void;
-  /** Reference fabricant du panneau pour suggérer un chant correspondant */
-  suggestedRef?: string | null;
+  /** Décor du panneau pour suggérer un chant correspondant (ex: "Chêne", "Noyer") */
+  suggestedDecor?: string | null;
 }
 
 // Popular thicknesses for edge banding
@@ -39,7 +39,7 @@ export default function PopupSelectionChant({
   isOpen,
   onClose,
   onSelect,
-  suggestedRef,
+  suggestedDecor,
 }: PopupSelectionChantProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<ChantResult[]>([]);
@@ -53,11 +53,11 @@ export default function PopupSelectionChant({
 
   // Reset and initialize on open
   useEffect(() => {
-    console.log('[PopupSelectionChant] isOpen changed:', isOpen, 'suggestedRef:', suggestedRef);
+    console.log('[PopupSelectionChant] isOpen changed:', isOpen, 'suggestedDecor:', suggestedDecor);
     if (isOpen) {
       // If we have a suggested ref, start with that search
-      if (suggestedRef) {
-        setSearchQuery(suggestedRef);
+      if (suggestedDecor) {
+        setSearchQuery(suggestedDecor);
         setHasSuggestion(true);
       } else {
         setSearchQuery('');
@@ -69,7 +69,7 @@ export default function PopupSelectionChant({
 
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, suggestedRef]);
+  }, [isOpen, suggestedDecor]);
 
   // Search function
   const doSearch = useCallback(async (query: string, thickness?: number | null) => {
@@ -85,7 +85,7 @@ export default function PopupSelectionChant({
     try {
       const params = new URLSearchParams({
         q: query,
-        productType: 'BANDE_DE_CHANT',
+        category: 'chants', // Filtre pour n'avoir que les bandes de chant
         limit: '30',
       });
 
@@ -277,7 +277,7 @@ export default function PopupSelectionChant({
         </div>
 
         {/* Suggestion banner */}
-        {hasSuggestion && suggestedRef && (
+        {hasSuggestion && suggestedDecor && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -292,12 +292,12 @@ export default function PopupSelectionChant({
               color: '#eab308',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
-            }}>Chant suggéré</span>
+            }}>Décor détecté</span>
             <span style={{
               fontSize: '0.875rem',
               fontWeight: 600,
               color: 'var(--cx-text-primary, #fff)',
-            }}>{suggestedRef}</span>
+            }}>{suggestedDecor}</span>
             <ArrowRight size={14} style={{ color: '#eab308', opacity: 0.7 }} />
           </div>
         )}
@@ -441,9 +441,9 @@ export default function PopupSelectionChant({
             }}>
               <Search size={32} style={{ opacity: 0.3 }} />
               <p style={{ margin: 0 }}>Tapez pour rechercher une bande de chant</p>
-              {suggestedRef && (
+              {suggestedDecor && (
                 <button
-                  onClick={() => setSearchQuery(suggestedRef)}
+                  onClick={() => setSearchQuery(suggestedDecor)}
                   style={{
                     marginTop: '8px',
                     padding: '8px 16px',
@@ -455,7 +455,7 @@ export default function PopupSelectionChant({
                     cursor: 'pointer',
                   }}
                 >
-                  Rechercher "{suggestedRef}"
+                  Rechercher "{suggestedDecor}"
                 </button>
               )}
             </div>
