@@ -16,6 +16,13 @@ import {
 import FilesPanel, { DropZoneVisual } from '@/components/home/ImportWorkspace/FilesPanel';
 import WorkspaceBottomBar from '@/components/home/ImportWorkspace/WorkspaceBottomBar';
 import SplitThicknessModal from '@/components/home/ImportWorkspace/SplitThicknessModal';
+import {
+  MulticoucheBuilder,
+  MulticoucheBuilderProvider,
+  useMulticoucheBuilder,
+  ModeSelector,
+  type HomePanelMode,
+} from '@/components/home/multicouche-builder';
 import dynamic from 'next/dynamic';
 import { MULTI_GROUP_CONFIG_KEY, MASSIF_PIECES_STORAGE_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
 import type { DxfMassifPiece } from '@/lib/configurateur/import/types';
@@ -53,7 +60,9 @@ function HomePageLoading() {
 export default function HomePage() {
   return (
     <Suspense fallback={<HomePageLoading />}>
-      <HomePageContent />
+      <MulticoucheBuilderProvider>
+        <HomePageContent />
+      </MulticoucheBuilderProvider>
     </Suspense>
   );
 }
@@ -62,6 +71,9 @@ function HomePageContent() {
   const t = useTranslations('common');
   const { isSignedIn } = useUser();
   const { isAdmin } = useIsAdmin();
+
+  // Multicouche builder context
+  const multicoucheBuilder = useMulticoucheBuilder();
 
   // Prevent hydration mismatch - render same HTML on server and first client render
   const [mounted, setMounted] = useState(false);
@@ -91,10 +103,14 @@ function HomePageContent() {
   const [searchingChantForFileId, setSearchingChantForFileId] = useState<string | null>(null);
   // Panel search mode - tracks which file we're searching panel for (from "Rechercher" button)
   const [searchingPanelForFileId, setSearchingPanelForFileId] = useState<string | null>(null);
+  // Chant search mode for multicouche builder
+  const [searchingChantForMulticouche, setSearchingChantForMulticouche] = useState(false);
   // Product detail modal
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
   // Search category: panels (panneaux), chants (bandes de chant), all (tous)
   const [searchCategory, setSearchCategory] = useState<'panels' | 'chants' | 'all'>('all');
+  // Panel mode: industriel (fichiers) ou multicouche (builder)
+  const [panelMode, setPanelMode] = useState<HomePanelMode>('industriel');
   // Suggested chant for the panel being searched
   const [suggestedChant, setSuggestedChant] = useState<{
     chant: SearchProduct | null;
@@ -269,24 +285,36 @@ function HomePageContent() {
       .catch(err => console.error('[SuggestedChant] Error:', err));
   }, [searchingChantForFileId, fileImport.importedFiles]);
 
-  // Handle product click - create virtual file, assign panel, or assign chant
+  // Handle product click - create virtual file, assign panel, assign chant, or assign to multicouche layer
   const handleProductClick = useCallback((product: SearchProduct) => {
     if (searchingChantForFileId) {
-      // In chant search mode - assign chant and exit mode
+      // In chant search mode (industriel) - assign chant and exit mode
       fileImport.assignChantToFile(searchingChantForFileId, product);
       setSearchingChantForFileId(null);
       // Don't clear search - user might want to continue browsing
+    } else if (searchingChantForMulticouche) {
+      // In chant search mode (multicouche) - assign chant to builder and exit mode
+      multicoucheBuilder.assignerChant(product);
+      setSearchingChantForMulticouche(false);
+      console.log('[HomePage] Assigned chant to multicouche builder:', product.nom);
     } else if (searchingPanelForFileId) {
       // In panel search mode - assign panel to existing file and exit mode
       fileImport.assignPanelToFile(searchingPanelForFileId, product);
       setSearchingPanelForFileId(null);
       console.log('[HomePage] Assigned panel to file from click:', product.nom);
+    } else if (panelMode === 'multicouche' && multicoucheBuilder.activeCoucheId) {
+      // In multicouche mode with active layer - assign product to layer
+      multicoucheBuilder.assignerProduit(multicoucheBuilder.activeCoucheId, product);
+      console.log('[HomePage] Assigned product to multicouche layer:', product.nom);
+    } else if (panelMode === 'multicouche') {
+      // In multicouche mode but no active layer - do nothing, user must select a layer first
+      console.log('[HomePage] Multicouche mode: select a layer first');
     } else {
-      // Normal mode - create virtual file in right column (same as drag & drop)
+      // Normal mode (industriel) - create virtual file in right column (same as drag & drop)
       fileImport.addVirtualFile(product);
       console.log('[HomePage] Created virtual file from click:', product.nom);
     }
-  }, [searchingChantForFileId, searchingPanelForFileId, fileImport]);
+  }, [searchingChantForFileId, searchingChantForMulticouche, searchingPanelForFileId, fileImport, panelMode, multicoucheBuilder]);
 
   // Handle panel search - triggered from FilesPanel "Rechercher" button on detected panel
   const handleSearchPanel = useCallback((file: import('@/components/home/hooks/useFileImport').ImportedFileData) => {
@@ -305,6 +333,16 @@ function HomePageContent() {
     // Extract decor from assigned panel name as search suggestion
     const decor = file.assignedPanel?.nom ? extractDecorFromName(file.assignedPanel.nom) : null;
     setQuery(decor || '');
+  }, [setQuery]);
+
+  // Handle chant search for multicouche builder
+  const handleSearchChantMulticouche = useCallback(() => {
+    setSearchingChantForMulticouche(true);
+    // Activate Chants filter
+    setSearchCategory('chants');
+    // Clear query to start fresh search
+    setQuery('');
+    console.log('[HomePage] Entering chant search mode for multicouche builder');
   }, [setQuery]);
 
   // Handle clear chant - triggered from FilesPanel
@@ -566,7 +604,7 @@ function HomePageContent() {
             {/* Landing page layout (centered) */}
             {!hasSearched && (
               <div className="w-full px-4">
-                <div className="text-center mb-10">
+                <div className="text-center mb-8">
                   <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4">
                     <span className="text-white">Cut</span>
                     <span className="text-amber-500">X</span>
@@ -578,6 +616,17 @@ function HomePageContent() {
                     {t('home.description')}
                   </p>
                 </div>
+
+                {/* MODE SELECTOR - LE CHOIX SE FAIT ICI, AVANT LA RECHERCHE */}
+                <div className="flex justify-center mb-6">
+                  <ModeSelector
+                    mode={panelMode}
+                    onModeChange={setPanelMode}
+                    industrielCount={fileImport.totalFiles}
+                    multicoucheCount={multicoucheBuilder.couches.filter(c => c.produit).length}
+                  />
+                </div>
+
                 <div className="flex justify-center">
                   <HomeSearchBar
                     value={query}
@@ -614,7 +663,7 @@ function HomePageContent() {
                       isCompact={true}
                       autoFocus={true}
                     />
-                    {/* Chant search mode indicator */}
+                    {/* Chant search mode indicator (industriel) */}
                     {searchingChantForFileId && (
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full">
@@ -622,6 +671,20 @@ function HomePageContent() {
                         </span>
                         <button
                           onClick={() => setSearchingChantForFileId(null)}
+                          className="text-xs text-[var(--cx-text-muted)] hover:text-amber-400 transition-colors"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    )}
+                    {/* Chant search mode indicator (multicouche) */}
+                    {searchingChantForMulticouche && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full">
+                          Chant pour panneau multicouche
+                        </span>
+                        <button
+                          onClick={() => setSearchingChantForMulticouche(false)}
                           className="text-xs text-[var(--cx-text-muted)] hover:text-amber-400 transition-colors"
                         >
                           Annuler
@@ -637,39 +700,53 @@ function HomePageContent() {
           {/* Results section */}
           {hasSearched && (
             <div className="flex-1 overflow-y-auto relative z-10">
-              {/* Category tabs - Panneaux | Chants | Tous */}
+              {/* Mode selector + Category tabs - LE CHOIX CLEF SE FAIT ICI */}
               <div className="w-full max-w-6xl mx-auto px-4 pt-4">
-                <div className="flex items-center gap-1 p-1 bg-[var(--cx-surface-1)] border border-[var(--cx-border)] rounded-lg w-fit">
-                  <button
-                    onClick={() => setSearchCategory('panels')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      searchCategory === 'panels'
-                        ? 'bg-amber-500/20 text-amber-500'
-                        : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
-                    }`}
-                  >
-                    Panneaux
-                  </button>
-                  <button
-                    onClick={() => setSearchCategory('chants')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      searchCategory === 'chants'
-                        ? 'bg-amber-500/20 text-amber-500'
-                        : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
-                    }`}
-                  >
-                    Chants
-                  </button>
-                  <button
-                    onClick={() => setSearchCategory('all')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      searchCategory === 'all'
-                        ? 'bg-amber-500/20 text-amber-500'
-                        : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
-                    }`}
-                  >
-                    Tous
-                  </button>
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* Mode: Industriel / Multicouche - THE KEY CHOICE */}
+                  <ModeSelector
+                    mode={panelMode}
+                    onModeChange={setPanelMode}
+                    industrielCount={fileImport.totalFiles}
+                    multicoucheCount={multicoucheBuilder.couches.filter(c => c.produit).length}
+                  />
+
+                  {/* Separator */}
+                  <div className="h-8 w-px bg-[var(--cx-border)]" />
+
+                  {/* Category tabs - Panneaux | Chants | Tous */}
+                  <div className="flex items-center gap-1 p-1 bg-[var(--cx-surface-1)] border border-[var(--cx-border)] rounded-lg">
+                    <button
+                      onClick={() => setSearchCategory('panels')}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        searchCategory === 'panels'
+                          ? 'bg-amber-500/20 text-amber-500'
+                          : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
+                      }`}
+                    >
+                      Panneaux
+                    </button>
+                    <button
+                      onClick={() => setSearchCategory('chants')}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        searchCategory === 'chants'
+                          ? 'bg-amber-500/20 text-amber-500'
+                          : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
+                      }`}
+                    >
+                      Chants
+                    </button>
+                    <button
+                      onClick={() => setSearchCategory('all')}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        searchCategory === 'all'
+                          ? 'bg-amber-500/20 text-amber-500'
+                          : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
+                      }`}
+                    >
+                      Tous
+                    </button>
+                  </div>
                 </div>
 
                 {/* Suggested chant - shown when in chant search mode */}
@@ -797,51 +874,59 @@ function HomePageContent() {
           )}
         </div>
 
-        {/* Right panel - Files (25%) - Always visible */}
+        {/* Right panel - Files or Multicouche Builder (25%) - Always visible */}
         <div
           className={`w-[25%] flex flex-col min-h-0 border-l transition-colors duration-200 ${
             isDraggingOnPanel
               ? 'border-amber-500 bg-amber-500/5'
               : 'border-[var(--cx-border)] bg-[var(--cx-surface-1)]/30'
           }`}
-          onDragOver={handlePanelDragOver}
-          onDragLeave={handlePanelDragLeave}
-          onDrop={handlePanelDrop}
+          onDragOver={panelMode === 'industriel' ? handlePanelDragOver : undefined}
+          onDragLeave={panelMode === 'industriel' ? handlePanelDragLeave : undefined}
+          onDrop={panelMode === 'industriel' ? handlePanelDrop : undefined}
         >
-          {/* Files content */}
-          <div className="flex-1 min-h-0">
-            {hasFiles ? (
-              <FilesPanel
-                files={fileImport.importedFiles}
-                selectedFileId={selectedFileId}
-                onSelectFile={setSelectedFileId}
-                onRemoveFile={fileImport.removeFile}
-                onUnassignPanel={fileImport.unassignPanel}
-                onAssignPanel={fileImport.assignPanelToFile}
-                onFileDrop={handleFileDrop}
-                isImporting={fileImport.isImporting}
-                onSearchPanel={handleSearchPanel}
-                onSplitByThickness={handleOpenSplitModal}
-                onSearchChant={handleSearchChant}
-                onSearchSuggestedChant={handleSearchSuggestedChant}
-                onAssignChant={fileImport.assignChantToFile}
-                onClearChant={handleClearChant}
-              />
-            ) : (
-              <EmptyDropZone isDragging={isDraggingOnPanel} />
-            )}
-          </div>
+          {/* Content based on mode (Mode selector is in search area) */}
+          {panelMode === 'industriel' ? (
+            <>
+              {/* Files content */}
+              <div className="flex-1 min-h-0">
+                {hasFiles ? (
+                  <FilesPanel
+                    files={fileImport.importedFiles}
+                    selectedFileId={selectedFileId}
+                    onSelectFile={setSelectedFileId}
+                    onRemoveFile={fileImport.removeFile}
+                    onUnassignPanel={fileImport.unassignPanel}
+                    onAssignPanel={fileImport.assignPanelToFile}
+                    onFileDrop={handleFileDrop}
+                    isImporting={fileImport.isImporting}
+                    onSearchPanel={handleSearchPanel}
+                    onSplitByThickness={handleOpenSplitModal}
+                    onSearchChant={handleSearchChant}
+                    onSearchSuggestedChant={handleSearchSuggestedChant}
+                    onAssignChant={fileImport.assignChantToFile}
+                    onClearChant={handleClearChant}
+                  />
+                ) : (
+                  <EmptyDropZone isDragging={isDraggingOnPanel} />
+                )}
+              </div>
 
-          {/* Bottom bar - inside right panel */}
-          {hasFiles && (
-            <WorkspaceBottomBar
-              totalFiles={fileImport.totalFiles}
-              assignedFiles={assignedCount}
-              totalPieces={fileImport.totalLines}
-              allAssigned={fileImport.allFilesHavePanel}
-              onConfigureAll={handleConfigureAll}
-              onReset={fileImport.resetImport}
-            />
+              {/* Bottom bar - inside right panel */}
+              {hasFiles && (
+                <WorkspaceBottomBar
+                  totalFiles={fileImport.totalFiles}
+                  assignedFiles={assignedCount}
+                  totalPieces={fileImport.totalLines}
+                  allAssigned={fileImport.allFilesHavePanel}
+                  onConfigureAll={handleConfigureAll}
+                  onReset={fileImport.resetImport}
+                />
+              )}
+            </>
+          ) : (
+            /* Multicouche builder */
+            <MulticoucheBuilder onSearchChant={handleSearchChantMulticouche} />
           )}
         </div>
       </main>
