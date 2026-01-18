@@ -153,11 +153,12 @@ export default function LayerCard({
           'STRATIFIE',   // Laminate panels
           'COMPACT',     // Compact HPL panels
         ];
-        if (acceptedTypes.includes(product.productType)) {
+        const productType = product.productType;
+        if (productType && acceptedTypes.includes(productType)) {
           onProductDrop?.(product);
           return;
         } else {
-          console.log('[LayerCard] Product type not accepted:', product.productType, '(expected:', acceptedTypes.join(', ') + ')');
+          console.log('[LayerCard] Product type not accepted:', productType, '(expected:', acceptedTypes.join(', ') + ')');
         }
       } catch (err) {
         console.error('[LayerCard] Failed to parse product JSON:', err);
