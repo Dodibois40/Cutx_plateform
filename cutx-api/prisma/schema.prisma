@@ -142,6 +142,9 @@ model Panel {
   panelSubType     ProductSubType?
   panelType        ProductType?
   productCategory  ProductCategory?
+  // Full-text search columns (managed by PostgreSQL triggers)
+  searchVector     Unsupported("tsvector")?
+  searchText       String?
   devisLines       DevisLine[]
   catalogue        Catalogue         @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
   category         Category?         @relation(fields: [categoryId], references: [id])
