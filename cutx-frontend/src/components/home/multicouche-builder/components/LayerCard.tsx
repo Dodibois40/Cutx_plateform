@@ -141,10 +141,23 @@ export default function LayerCard({
       try {
         const product = JSON.parse(jsonData) as SearchProduct;
         console.log('[LayerCard] Drop product:', product.nom, 'type:', product.productType);
-        // Only accept PANNEAU products
-        if (product.productType === 'PANNEAU') {
+        // Accept all flat panel types for multilayer composition
+        const acceptedTypes = [
+          'PANNEAU',     // Generic panels
+          'PLACAGE',     // Veneers (decorative faces)
+          'PARTICULE',   // Particle board / chipboard
+          'MDF',         // MDF panels
+          'OSB',         // OSB panels
+          'CONTREPLAQUE', // Plywood
+          'MELAMINE',    // Melamine panels
+          'STRATIFIE',   // Laminate panels
+          'COMPACT',     // Compact HPL panels
+        ];
+        if (acceptedTypes.includes(product.productType)) {
           onProductDrop?.(product);
           return;
+        } else {
+          console.log('[LayerCard] Product type not accepted:', product.productType, '(expected:', acceptedTypes.join(', ') + ')');
         }
       } catch (err) {
         console.error('[LayerCard] Failed to parse product JSON:', err);

@@ -32,7 +32,7 @@ export default function LayersList() {
   const canDeleteLayers = couches.length > REGLES_MULTICOUCHE.COUCHES_MIN;
 
   return (
-    <div className="p-3 space-y-3">
+    <div className="p-3 space-y-3" onDragOver={(e) => e.preventDefault()}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--cx-text)]">
@@ -43,8 +43,8 @@ export default function LayersList() {
         </span>
       </div>
 
-      {/* Layers */}
-      <div className="space-y-2">
+      {/* Layers - onDragOver allows drops on LayerCard children */}
+      <div className="space-y-2" onDragOver={(e) => e.preventDefault()}>
         {couches.map((couche, index) => (
           <LayerCard
             key={couche.id}

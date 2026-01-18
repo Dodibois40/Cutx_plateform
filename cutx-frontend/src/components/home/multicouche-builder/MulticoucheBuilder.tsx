@@ -64,8 +64,11 @@ export default function MulticoucheBuilder({ onSearchChant }: MulticoucheBuilder
         </p>
       </div>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Scrollable content - onDragOver allows drops to propagate to LayerCard */}
+      <div
+        className="flex-1 overflow-y-auto"
+        onDragOver={(e) => e.preventDefault()}
+      >
         {/* Gluing mode selection */}
         <GluingModeSection />
 

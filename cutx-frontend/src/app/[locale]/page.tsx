@@ -881,9 +881,16 @@ function HomePageContent() {
               ? 'border-amber-500 bg-amber-500/5'
               : 'border-[var(--cx-border)] bg-[var(--cx-surface-1)]/30'
           }`}
-          onDragOver={panelMode === 'industriel' ? handlePanelDragOver : undefined}
+          onDragOver={panelMode === 'industriel' ? handlePanelDragOver : (e) => {
+            // In multicouche mode, allow drag events to propagate to LayerCard children
+            // Without preventDefault on dragover, browser won't allow drops
+            e.preventDefault();
+          }}
           onDragLeave={panelMode === 'industriel' ? handlePanelDragLeave : undefined}
-          onDrop={panelMode === 'industriel' ? handlePanelDrop : undefined}
+          onDrop={panelMode === 'industriel' ? handlePanelDrop : (e) => {
+            // Let child LayerCard components handle the drop
+            e.preventDefault();
+          }}
         >
           {/* Content based on mode (Mode selector is in search area) */}
           {panelMode === 'industriel' ? (
