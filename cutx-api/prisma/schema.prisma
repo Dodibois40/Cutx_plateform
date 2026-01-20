@@ -24,6 +24,18 @@ model User {
   multicoucheTemplates PanneauMulticoucheTemplate[]
   organization         Organization?                @relation(fields: [organizationId], references: [id])
 
+  // Marketplace Chutes relations
+  chuteOfferings       ChuteOffering[]              @relation("UserChuteOfferings")
+  chuteOffers          ChuteOffer[]                 @relation("UserChuteOffers")
+  sentChuteMessages    ChuteMessage[]               @relation("UserSentChuteMessages")
+  receivedChuteMessages ChuteMessage[]              @relation("UserReceivedChuteMessages")
+  chuteFavorites       ChuteFavorite[]              @relation("UserChuteFavorites")
+  chutePurchases       ChuteTransaction[]           @relation("UserChutePurchases")
+  chuteSales           ChuteTransaction[]           @relation("UserChuteSales")
+  chuteAlerts          ChuteAlert[]                 @relation("UserChuteAlerts")
+  sellerProfile        SellerProfile?
+  sellerReviews        SellerReview[]               @relation("UserSellerReviews")
+
   @@index([clerkId])
   @@index([email])
 }
@@ -67,6 +79,7 @@ model Category {
   id          String     @id @default(cuid())
   name        String
   slug        String
+  sortOrder   Int        @default(0)
   parentId    String?
   catalogueId String
   createdAt   DateTime   @default(now())
@@ -76,10 +89,14 @@ model Category {
   children    Category[] @relation("CategoryTree")
   panels      Panel[]
 
+  // Marketplace Chutes relation
+  chuteOfferings ChuteOffering[] @relation("CategoryChutes")
+
   @@unique([catalogueId, slug])
   @@index([catalogueId])
   @@index([parentId])
   @@index([name])
+  @@index([sortOrder])
 }
 
 model Panel {
@@ -98,8 +115,7 @@ model Panel {
   imageUrl         String?
   isActive         Boolean           @default(true)
   catalogueId      String
-  categoryId       String?
-  createdAt        DateTime          @default(now())
+  categoryId            String?n  createdAt             DateTime      @default(now())
   updatedAt        DateTime          @updatedAt
   stockStatus      String?
   certification    String?
@@ -670,4 +686,336 @@ enum CoreColor {
 enum LamellaType {
   ABOUTE       // Lamelles aboutées (finger-jointed) - moins cher
   NON_ABOUTE   // Lamelles continues (solid) - plus noble
+}
+
+// ============================================================
+// MARKETPLACE CHUTES - Modèles pour la vente de chutes
+// ============================================================
+
+model ChuteOffering {
+  id                  String          @id @default(cuid())
+
+  // Vendeur
+  sellerId            String
+  seller              User            @relation("UserChuteOfferings", fields: [sellerId], references: [id])
+
+  // Produit
+  title               String
+  description         String?         @db.Text
+  productType         ProductType
+  material            String?         // Ex: "Chêne", "Blanc mat", etc.
+  thickness           Float           // mm
+  length              Float           // mm
+  width               Float           // mm
+  quantity            Int             @default(1)
+
+  // État & Certification
+  condition           ChuteCondition
+  certificationChecks String[]        // ["no_scratch", "no_chip", "no_glue", "not_warped"]
+
+  // Prix
+  price               Float           // Prix de vente
+  originalPanelPrice  Float?          // Prix du panneau neuf (référence)
+  acceptsOffers       Boolean         @default(true)
+  minimumOffer        Float?          // Offre minimum acceptée
+
+  // Boost/Promotion
+  boostLevel          BoostLevel      @default(NONE)
+  boostExpiresAt      DateTime?
+
+  // Géolocalisation
+  latitude            Float?
+  longitude           Float?
+  city                String
+  postalCode          String
+  departement         String?
+
+  // Images
+  images              ChuteImage[]
+  useCatalogImage     Boolean         @default(false)
+  catalogPanelId      String?         // Référence au Panel du catalogue si image catalogue
+
+  // Statistiques
+  status              ChuteOfferingStatus @default(ACTIVE)
+  viewCount           Int             @default(0)
+  favoriteCount       Int             @default(0)
+
+  // Catégorie (liée à l'arborescence CutX)
+  categoryId          String?
+  category            Category?       @relation("CategoryChutes", fields: [categoryId], references: [id])
+
+  // Timestamps
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  expiresAt           DateTime?       // Date d'expiration de l'annonce
+  soldAt              DateTime?       // Date de vente
+
+  // Relations
+  offers              ChuteOffer[]
+  messages            ChuteMessage[]
+  favorites           ChuteFavorite[]
+  transaction         ChuteTransaction?
+
+  // Full-text search
+  searchVector        Unsupported("tsvector")?
+  searchText          String?         @db.Text
+
+  @@index([sellerId])
+  @@index([status, boostLevel])
+  @@index([postalCode])
+  @@index([departement])
+  @@index([productType, thickness])
+  @@index([createdAt(sort: Desc)])
+  @@index([price])
+}
+
+model ChuteImage {
+  id            String        @id @default(cuid())
+  offeringId    String
+  offering      ChuteOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  url           String
+  thumbnailUrl  String?
+  order         Int           @default(0)
+  isPrimary     Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+
+  @@index([offeringId])
+}
+
+model ChuteOffer {
+  id            String        @id @default(cuid())
+  offeringId    String
+  offering      ChuteOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  buyerId       String
+  buyer         User          @relation("UserChuteOffers", fields: [buyerId], references: [id])
+
+  amount        Float         // Montant de l'offre
+  message       String?       @db.Text
+  status        ChuteOfferStatus @default(PENDING)
+
+  createdAt     DateTime      @default(now())
+  respondedAt   DateTime?     // Date de réponse
+  expiresAt     DateTime      // Expire après 48h
+
+  @@index([offeringId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model ChuteMessage {
+  id            String        @id @default(cuid())
+  offeringId    String
+  offering      ChuteOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User          @relation("UserSentChuteMessages", fields: [senderId], references: [id])
+  recipientId   String
+  recipient     User          @relation("UserReceivedChuteMessages", fields: [recipientId], references: [id])
+
+  content       String        @db.Text
+  isRead        Boolean       @default(false)
+  readAt        DateTime?
+
+  createdAt     DateTime      @default(now())
+
+  @@index([offeringId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([createdAt(sort: Desc)])
+}
+
+model ChuteFavorite {
+  userId        String
+  offeringId    String
+  user          User          @relation("UserChuteFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  offering      ChuteOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+
+  @@id([userId, offeringId])
+  @@index([userId])
+  @@index([offeringId])
+}
+
+model SellerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Infos publiques
+  displayName     String
+  bio             String?  @db.Text
+  avatarUrl       String?
+
+  // Statistiques
+  totalSales      Int      @default(0)
+  totalRevenue    Float    @default(0)
+  averageRating   Float?
+  ratingCount     Int      @default(0)
+  responseRate    Float?   // % de réponses aux messages
+  responseTime    Int?     // Temps moyen de réponse en minutes
+
+  // Vérification
+  isVerified      Boolean  @default(false)
+  verifiedAt      DateTime?
+  verificationLevel SellerVerificationLevel @default(BASIC)
+
+  // Stripe Connect
+  stripeAccountId   String?
+  stripeOnboarded   Boolean @default(false)
+
+  // Préférences
+  acceptsPickup     Boolean @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  reviews         SellerReview[] @relation("SellerReviews")
+}
+
+model SellerReview {
+  id              String   @id @default(cuid())
+  sellerId        String
+  sellerProfile   SellerProfile @relation("SellerReviews", fields: [sellerId], references: [id], onDelete: Cascade)
+  reviewerId      String
+  reviewer        User     @relation("UserSellerReviews", fields: [reviewerId], references: [id])
+  transactionId   String?  // Lié à une transaction (achat vérifié)
+
+  rating          Int      // 1-5
+  comment         String?  @db.Text
+
+  // Aspects notés
+  qualityRating       Int? // Qualité conforme à l'annonce
+  communicationRating Int? // Réactivité du vendeur
+
+  isVerifiedPurchase  Boolean @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([sellerId])
+  @@index([reviewerId])
+  @@unique([sellerId, reviewerId, transactionId])
+}
+
+model ChuteTransaction {
+  id              String   @id @default(cuid())
+  reference       String   @unique // CHT-2026-XXXXX
+
+  offeringId      String   @unique
+  offering        ChuteOffering @relation(fields: [offeringId], references: [id])
+
+  buyerId         String
+  buyer           User     @relation("UserChutePurchases", fields: [buyerId], references: [id])
+  sellerId        String
+  seller          User     @relation("UserChuteSales", fields: [sellerId], references: [id])
+
+  // Montants
+  amount          Float    // Prix de vente
+  commission      Float    // Commission CutX
+  commissionRate  Float    // Taux de commission (5-12%)
+  sellerPayout    Float    // Montant versé au vendeur
+
+  // Stripe
+  stripePaymentId       String?
+  stripeTransferId      String?  // Transfer au vendeur
+
+  status          ChuteTransactionStatus @default(PENDING)
+
+  // Dates
+  createdAt       DateTime @default(now())
+  paidAt          DateTime?
+  confirmedAt     DateTime?     // Acheteur confirme la réception
+  completedAt     DateTime?     // Transaction terminée
+  payoutAt        DateTime?     // Paiement au vendeur effectué
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+}
+
+// Alertes de recherche pour les acheteurs
+model ChuteAlert {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("UserChuteAlerts", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Critères de recherche
+  productTypes    ProductType[]
+  thicknessMin    Float?
+  thicknessMax    Float?
+  priceMax        Float?
+  postalCode      String?
+  radius          Int?     // km
+  keywords        String[] // Mots-clés
+
+  // Fréquence
+  frequency       AlertFrequency @default(INSTANT)
+  lastTriggeredAt DateTime?
+
+  // Canaux
+  emailEnabled    Boolean  @default(true)
+  pushEnabled     Boolean  @default(false)
+
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+// Enums pour le Marketplace Chutes
+enum ChuteCondition {
+  PARFAIT      // Aucun défaut visible
+  BON          // Légères marques, parfaitement utilisable
+  CORRECT      // Quelques défauts visibles
+  A_NETTOYER   // Poussière/colle à nettoyer
+}
+
+enum ChuteOfferingStatus {
+  DRAFT        // Brouillon (non publié)
+  ACTIVE       // En vente
+  RESERVED     // Réservée (négociation en cours)
+  SOLD         // Vendue
+  EXPIRED      // Annonce expirée
+  ARCHIVED     // Archivée par le vendeur
+}
+
+enum BoostLevel {
+  NONE         // Gratuit - 5% commission
+  STANDARD     // 2€/semaine - 8% commission
+  PREMIUM      // 5€/semaine - 10% commission
+  URGENT       // 10€/semaine - 12% commission
+}
+
+enum ChuteOfferStatus {
+  PENDING      // En attente de réponse
+  ACCEPTED     // Acceptée
+  REJECTED     // Refusée
+  COUNTER      // Contre-offre envoyée
+  EXPIRED      // Expirée (48h)
+  CANCELLED    // Annulée par l'acheteur
+}
+
+enum ChuteTransactionStatus {
+  PENDING      // En attente de paiement
+  PAID         // Payée, en attente de confirmation
+  CONFIRMED    // Confirmée par l'acheteur
+  COMPLETED    // Terminée (vendeur payé)
+  REFUNDED     // Remboursée
+  DISPUTED     // Litige en cours
+}
+
+enum SellerVerificationLevel {
+  BASIC        // Email vérifié
+  CONFIRMED    // + Téléphone vérifié
+  VERIFIED     // + Pièce d'identité
+  PRO          // + SIRET vérifié
+}
+
+enum AlertFrequency {
+  INSTANT      // Notification immédiate
+  DAILY        // Résumé quotidien
+  WEEKLY       // Résumé hebdomadaire
 }
