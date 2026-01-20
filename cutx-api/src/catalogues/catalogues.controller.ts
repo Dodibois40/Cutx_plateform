@@ -91,12 +91,22 @@ export class CataloguesController {
   /**
    * GET /api/catalogues/admin/categories
    * Liste complète des catégories pour l'admin
+   * @param catalogues - Filtrer par slugs de catalogues (comma-separated: 'dispano,bouney,barrillet')
    */
   @Get('admin/categories')
   @UseGuards(ClerkAuthGuard)
-  async getAllCategoriesAdmin(@CurrentUser() clerkUser: ClerkUser) {
+  async getAllCategoriesAdmin(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Query('catalogues') catalogues?: string,
+  ) {
     await this.checkAdmin(clerkUser);
-    const categories = await this.cataloguesService.getAllCategoriesForAdmin();
+
+    // Parse catalogue slugs si fourni
+    const catalogueSlugs = catalogues
+      ? catalogues.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+
+    const categories = await this.cataloguesService.getAllCategoriesForAdmin(catalogueSlugs);
     return { categories };
   }
 
@@ -186,6 +196,49 @@ export class CataloguesController {
     }
   }
 
+  /**
+   * POST /api/catalogues/admin/panels/assign-category
+   * Assigner plusieurs panels à une catégorie (drag & drop admin)
+   */
+  @Post('admin/panels/assign-category')
+  @UseGuards(ClerkAuthGuard)
+  async assignPanelsToCategory(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Body() dto: import('./dto').AssignPanelsCategoryDto,
+  ) {
+    await this.checkAdmin(clerkUser);
+    return this.cataloguesService.assignPanelsToCategory(
+      dto.panelIds,
+      dto.categoryId,
+    );
+  }
+
+  /**
+   * PATCH /api/catalogues/admin/panels/:id/note
+   * Mettre à jour la note de vérification d'un panel
+   */
+  @Patch('admin/panels/:id/note')
+  @UseGuards(ClerkAuthGuard)
+  async updatePanelNote(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Param('id') panelId: string,
+    @Body() body: { note: string | null },
+  ) {
+    await this.checkAdmin(clerkUser);
+    return this.cataloguesService.updatePanelVerificationNote(panelId, body.note);
+  }
+
+  /**
+   * GET /api/catalogues/admin/panels/to-verify
+   * Liste des panels avec une note de vérification
+   */
+  @Get('admin/panels/to-verify')
+  @UseGuards(ClerkAuthGuard)
+  async getPanelsToVerify(@CurrentUser() clerkUser: ClerkUser) {
+    await this.checkAdmin(clerkUser);
+    return this.cataloguesService.getPanelsWithVerificationNote();
+  }
+
   // =============================================
   // ENDPOINTS PUBLICS
   // =============================================
@@ -248,11 +301,22 @@ export class CataloguesController {
    * @example
    * GET /catalogues/categories-tree
    * GET /catalogues/categories-tree?catalogue=bouney
+   * GET /catalogues/categories-tree?suppliers=dispano,bouney,barrillet (filter panel counts by supplier)
    */
   @Get('categories-tree')
-  async getCategoriesTree(@Query('catalogue') catalogueSlug?: string) {
-    const categories =
-      await this.cataloguesService.getCategoriesTree(catalogueSlug);
+  async getCategoriesTree(
+    @Query('catalogue') catalogueSlug?: string,
+    @Query('suppliers') suppliers?: string,
+  ) {
+    // Parse supplier slugs for filtering panel counts
+    const supplierSlugs = suppliers
+      ? suppliers.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+
+    const categories = await this.cataloguesService.getCategoriesTree(
+      catalogueSlug,
+      supplierSlugs,
+    );
     return { categories };
   }
 
@@ -289,6 +353,7 @@ export class CataloguesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('catalogue') catalogueSlug?: string,
+    @Query('catalogues') catalogueSlugs?: string, // Comma-separated: "dispano,bouney,barillet"
     @Query('sortBy') sortBy?: string,
     @Query('sortDirection') sortDirection?: string,
     @Query('enStock') enStock?: string,
@@ -328,10 +393,16 @@ export class CataloguesController {
     // Use '*' as default query when only category filter is used
     const searchQuery = hasValidQuery ? query : '*';
 
+    // Parse catalogues: comma-separated string to array
+    const parsedCatalogueSlugs = catalogueSlugs
+      ? catalogueSlugs.split(',').map(s => s.trim()).filter(Boolean)
+      : undefined;
+
     const result = await this.cataloguesService.smartSearch(searchQuery, {
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 100,
       catalogueSlug,
+      catalogueSlugs: parsedCatalogueSlugs,
       sortBy,
       sortDirection: sortDirection as 'asc' | 'desc' | undefined,
       enStock: enStock === 'true',

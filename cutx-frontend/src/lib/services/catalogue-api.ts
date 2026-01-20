@@ -18,6 +18,10 @@ export interface CatalogueProduit {
   type: string;
   qualiteSupport?: string;
   productType?: string; // MELAMINE, STRATIFIE, BANDE_DE_CHANT, COMPACT
+  /** Slug de la catégorie profonde (ex: 'decors-unis', 'chants-abs') */
+  categorySlug?: string;
+  /** Slug de la catégorie parente (ex: 'panneaux-decors', 'chants') */
+  parentCategorySlug?: string;
   longueur: number | 'Variable';
   largeur: number;
   epaisseur: number;
@@ -31,6 +35,7 @@ export interface CatalogueProduit {
   imageUrl?: string;
   disponible: boolean;
   fournisseur?: string; // Nom du fournisseur (B comme Bois, Dispano)
+  verificationNote?: string | null; // Note de vérification admin
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +68,7 @@ interface ApiPanel {
     parent?: { name: string; slug: string } | null;
   };
   catalogue?: { name: string }; // Fournisseur (Bouney, Dispano)
+  verificationNote?: string | null; // Note de vérification admin
   createdAt: string;
   updatedAt: string;
 }
@@ -101,6 +107,9 @@ function transformPanel(panel: ApiPanel): CatalogueProduit {
     sousCategorie,
     type: panel.material || panel.productType || '',
     productType: panel.productType || undefined,
+    // Slugs de catégories pour le highlighting de l'arborescence
+    categorySlug: panel.category?.slug || undefined,
+    parentCategorySlug: panel.category?.parent?.slug || undefined,
     longueur,
     largeur: panel.defaultWidth,
     epaisseur,
@@ -113,6 +122,7 @@ function transformPanel(panel: ApiPanel): CatalogueProduit {
     imageUrl: panel.imageUrl || undefined,
     disponible: panel.isActive,
     fournisseur: panel.catalogue?.name || undefined,
+    verificationNote: panel.verificationNote,
     createdAt: panel.createdAt,
     updatedAt: panel.updatedAt,
   };
@@ -398,6 +408,7 @@ export async function smartSearch(
     page?: number;
     limit?: number;
     catalogueSlug?: string;
+    catalogueSlugs?: string[]; // Multiple catalogues filter (e.g., ['dispano', 'bouney', 'barillet'])
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
     enStock?: boolean;
@@ -419,6 +430,10 @@ export async function smartSearch(
   if (options?.page) queryParams.append('page', options.page.toString());
   if (options?.limit) queryParams.append('limit', options.limit.toString());
   if (options?.catalogueSlug) queryParams.append('catalogue', options.catalogueSlug);
+  // Multiple catalogues: comma-separated
+  if (options?.catalogueSlugs && options.catalogueSlugs.length > 0) {
+    queryParams.append('catalogues', options.catalogueSlugs.join(','));
+  }
   if (options?.sortBy) queryParams.append('sortBy', options.sortBy);
   if (options?.sortDirection) queryParams.append('sortDirection', options.sortDirection);
   if (options?.enStock) queryParams.append('enStock', 'true');

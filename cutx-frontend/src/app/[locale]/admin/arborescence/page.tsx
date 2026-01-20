@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import {
   ArrowLeft,
   Plus,
   RefreshCw,
   Store,
-  ChevronDown,
   AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -16,6 +15,8 @@ import {
   CategoryForm,
   type AdminCategory,
 } from '@/components/admin/arborescence';
+import { PanelManager, usePanelAssignment } from '@/components/admin/arborescence/panel-manager';
+import { SupplierSelector, SUPPLIERS, type SupplierSlug } from '@/components/home/SupplierSelector';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -33,12 +34,33 @@ export default function ArborescenceAdminPage() {
   const [editingCategory, setEditingCategory] = useState<AdminCategory | null>(null);
   const [parentForNew, setParentForNew] = useState<string | null>(null);
 
-  const fetchCategories = useCallback(async () => {
+  // État pour les fournisseurs actifs (tous sélectionnés par défaut)
+  const [activeSuppliers, setActiveSuppliers] = useState<SupplierSlug[]>(
+    SUPPLIERS.map(s => s.slug)
+  );
+
+  // État pour la catégorie sélectionnée (pour filtrer les panneaux)
+  const [selectedCategory, setSelectedCategory] = useState<AdminCategory | null>(null);
+
+  // Trigger pour vider la sélection dans PanelManager après un drop réussi
+  const [clearSelectionTrigger, setClearSelectionTrigger] = useState(0);
+
+  const fetchCategories = useCallback(async (supplierSlugs?: SupplierSlug[]) => {
     setLoading(true);
     setError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`${API_URL}/api/catalogues/admin/categories`, {
+
+      // Construire l'URL avec le paramètre catalogues si pas tous sélectionnés
+      const slugsToUse = supplierSlugs ?? activeSuppliers;
+      const params = new URLSearchParams();
+      if (slugsToUse.length > 0 && slugsToUse.length < SUPPLIERS.length) {
+        params.set('catalogues', slugsToUse.join(','));
+      }
+      const queryString = params.toString();
+      const url = `${API_URL}/api/catalogues/admin/categories${queryString ? `?${queryString}` : ''}`;
+
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -57,10 +79,27 @@ export default function ArborescenceAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, activeSuppliers]);
 
+  // Fetch initial
   useEffect(() => {
     fetchCategories();
+  }, []);
+
+  // Re-fetch quand les fournisseurs changent
+  const handleSupplierToggle = useCallback((slug: SupplierSlug) => {
+    setActiveSuppliers(prev => {
+      // Empêcher de tout désélectionner
+      if (prev.length === 1 && prev.includes(slug)) {
+        return prev;
+      }
+      const newSuppliers = prev.includes(slug)
+        ? prev.filter(s => s !== slug)
+        : [...prev, slug];
+      // Fetch avec les nouveaux fournisseurs
+      fetchCategories(newSuppliers);
+      return newSuppliers;
+    });
   }, [fetchCategories]);
 
   // Handlers
@@ -88,6 +127,35 @@ export default function ArborescenceAdminPage() {
     setParentForNew(null);
   };
 
+  // Handler pour la sélection de catégorie (afficher ses panneaux)
+  const handleCategorySelect = useCallback((category: AdminCategory) => {
+    // Toggle: si déjà sélectionné, désélectionner
+    setSelectedCategory((prev) => (prev?.id === category.id ? null : category));
+  }, []);
+
+  // Handler pour effacer le filtre de catégorie
+  const handleClearCategoryFilter = useCallback(() => {
+    setSelectedCategory(null);
+  }, []);
+
+  // Panel assignment hook
+  const { assignPanelsToCategory, isAssigning } = usePanelAssignment();
+
+  const handlePanelsDropped = async (panelIds: string[], categoryId: string) => {
+    try {
+      const result = await assignPanelsToCategory({ panelIds, categoryId });
+      if (result.success > 0) {
+        // Refresh to update panel counts
+        fetchCategories();
+        // Clear selection in PanelManager to prevent re-dropping same panels
+        setClearSelectionTrigger((prev) => prev + 1);
+      }
+    } catch (err) {
+      console.error('Error assigning panels:', err);
+      alert(err instanceof Error ? err.message : 'Erreur lors de l\'assignation');
+    }
+  };
+
   // Stats
   const countAll = (cats: AdminCategory[]): { cats: number; panels: number } =>
     (cats || []).reduce(
@@ -102,6 +170,28 @@ export default function ArborescenceAdminPage() {
     );
 
   const stats = countAll(categories);
+
+  // Categories avec compteurs agrégés pour l'affichage
+  const categoriesWithAggregated = useMemo(() => {
+    // Calculer les compteurs agrégés pour chaque catégorie (somme des enfants)
+    const computeAggregatedCount = (cat: AdminCategory): number => {
+      const childCount = (cat.children || []).reduce(
+        (sum, child) => sum + computeAggregatedCount(child),
+        0
+      );
+      return (cat._count?.panels || 0) + childCount;
+    };
+
+    // Ajouter aggregatedCount à chaque catégorie récursivement
+    const addAggregatedCounts = (cats: AdminCategory[]): AdminCategory[] =>
+      cats.map((cat) => ({
+        ...cat,
+        aggregatedCount: computeAggregatedCount(cat),
+        children: cat.children ? addAggregatedCounts(cat.children) : undefined,
+      }));
+
+    return addAggregatedCounts(categories);
+  }, [categories]);
 
   // Erreur admin
   if (error === 'admin') {
@@ -194,6 +284,17 @@ export default function ArborescenceAdminPage() {
           </button>
         </nav>
 
+        {/* Filtre par fournisseur */}
+        <div className="supplier-filter-section">
+          <div className="filter-label">Filtrer par fournisseur</div>
+          <div className="supplier-selector-wrapper">
+            <SupplierSelector
+              activeSuppliers={activeSuppliers}
+              onToggle={handleSupplierToggle}
+            />
+          </div>
+        </div>
+
         <div className="sidebar-footer">
           <div className="stats-mini">
             <div className="stat">
@@ -226,7 +327,7 @@ export default function ArborescenceAdminPage() {
                 <span>Nouvelle racine</span>
               </button>
               <button
-                onClick={fetchCategories}
+                onClick={() => fetchCategories()}
                 disabled={loading}
                 className="btn-refresh"
               >
@@ -266,7 +367,7 @@ export default function ArborescenceAdminPage() {
             <div className="error-state">
               <AlertTriangle size={32} />
               <p>{error}</p>
-              <button onClick={fetchCategories}>Réessayer</button>
+              <button onClick={() => fetchCategories()}>Réessayer</button>
             </div>
           ) : categories.length === 0 ? (
             <div className="empty-state">
@@ -291,91 +392,35 @@ export default function ArborescenceAdminPage() {
             </div>
           ) : (
             <CategoryTree
-              categories={categories}
+              categories={categoriesWithAggregated}
               onCreateChild={handleCreateChild}
               onEdit={handleEdit}
-              onRefresh={fetchCategories}
+              onRefresh={() => fetchCategories()}
+              onPanelsDropped={handlePanelsDropped}
+              onCategorySelect={handleCategorySelect}
+              selectedCategoryId={selectedCategory?.id}
             />
           )}
         </div>
       </main>
 
       {/* ══════════════════════════════════════════════════════════
-          SIDEBAR DROITE - Panel contextuel
+          SIDEBAR DROITE - Panel Manager pour assignation
           ══════════════════════════════════════════════════════════ */}
-      <aside className="context-panel">
-        <div className="panel-section">
-          <div className="panel-header" onClick={() => {}}>
-            <span>Guide rapide</span>
-            <ChevronDown size={16} />
+      <aside className="panel-manager-sidebar">
+        <PanelManager
+          onAssignComplete={() => fetchCategories()}
+          selectedCategorySlug={selectedCategory?.slug}
+          selectedCategoryName={selectedCategory?.name}
+          onClearCategoryFilter={handleClearCategoryFilter}
+          clearSelectionTrigger={clearSelectionTrigger}
+        />
+        {isAssigning && (
+          <div className="assigning-overlay">
+            <div className="assigning-spinner" />
+            <span>Assignation en cours...</span>
           </div>
-          <div className="panel-content">
-            <div className="guide-item">
-              <div className="guide-icon">
-                <Plus size={14} />
-              </div>
-              <div className="guide-text">
-                <strong>Ajouter</strong>
-                <span>Cliquez sur + pour créer une sous-catégorie</span>
-              </div>
-            </div>
-            <div className="guide-item">
-              <div className="guide-icon edit">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-              </div>
-              <div className="guide-text">
-                <strong>Modifier</strong>
-                <span>Éditez le nom, slug ou parent</span>
-              </div>
-            </div>
-            <div className="guide-item">
-              <div className="guide-icon delete">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </div>
-              <div className="guide-text">
-                <strong>Supprimer</strong>
-                <span>Uniquement si vide et sans enfants</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel-decoration">
-          <svg viewBox="0 0 100 150" className="tree-illustration">
-            <path
-              d="M50 140 L50 80"
-              stroke="currentColor"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-            <path
-              d="M50 80 Q30 70, 25 50 M50 80 Q70 70, 75 50"
-              stroke="currentColor"
-              strokeWidth="3"
-              fill="none"
-              strokeLinecap="round"
-            />
-            <path
-              d="M50 60 Q35 50, 20 55 M50 60 Q65 50, 80 55"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-              opacity="0.7"
-            />
-            <circle cx="25" cy="50" r="8" fill="currentColor" opacity="0.3" />
-            <circle cx="75" cy="50" r="8" fill="currentColor" opacity="0.3" />
-            <circle cx="20" cy="55" r="6" fill="currentColor" opacity="0.2" />
-            <circle cx="80" cy="55" r="6" fill="currentColor" opacity="0.2" />
-            <circle cx="50" cy="35" r="12" fill="currentColor" opacity="0.4" />
-          </svg>
-        </div>
+        )}
       </aside>
 
       {/* Modal */}
@@ -385,7 +430,7 @@ export default function ArborescenceAdminPage() {
           parentId={parentForNew}
           categories={categories}
           onClose={handleFormClose}
-          onSaved={fetchCategories}
+          onSaved={() => fetchCategories()}
         />
       )}
 
@@ -426,7 +471,9 @@ export default function ArborescenceAdminPage() {
            ═══════════════════════════════════════════════════════ */
         .arbo-page {
           display: flex;
-          min-height: 100vh;
+          height: 100vh;
+          max-height: 100vh;
+          overflow: hidden;
           background: var(--bg-deep);
           font-family: var(--font-body);
           color: var(--text-primary);
@@ -515,6 +562,48 @@ export default function ArborescenceAdminPage() {
           opacity: 1;
         }
 
+        /* Filtre fournisseurs */
+        .supplier-filter-section {
+          padding: 1rem;
+          border-top: 1px solid var(--border-subtle);
+          margin-top: auto;
+        }
+
+        .filter-label {
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+          margin-bottom: 0.75rem;
+        }
+
+        .supplier-selector-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        /* Override SupplierSelector styles for sidebar */
+        .supplier-selector-wrapper > div {
+          flex-direction: column;
+          gap: 0.25rem;
+          background: transparent;
+          border: none;
+          padding: 0;
+        }
+
+        .supplier-selector-wrapper button {
+          width: 100%;
+          justify-content: flex-start;
+          background: var(--bg-card);
+          border: 1px solid var(--border-subtle);
+        }
+
+        .supplier-selector-wrapper button:hover {
+          background: var(--bg-elevated);
+          border-color: var(--border);
+        }
+
         .sidebar-footer {
           padding: 1rem;
           border-top: 1px solid var(--border-subtle);
@@ -545,18 +634,19 @@ export default function ArborescenceAdminPage() {
         }
 
         /* ═══════════════════════════════════════════════════════
-           CONTENU PRINCIPAL
+           CONTENU PRINCIPAL - 50/50 avec scroll indépendant
            ═══════════════════════════════════════════════════════ */
         .main-content {
           flex: 1;
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          max-height: 100vh;
         }
 
         .page-header {
           position: relative;
-          padding: 2rem 2.5rem;
+          padding: 1.25rem 2rem;
           background: linear-gradient(
             135deg,
             var(--bg-surface) 0%,
@@ -564,6 +654,7 @@ export default function ArborescenceAdminPage() {
           );
           border-bottom: 1px solid var(--border-subtle);
           overflow: hidden;
+          flex-shrink: 0;
         }
 
         .header-bg {
@@ -586,16 +677,16 @@ export default function ArborescenceAdminPage() {
 
         .header-text h1 {
           font-family: var(--font-display);
-          font-size: 2rem;
+          font-size: 1.5rem;
           font-weight: 500;
           margin: 0;
           letter-spacing: -0.02em;
         }
 
         .header-text p {
-          margin: 0.5rem 0 0;
+          margin: 0.25rem 0 0;
           color: var(--text-muted);
-          font-size: 0.95rem;
+          font-size: 0.8rem;
         }
 
         .header-actions {
@@ -658,13 +749,7 @@ export default function ArborescenceAdminPage() {
         }
 
         .header-decoration {
-          position: absolute;
-          right: 2rem;
-          bottom: 0;
-          width: 200px;
-          height: 80px;
-          color: var(--accent-green);
-          opacity: 0.5;
+          display: none; /* Masqué pour gagner de l'espace */
         }
 
         .branch-svg {
@@ -672,11 +757,88 @@ export default function ArborescenceAdminPage() {
           height: 100%;
         }
 
-        /* Tree Container */
+        /* Tree Container - Scrollable indépendamment */
         .tree-container {
           flex: 1;
           overflow-y: auto;
-          padding: 2rem 2.5rem;
+          overflow-x: hidden;
+          padding: 1.5rem 2rem;
+          min-height: 0; /* Important pour flex scroll */
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           FUTURISTIC SCROLLBARS
+           ═══════════════════════════════════════════════════════ */
+
+        /* Base scrollbar styles for both panels */
+        .tree-container::-webkit-scrollbar,
+        .panel-manager-sidebar ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+
+        .tree-container::-webkit-scrollbar-track,
+        .panel-manager-sidebar ::-webkit-scrollbar-track {
+          background: linear-gradient(
+            180deg,
+            transparent 0%,
+            rgba(127, 163, 126, 0.03) 50%,
+            transparent 100%
+          );
+          border-radius: 4px;
+        }
+
+        .tree-container::-webkit-scrollbar-thumb,
+        .panel-manager-sidebar ::-webkit-scrollbar-thumb {
+          background: linear-gradient(
+            180deg,
+            var(--accent-gold) 0%,
+            var(--accent-green) 50%,
+            var(--accent-gold) 100%
+          );
+          border-radius: 4px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+          box-shadow:
+            0 0 8px rgba(201, 169, 98, 0.4),
+            inset 0 0 4px rgba(255, 255, 255, 0.1);
+          transition: all 0.3s ease;
+        }
+
+        .tree-container::-webkit-scrollbar-thumb:hover,
+        .panel-manager-sidebar ::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(
+            180deg,
+            #e8cc77 0%,
+            #8fb88e 50%,
+            #e8cc77 100%
+          );
+          box-shadow:
+            0 0 15px rgba(201, 169, 98, 0.6),
+            0 0 30px rgba(127, 163, 126, 0.3),
+            inset 0 0 6px rgba(255, 255, 255, 0.2);
+        }
+
+        .tree-container::-webkit-scrollbar-thumb:active,
+        .panel-manager-sidebar ::-webkit-scrollbar-thumb:active {
+          background: linear-gradient(
+            180deg,
+            var(--accent-green) 0%,
+            var(--accent-gold) 100%
+          );
+        }
+
+        /* Corner piece */
+        .tree-container::-webkit-scrollbar-corner,
+        .panel-manager-sidebar ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+
+        /* Firefox scrollbar */
+        .tree-container,
+        .panel-manager-sidebar {
+          scrollbar-width: thin;
+          scrollbar-color: var(--accent-green) transparent;
         }
 
         /* Loading State */
@@ -809,37 +971,77 @@ export default function ArborescenceAdminPage() {
         }
 
         /* ═══════════════════════════════════════════════════════
-           CONTEXT PANEL (droite)
+           PANEL MANAGER SIDEBAR (droite) - 50/50 layout
            ═══════════════════════════════════════════════════════ */
-        .context-panel {
-          width: 260px;
+        .panel-manager-sidebar {
+          flex: 1;
+          min-width: 0;
+          max-height: 100vh;
           background: var(--bg-surface);
           border-left: 1px solid var(--border-subtle);
           display: flex;
           flex-direction: column;
-          padding: 1rem;
+          position: relative;
+          overflow: hidden;
         }
 
+        /* Panel list scroll container */
+        .panel-manager-sidebar > div {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow: hidden;
+        }
+
+        .panel-manager-sidebar .flex-1.overflow-y-auto {
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+
+        .assigning-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(13, 18, 16, 0.85);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 1rem;
+          z-index: 10;
+        }
+
+        .assigning-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid var(--border);
+          border-top-color: var(--accent-green);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        .assigning-overlay span {
+          color: var(--text-secondary);
+          font-size: 0.9rem;
+        }
+
+        /* Drop target styling for category nodes */
+        .node-row-content.drop-target {
+          background: linear-gradient(135deg, rgba(127, 163, 126, 0.2) 0%, rgba(127, 163, 126, 0.1) 100%) !important;
+          border: 2px dashed var(--accent-green) !important;
+          box-shadow: 0 0 20px rgba(127, 163, 126, 0.3), inset 0 0 20px rgba(127, 163, 126, 0.1) !important;
+        }
+
+        .node-row-content.drop-target .folder-icon {
+          color: var(--accent-green);
+          transform: scale(1.2);
+        }
+
+        /* Legacy context panel classes kept for compatibility */
         .panel-section {
           background: var(--bg-card);
           border-radius: 12px;
           border: 1px solid var(--border-subtle);
           overflow: hidden;
-        }
-
-        .panel-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.875rem 1rem;
-          font-size: 0.85rem;
-          font-weight: 500;
-          color: var(--text-secondary);
-          cursor: pointer;
-        }
-
-        .panel-content {
-          padding: 0 1rem 1rem;
         }
 
         .guide-item {
@@ -1122,6 +1324,29 @@ export default function ArborescenceAdminPage() {
           background: linear-gradient(135deg, var(--bg-card) 0%, rgba(201, 169, 98, 0.03) 100%);
           border-color: var(--border-subtle);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Selected category - when clicking to filter panels */
+        .node-row-content.selected {
+          background: linear-gradient(135deg, rgba(127, 163, 126, 0.15) 0%, rgba(127, 163, 126, 0.08) 100%);
+          border: 2px solid var(--accent-green);
+          box-shadow: 0 0 12px rgba(127, 163, 126, 0.25), inset 0 0 20px rgba(127, 163, 126, 0.05);
+        }
+
+        .node-row-content.selected .folder-icon {
+          color: var(--accent-green);
+          filter: drop-shadow(0 2px 8px rgba(127, 163, 126, 0.5));
+          transform: scale(1.1);
+        }
+
+        .node-row-content.selected .node-name {
+          color: var(--accent-green);
+        }
+
+        .node-row-content.selected .node-count {
+          background: linear-gradient(135deg, var(--accent-green) 0%, #6a9069 100%);
+          color: #fff;
+          border-color: transparent;
         }
 
         /* Drag handle area */

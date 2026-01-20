@@ -138,6 +138,7 @@ model Panel {
   reviewStatus     PanelReviewStatus @default(NON_VERIFIE)
   reviewedAt       DateTime?
   reviewedBy       String?
+  verificationNote String?           @db.Text  // Note de vérification pour les refs à corriger
   coreColor        CoreColor?
   coreType         CoreType?
   decorCategory    DecorCategory?

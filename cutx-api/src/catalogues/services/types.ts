@@ -29,6 +29,7 @@ export interface FullTextSearchResult {
   manufacturerRef: string | null;
   createdAt: Date;
   updatedAt: Date;
+  verificationNote: string | null;
   catalogueId: string;
   categoryId: string | null;
   catalogue_name: string | null;

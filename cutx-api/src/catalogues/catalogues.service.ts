@@ -116,9 +116,11 @@ export class CataloguesService {
    * Get full category tree with panel counts
    * Used for tree navigation in Command Search
    * Defaults to CutX unified catalogue for consistent navigation
+   * @param supplierSlugs - Filter panel counts by supplier catalogue slugs (e.g., ['dispano', 'bouney', 'barrillet'])
    */
   async getCategoriesTree(
     catalogueSlug?: string,
+    supplierSlugs?: string[],
   ): Promise<CategoryTreeNode[]> {
     // Default to CutX unified catalogue for tree navigation
     const effectiveSlug = catalogueSlug || 'cutx';
@@ -137,6 +139,20 @@ export class CataloguesService {
       { name: 'asc' as const },
     ] as any;
 
+    // Build panel count filter based on supplier slugs
+    // This filters _count to only count panels from selected suppliers
+    const panelCountFilter = supplierSlugs?.length
+      ? {
+          where: {
+            isActive: true,
+            catalogue: { slug: { in: supplierSlugs } },
+          },
+        }
+      : { where: { isActive: true } };
+
+    // Helper for _count select with supplier filter
+    const countSelect = { select: { panels: panelCountFilter } };
+
     // Deep nesting to match admin view (5 levels)
     const categories = await this.prisma.category.findMany({
       where: whereClause,
@@ -149,33 +165,23 @@ export class CataloguesService {
                   include: {
                     children: {
                       include: {
-                        _count: {
-                          select: { panels: { where: { isActive: true } } },
-                        },
+                        _count: countSelect,
                       },
                       orderBy,
                     },
-                    _count: {
-                      select: { panels: { where: { isActive: true } } },
-                    },
+                    _count: countSelect,
                   },
                   orderBy,
                 },
-                _count: {
-                  select: { panels: { where: { isActive: true } } },
-                },
+                _count: countSelect,
               },
               orderBy,
             },
-            _count: {
-              select: { panels: { where: { isActive: true } } },
-            },
+            _count: countSelect,
           },
           orderBy,
         },
-        _count: {
-          select: { panels: { where: { isActive: true } } },
-        },
+        _count: countSelect,
         catalogue: { select: { name: true, slug: true } },
       },
       orderBy,
@@ -680,6 +686,7 @@ export class CataloguesService {
       page?: number;
       limit?: number;
       catalogueSlug?: string;
+      catalogueSlugs?: string[]; // Multiple catalogues filter
       sortBy?: string;
       sortDirection?: 'asc' | 'desc';
       enStock?: boolean;
@@ -865,8 +872,9 @@ export class CataloguesService {
    * Get all categories with full tree structure for admin
    * Returns root categories with nested children (up to 4 levels)
    * Only returns categories from the 'cutx' catalogue
+   * @param catalogueSlugs - Filter panel counts by catalogue slugs (e.g., ['dispano', 'bouney', 'barrillet'])
    */
-  async getAllCategoriesForAdmin(): Promise<Category[]> {
+  async getAllCategoriesForAdmin(catalogueSlugs?: string[]): Promise<Category[]> {
     // Get the cutx catalogue ID
     const cutxCatalogue = await this.prisma.catalogue.findFirst({
       where: { slug: 'cutx' },
@@ -879,6 +887,20 @@ export class CataloguesService {
     // Note: orderBy uses sortOrder field added to schema
     // After server restart and prisma generate, TypeScript will recognize it
     const orderBy = [{ sortOrder: 'asc' as const }, { name: 'asc' as const }] as any;
+
+    // Build panel filter based on catalogue slugs
+    // This filters the _count to only count panels from selected catalogues
+    const panelCountFilter = catalogueSlugs?.length
+      ? {
+          where: {
+            isActive: true,
+            catalogue: { slug: { in: catalogueSlugs } },
+          },
+        }
+      : { where: { isActive: true } };
+
+    // Helper to build _count with filter
+    const countSelect = { select: { panels: panelCountFilter } };
 
     return this.prisma.category.findMany({
       where: {
@@ -894,23 +916,23 @@ export class CataloguesService {
                   include: {
                     children: {
                       include: {
-                        _count: { select: { panels: true } },
+                        _count: countSelect,
                       },
                       orderBy,
                     },
-                    _count: { select: { panels: true } },
+                    _count: countSelect,
                   },
                   orderBy,
                 },
-                _count: { select: { panels: true } },
+                _count: countSelect,
               },
               orderBy,
             },
-            _count: { select: { panels: true } },
+            _count: countSelect,
           },
           orderBy,
         },
-        _count: { select: { panels: true } },
+        _count: countSelect,
       },
       orderBy,
     });
@@ -1088,6 +1110,112 @@ export class CataloguesService {
       console.error('Reorder categories error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Assign multiple panels to a category
+   * Used for drag & drop panel organization in admin
+   */
+  async assignPanelsToCategory(
+    panelIds: string[],
+    categoryId: string,
+  ): Promise<{ success: number; failed: number; categoryId: string }> {
+    // Verify category exists
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Catégorie ${categoryId} non trouvée`);
+    }
+
+    // Batch update panels
+    const result = await this.prisma.panel.updateMany({
+      where: { id: { in: panelIds } },
+      data: { categoryId },
+    });
+
+    console.log(
+      `Assigned ${result.count} panels to category "${category.name}" (${categoryId})`,
+    );
+
+    return {
+      success: result.count,
+      failed: panelIds.length - result.count,
+      categoryId,
+    };
+  }
+
+  /**
+   * Update verification note for a panel
+   * Used for flagging panels that need review/correction
+   */
+  async updatePanelVerificationNote(
+    panelId: string,
+    note: string | null,
+  ): Promise<{ id: string; verificationNote: string | null }> {
+    const panel = await this.prisma.panel.findUnique({
+      where: { id: panelId },
+    });
+
+    if (!panel) {
+      throw new NotFoundException(`Panel ${panelId} non trouvé`);
+    }
+
+    const updated = await this.prisma.panel.update({
+      where: { id: panelId },
+      data: {
+        verificationNote: note,
+        // Optionally update review status if adding a note
+        ...(note ? { reviewStatus: 'A_CORRIGER' } : {}),
+      },
+      select: { id: true, verificationNote: true },
+    });
+
+    console.log(
+      `Updated verification note for panel ${panelId}: ${note ? note.substring(0, 50) + '...' : '(cleared)'}`,
+    );
+
+    return updated;
+  }
+
+  /**
+   * Get all panels with a verification note
+   * Used for reviewing flagged panels
+   */
+  async getPanelsWithVerificationNote(): Promise<
+    {
+      id: string;
+      reference: string;
+      name: string;
+      verificationNote: string;
+      categoryId: string | null;
+      catalogueSlug: string;
+    }[]
+  > {
+    const panels = await this.prisma.panel.findMany({
+      where: {
+        verificationNote: { not: null },
+      },
+      select: {
+        id: true,
+        reference: true,
+        name: true,
+        verificationNote: true,
+        categoryId: true,
+        catalogue: { select: { slug: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    return panels.map((p) => ({
+      id: p.id,
+      reference: p.reference,
+      name: p.name,
+      verificationNote: p.verificationNote!,
+      categoryId: p.categoryId,
+      catalogueSlug: p.catalogue.slug,
+    }));
   }
 
   /**

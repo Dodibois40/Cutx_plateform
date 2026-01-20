@@ -6,6 +6,8 @@ export interface AdminCategory {
   catalogueId: string;
   _count: { panels: number };
   children?: AdminCategory[];
+  /** Compteur agrégé (somme des panneaux de cette catégorie + tous ses enfants) */
+  aggregatedCount?: number;
 }
 
 export interface CategoryFormData {
