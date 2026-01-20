@@ -115,7 +115,9 @@ model Panel {
   imageUrl         String?
   isActive         Boolean           @default(true)
   catalogueId      String
-  categoryId            String?n  createdAt             DateTime      @default(now())
+  categoryId            String?
+  secondaryCategoryIds  String[]      @default([])
+  createdAt             DateTime      @default(now())
   updatedAt        DateTime          @updatedAt
   stockStatus      String?
   certification    String?

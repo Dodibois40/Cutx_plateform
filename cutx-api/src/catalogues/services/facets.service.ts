@@ -24,6 +24,8 @@ export interface FacetsResult {
   decorCategories: { value: string; label: string; count: number }[];
   manufacturers: { value: string; label: string; count: number }[];
   properties: { key: string; label: string; count: number }[];
+  // Chant material types (only populated when searching chants)
+  chantMaterials: { value: string; label: string; count: number }[];
 }
 
 @Injectable()
@@ -44,6 +46,15 @@ export class FacetsService {
     TEXTILE: 'Textile',
     FANTAISIE: 'Fantaisie',
     SANS_DECOR: 'Sans décor',
+  };
+
+  // Labels for chant material types (panelSubType)
+  private static readonly CHANT_MATERIAL_LABELS: Record<string, string> = {
+    CHANT_ABS: 'ABS (plastique)',
+    CHANT_BOIS: 'Bois véritable',
+    CHANT_MELAMINE: 'Mélaminé',
+    CHANT_PVC: 'PVC',
+    HPL: 'HPL',
   };
 
   // Genre mapping for aggregation
@@ -118,6 +129,8 @@ export class FacetsService {
         SUM(CASE WHEN unaccent(lower(p.name)) ILIKE '%peuplier%' THEN 1 ELSE 0 END) as genre_peuplier
       FROM "Panel" p
       JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      LEFT JOIN "Category" cat ON p."categoryId" = cat.id
+      LEFT JOIN "Category" parent ON cat."parentId" = parent.id
       WHERE ${whereClause}
         ${catalogueCondition}
     `;
@@ -128,9 +141,12 @@ export class FacetsService {
         SELECT p.id, p.name, p.thickness, p."defaultLength", p."defaultWidth",
                p."productType", p.manufacturer, p."decorCategory",
                p."isHydrofuge", p."isIgnifuge", p."isPreglued",
+               p."panelSubType", p."panelType",
                c.name as catalogue_name
         FROM "Panel" p
         JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+        LEFT JOIN "Category" cat ON p."categoryId" = cat.id
+        LEFT JOIN "Category" parent ON cat."parentId" = parent.id
         WHERE ${whereClause}
           ${catalogueCondition}
       ),
@@ -167,6 +183,13 @@ export class FacetsService {
         GROUP BY manufacturer
         ORDER BY count DESC
         LIMIT 15
+      ),
+      chant_facets AS (
+        SELECT "panelSubType"::text as value, COUNT(*) as count
+        FROM base
+        WHERE "panelType" = 'CHANT' AND "panelSubType" IS NOT NULL
+        GROUP BY "panelSubType"
+        ORDER BY count DESC
       )
       SELECT
         'dim' as facet_type, length::text as key1, width::text as key2, count
@@ -183,6 +206,10 @@ export class FacetsService {
       SELECT
         'manu' as facet_type, value::text as key1, NULL as key2, count
       FROM manu_facets
+      UNION ALL
+      SELECT
+        'chant' as facet_type, value as key1, NULL as key2, count
+      FROM chant_facets
     `;
 
     try {
@@ -278,6 +305,8 @@ export class FacetsService {
       }[] = [];
       const manufacturers: { value: string; label: string; count: number }[] =
         [];
+      const chantMaterials: { value: string; label: string; count: number }[] =
+        [];
 
       for (const row of groupedResult) {
         switch (row.facet_type) {
@@ -318,6 +347,16 @@ export class FacetsService {
               });
             }
             break;
+          case 'chant':
+            if (row.key1) {
+              chantMaterials.push({
+                value: row.key1,
+                label:
+                  FacetsService.CHANT_MATERIAL_LABELS[row.key1] || row.key1,
+                count: Number(row.count),
+              });
+            }
+            break;
         }
       }
 
@@ -328,6 +367,7 @@ export class FacetsService {
         decorCategories,
         manufacturers,
         properties,
+        chantMaterials,
       };
 
       // Cache for 30 seconds
@@ -356,6 +396,7 @@ export class FacetsService {
       decorCategories: [],
       manufacturers: [],
       properties: [],
+      chantMaterials: [],
     };
   }
 }
