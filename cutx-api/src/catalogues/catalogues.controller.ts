@@ -2,18 +2,23 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
+  Delete,
+  Body,
   Param,
   Query,
   Req,
   NotFoundException,
   UseGuards,
   ForbiddenException,
+  BadRequestException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { CataloguesService } from './catalogues.service';
+import { CreateCategoryDto, UpdateCategoryDto, ReorderCategoriesDto } from './dto';
 import { ClerkAuthGuard } from '../common/guards/clerk-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
@@ -80,6 +85,108 @@ export class CataloguesController {
   }
 
   // =============================================
+  // ADMIN CATEGORIES - Gestion de l'arborescence
+  // =============================================
+
+  /**
+   * GET /api/catalogues/admin/categories
+   * Liste complète des catégories pour l'admin
+   */
+  @Get('admin/categories')
+  @UseGuards(ClerkAuthGuard)
+  async getAllCategoriesAdmin(@CurrentUser() clerkUser: ClerkUser) {
+    await this.checkAdmin(clerkUser);
+    const categories = await this.cataloguesService.getAllCategoriesForAdmin();
+    return { categories };
+  }
+
+  /**
+   * POST /api/catalogues/admin/categories
+   * Créer une nouvelle catégorie
+   */
+  @Post('admin/categories')
+  @UseGuards(ClerkAuthGuard)
+  async createCategory(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Body() dto: CreateCategoryDto,
+  ) {
+    await this.checkAdmin(clerkUser);
+    const category = await this.cataloguesService.createCategory(dto);
+    return { category };
+  }
+
+  /**
+   * PUT /api/catalogues/admin/categories/:id
+   * Modifier une catégorie existante
+   */
+  @Put('admin/categories/:id')
+  @UseGuards(ClerkAuthGuard)
+  async updateCategory(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
+    await this.checkAdmin(clerkUser);
+    const category = await this.cataloguesService.updateCategory(id, dto);
+    return { category };
+  }
+
+  /**
+   * DELETE /api/catalogues/admin/categories/:id
+   * Supprimer une catégorie (si vide et sans enfants)
+   */
+  @Delete('admin/categories/:id')
+  @UseGuards(ClerkAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async deleteCategory(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Param('id') id: string,
+  ) {
+    await this.checkAdmin(clerkUser);
+    return this.cataloguesService.deleteCategory(id);
+  }
+
+  /**
+   * POST /api/catalogues/admin/categories/:id/move
+   * Déplacer une catégorie vers un nouveau parent
+   */
+  @Post('admin/categories/:id/move')
+  @UseGuards(ClerkAuthGuard)
+  async moveCategory(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Param('id') id: string,
+    @Body() body: { newParentId: string | null },
+  ) {
+    await this.checkAdmin(clerkUser);
+    const category = await this.cataloguesService.moveCategory(
+      id,
+      body.newParentId,
+    );
+    return { category };
+  }
+
+  /**
+   * POST /api/catalogues/admin/categories/reorder
+   * Réordonner plusieurs catégories (drag & drop)
+   */
+  @Post('admin/categories/reorder')
+  @UseGuards(ClerkAuthGuard)
+  async reorderCategories(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Body() dto: ReorderCategoriesDto,
+  ) {
+    await this.checkAdmin(clerkUser);
+    try {
+      return await this.cataloguesService.reorderCategories(dto.updates);
+    } catch (error) {
+      console.error('Reorder endpoint error:', error);
+      throw new BadRequestException(
+        `Erreur lors du réordonnancement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+      );
+    }
+  }
+
+  // =============================================
   // ENDPOINTS PUBLICS
   // =============================================
 
@@ -135,6 +242,21 @@ export class CataloguesController {
   }
 
   /**
+   * Categories Tree - Arborescence des catégories avec compteurs
+   * Utilisé pour la navigation arborescente dans Command Search
+   *
+   * @example
+   * GET /catalogues/categories-tree
+   * GET /catalogues/categories-tree?catalogue=bouney
+   */
+  @Get('categories-tree')
+  async getCategoriesTree(@Query('catalogue') catalogueSlug?: string) {
+    const categories =
+      await this.cataloguesService.getCategoriesTree(catalogueSlug);
+    return { categories };
+  }
+
+  /**
    * Sponsored Panels - Panneaux sponsorisés
    * Retourne les panneaux marqués comme sponsorisés (isSponsored = true)
    * et dont la date d'expiration n'est pas dépassée
@@ -172,14 +294,22 @@ export class CataloguesController {
     @Query('enStock') enStock?: string,
     // Catégorie: 'panels' | 'chants' | 'all' (défaut: 'all')
     @Query('category') category?: string,
+    // Slug de catégorie sélectionnée dans l'arborescence (ex: 'chants-abs', 'essences-chene')
+    @Query('categorySlug') treeCategorySlug?: string,
     // Nouveaux filtres explicites
     @Query('decorCategory') decorCategory?: string,
     @Query('manufacturer') manufacturer?: string,
     @Query('isHydrofuge') isHydrofuge?: string,
     @Query('isIgnifuge') isIgnifuge?: string,
     @Query('isPreglued') isPreglued?: string,
+    // Chant material filter: 'ABS' | 'BOIS' | 'MELAMINE' | 'PVC'
+    @Query('chantMaterial') chantMaterial?: string,
   ) {
-    if (!query || query.trim().length < 2) {
+    // Allow search when: text query >= 2 chars OR categorySlug is specified OR query is '*'
+    const hasValidQuery = query && (query.trim().length >= 2 || query.trim() === '*');
+    const hasCategoryFilter = !!treeCategorySlug;
+
+    if (!hasValidQuery && !hasCategoryFilter) {
       return {
         panels: [],
         total: 0,
@@ -195,7 +325,10 @@ export class CataloguesController {
       };
     }
 
-    const result = await this.cataloguesService.smartSearch(query, {
+    // Use '*' as default query when only category filter is used
+    const searchQuery = hasValidQuery ? query : '*';
+
+    const result = await this.cataloguesService.smartSearch(searchQuery, {
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 100,
       catalogueSlug,
@@ -204,12 +337,15 @@ export class CataloguesController {
       enStock: enStock === 'true',
       // Catégorie: panels | chants | all
       category: category as 'panels' | 'chants' | 'all' | undefined,
+      // Slug de catégorie (arborescence)
+      categorySlug: treeCategorySlug || undefined,
       // Nouveaux filtres explicites
       decorCategory: decorCategory || undefined,
       manufacturer: manufacturer || undefined,
       isHydrofuge: isHydrofuge === 'true' || undefined,
       isIgnifuge: isIgnifuge === 'true' || undefined,
       isPreglued: isPreglued === 'true' || undefined,
+      chantMaterial: chantMaterial || undefined,
     });
 
     return result;

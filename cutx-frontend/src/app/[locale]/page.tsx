@@ -36,10 +36,15 @@ import type { SearchProduct } from '@/components/home/types';
 import { useFileImport } from '@/components/home/hooks/useFileImport';
 import { useSearchState } from '@/components/home/hooks/useSearchState';
 import { useRouter, Link } from '@/i18n/routing';
-import { Upload, ClipboardCheck, Play, Settings } from 'lucide-react';
+import { Upload, ClipboardCheck, Play, Settings, Command } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { UserAccountMenu } from '@/components/ui/UserAccountMenu';
 import { useIsAdmin } from '@/lib/hooks/useIsAdmin';
+import {
+  CommandPalette,
+  TreeNavigation,
+  useBidirectionalSync,
+} from '@/components/command-search';
 
 // Fallback for Suspense
 function HomePageLoading() {
@@ -99,6 +104,24 @@ function HomePageContent() {
   const [splitModalFileId, setSplitModalFileId] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLaunchMessage, setShowLaunchMessage] = useState(false);
+
+  // Command Search state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const {
+    selectedCategory,
+    selectedPath,
+    isTreeOpen,
+    selectCategory,
+    clearSelection,
+    toggleTree,
+  } = useBidirectionalSync({
+    onCategoryChange: (category) => {
+      // When category changes from tree, add it as a filter
+      if (category) {
+        // Could add category as filter here if needed
+      }
+    },
+  });
   // Chant (edge banding) search mode - tracks which file we're searching chant for
   const [searchingChantForFileId, setSearchingChantForFileId] = useState<string | null>(null);
   // Panel search mode - tracks which file we're searching panel for (from "Rechercher" button)
@@ -121,6 +144,19 @@ function HomePageContent() {
 
   // File import hook for DXF/XLSX dropped on homepage
   const fileImport = useFileImport();
+
+  // Command Palette keyboard shortcut (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Onboarding: show on first file import, hide when user types or closes
   const ONBOARDING_KEY = 'cutx-onboarding-seen';
@@ -191,6 +227,7 @@ function HomePageContent() {
   }, [debouncedQuery, activeFilters]);
 
   // Search hook with smart search - uses combined query + explicit filters
+  // Enable search when there's a text query OR a category selected from tree
   const {
     produits,
     total,
@@ -202,16 +239,31 @@ function HomePageContent() {
   } = useCatalogueSearch({
     search: combinedQuery,
     useSmartSearch: true,
-    enabled: combinedQuery.length >= 2,
+    enabled: combinedQuery.length >= 2 || !!selectedCategory,
     enStock: explicitFilters.enStock || undefined,
     // Catégorie: panels | chants | all
     category: searchCategory,
+    // Slug de catégorie sélectionnée dans l'arborescence
+    categorySlug: selectedCategory || undefined,
     decorCategory: explicitFilters.decorCategory,
     manufacturer: explicitFilters.manufacturer,
     isHydrofuge: explicitFilters.isHydrofuge || undefined,
     isIgnifuge: explicitFilters.isIgnifuge || undefined,
     isPreglued: explicitFilters.isPreglued || undefined,
   });
+
+  // Extract unique productTypes from search results for tree auto-expand
+  // This enables expanding the tree when searching by reference (e.g., "U963")
+  const resultProductTypes = useMemo(() => {
+    if (!produits || produits.length === 0) return [];
+    const types = new Set<string>();
+    for (const p of produits) {
+      if (p.productType) {
+        types.add(p.productType);
+      }
+    }
+    return Array.from(types);
+  }, [produits]);
 
   // Fetch sponsored when search changes
   useEffect(() => {
@@ -548,18 +600,74 @@ function HomePageContent() {
   // Computed values
   const assignedCount = fileImport.filesWithPanel.length;
   const hasFiles = mounted && fileImport.totalFiles > 0;
+  // Show results when there's a text search OR a category selected
+  const showResults = hasSearched || !!selectedCategory;
+
+  // Handlers for Command Palette
+  const handleCommandSelectCategory = useCallback(
+    (slug: string, path: { slug: string; name: string }[]) => {
+      selectCategory(slug, path);
+      // Add category as a search filter
+      if (path.length > 0) {
+        const categoryName = path[path.length - 1].name;
+        setQuery(categoryName);
+      }
+    },
+    [selectCategory, setQuery]
+  );
+
+  const handleCommandSelectProduct = useCallback(
+    (productId: string) => {
+      // Find product and show details
+      const product = searchProducts.find((p) => p.id === productId);
+      if (product) {
+        handleProductClick(product);
+      }
+    },
+    [searchProducts, handleProductClick]
+  );
+
+  const handleCommandSearch = useCallback(
+    (searchQuery: string) => {
+      setQuery(searchQuery);
+    },
+    [setQuery]
+  );
 
   return (
     <div className="fixed inset-0 w-full h-full bg-[var(--cx-background)] flex flex-col overflow-hidden">
+      {/* Command Palette - Global modal */}
+      <CommandPalette
+        open={isCommandPaletteOpen}
+        onOpenChange={setIsCommandPaletteOpen}
+        onSelectCategory={handleCommandSelectCategory}
+        onSelectProduct={handleCommandSelectProduct}
+        onSearch={handleCommandSearch}
+      />
+
       {/* Main content - permanent 75/25 split */}
       <main className="flex-1 flex min-h-0 w-full">
-        {/* Left panel - Search (75%) */}
-        <div className="w-[75%] flex flex-col min-h-0 relative">
-          {/* Top left - User avatar + Apps menu */}
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-            <UserAccountMenu />
-            <CutXAppsMenu />
-          </div>
+        {/* Left panel - Tree Navigation + Search (75%) */}
+        <div className="w-[75%] flex min-h-0 relative">
+          {/* Tree Navigation Sidebar - always visible */}
+          <TreeNavigation
+            isCollapsed={!isTreeOpen}
+            onToggle={toggleTree}
+            selectedPath={selectedPath}
+            selectedSlug={selectedCategory}
+            onSelect={(path, slug) => selectCategory(slug, path)}
+            searchQuery={debouncedQuery}
+            parsedFilters={parsedFilters}
+            resultProductTypes={resultProductTypes}
+          />
+
+          {/* Search content */}
+          <div className="flex-1 flex flex-col min-h-0 relative">
+            {/* Top left - User avatar + Apps menu */}
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+              <UserAccountMenu />
+              <CutXAppsMenu hideTeaser={showResults} />
+            </div>
 
           {/* Top right - Demo + Review + Language switcher */}
           <div className="absolute top-4 right-4 z-20 flex items-center gap-3">
@@ -571,7 +679,7 @@ function HomePageContent() {
               <Play size={12} fill="currentColor" />
               <span>Démo</span>
             </button>
-            {isSignedIn && (
+            {mounted && isSignedIn && (
               <Link
                 href="/panels-review"
                 className="flex items-center gap-1.5 px-2 py-1 text-xs text-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10 rounded transition-colors"
@@ -581,7 +689,7 @@ function HomePageContent() {
                 <span className="hidden sm:inline">Review</span>
               </Link>
             )}
-            {isAdmin && (
+            {mounted && isAdmin && (
               <Link
                 href="/admin/fournisseurs"
                 className="flex items-center gap-1.5 px-2 py-1 text-xs text-violet-400/60 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-colors"
@@ -596,13 +704,13 @@ function HomePageContent() {
           {/* Search section - centered or top based on state */}
           <div
             className={`w-full transition-all duration-500 ease-out relative z-10 ${
-              hasSearched
+              showResults
                 ? 'flex-shrink-0 py-4 border-b border-[var(--cx-border)] bg-[var(--cx-background)]/80 backdrop-blur-xl'
                 : 'flex-1 flex items-center justify-center'
             }`}
           >
             {/* Landing page layout (centered) */}
-            {!hasSearched && (
+            {!showResults && (
               <div className="w-full px-4">
                 <div className="text-center mb-8">
                   <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4">
@@ -641,7 +749,7 @@ function HomePageContent() {
             )}
 
             {/* Search results layout (Google-style: logo left, search bar right) */}
-            {hasSearched && (
+            {showResults && (
               <div className="w-full max-w-5xl mx-auto px-4">
                 <div className="flex items-center gap-6">
                   {/* Logo - clickable to return home */}
@@ -698,7 +806,7 @@ function HomePageContent() {
           </div>
 
           {/* Results section */}
-          {hasSearched && (
+          {showResults && (
             <div className="flex-1 overflow-y-auto relative z-10">
               {/* Mode selector + Category tabs - LE CHOIX CLEF SE FAIT ICI */}
               <div className="w-full max-w-6xl mx-auto px-4 pt-4">
@@ -865,13 +973,15 @@ function HomePageContent() {
           )}
 
           {/* Footer - only show when not searching */}
-          {!hasSearched && (
+          {!showResults && (
             <footer className="py-8 text-center relative z-10">
               <p className="text-[var(--cx-text-muted)]/50 text-sm">
                 &copy; {new Date().getFullYear()} CutX — Tous droits réservés
               </p>
             </footer>
           )}
+          </div>
+          {/* End Search content */}
         </div>
 
         {/* Right panel - Files or Multicouche Builder (25%) - Always visible */}

@@ -46,29 +46,36 @@ export function UserAccountMenu() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  // Don't render until mounted and Clerk is loaded - prevents hydration mismatch
+  // Always render same wrapper structure to prevent hydration mismatch
+  // The outer div with relative positioning is always present
+
+  // Loading state - show skeleton
   if (!mounted || !isLoaded) {
     return (
-      <div className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.1)] animate-pulse" />
+      <div className="relative">
+        <div className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.1)] animate-pulse" />
+      </div>
     );
   }
 
   // Not signed in - show sign in button
   if (!isSignedIn) {
     return (
-      <button
-        onClick={() => router.push('/sign-in')}
-        className="
-          flex items-center gap-2
-          px-4 py-2
-          bg-amber-500 hover:bg-amber-400
-          text-black font-medium text-sm
-          rounded-full
-          transition-colors duration-200
-        "
-      >
-        Se connecter
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => router.push('/sign-in')}
+          className="
+            flex items-center gap-2
+            px-4 py-2
+            bg-amber-500 hover:bg-amber-400
+            text-black font-medium text-sm
+            rounded-full
+            transition-colors duration-200
+          "
+        >
+          Se connecter
+        </button>
+      </div>
     );
   }
 

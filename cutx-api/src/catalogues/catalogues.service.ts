@@ -1,9 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { CreateCategoryDto, UpdateCategoryDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Catalogue, Category, Panel, Prisma } from '@prisma/client';
 // Constants available in ./catalogues.constants if needed
 // Smart search parsing now handled by SmartSearchService
 import { analyzeQueryForSuggestions } from './utils/search-suggestions';
+
+// Type for category tree with panel counts
+export interface CategoryTreeNode {
+  id: string;
+  name: string;
+  slug: string;
+  catalogueSlug?: string;
+  catalogueName?: string;
+  panelCount: number;
+  children: CategoryTreeNode[];
+}
 import {
   SearchService,
   AutocompleteService,
@@ -97,6 +109,90 @@ export class CataloguesService {
       name: cat.name,
       slug: cat.slug,
       catalogueName: cat.catalogue.name,
+    }));
+  }
+
+  /**
+   * Get full category tree with panel counts
+   * Used for tree navigation in Command Search
+   * Defaults to CutX unified catalogue for consistent navigation
+   */
+  async getCategoriesTree(
+    catalogueSlug?: string,
+  ): Promise<CategoryTreeNode[]> {
+    // Default to CutX unified catalogue for tree navigation
+    const effectiveSlug = catalogueSlug || 'cutx';
+
+    const whereClause: Prisma.CategoryWhereInput = {
+      parentId: null,
+      catalogue: {
+        isActive: true,
+        slug: effectiveSlug,
+      },
+    };
+
+    // Use sortOrder first (from admin drag & drop), then name as fallback
+    const orderBy = [
+      { sortOrder: 'asc' as const },
+      { name: 'asc' as const },
+    ] as any;
+
+    // Deep nesting to match admin view (5 levels)
+    const categories = await this.prisma.category.findMany({
+      where: whereClause,
+      include: {
+        children: {
+          include: {
+            children: {
+              include: {
+                children: {
+                  include: {
+                    children: {
+                      include: {
+                        _count: {
+                          select: { panels: { where: { isActive: true } } },
+                        },
+                      },
+                      orderBy,
+                    },
+                    _count: {
+                      select: { panels: { where: { isActive: true } } },
+                    },
+                  },
+                  orderBy,
+                },
+                _count: {
+                  select: { panels: { where: { isActive: true } } },
+                },
+              },
+              orderBy,
+            },
+            _count: {
+              select: { panels: { where: { isActive: true } } },
+            },
+          },
+          orderBy,
+        },
+        _count: {
+          select: { panels: { where: { isActive: true } } },
+        },
+        catalogue: { select: { name: true, slug: true } },
+      },
+      orderBy,
+    });
+
+    return this.buildTreeWithCounts(categories);
+  }
+
+  private buildTreeWithCounts(categories: any[]): CategoryTreeNode[] {
+    return categories.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      catalogueSlug: cat.catalogue?.slug,
+      catalogueName: cat.catalogue?.name,
+      panelCount: cat._count?.panels || 0,
+      children: cat.children ? this.buildTreeWithCounts(cat.children) : [],
     }));
   }
 
@@ -588,11 +684,14 @@ export class CataloguesService {
       sortDirection?: 'asc' | 'desc';
       enStock?: boolean;
       category?: 'panels' | 'chants' | 'all';
+      /** Slug de catégorie sélectionnée dans l'arborescence */
+      categorySlug?: string;
       decorCategory?: string;
       manufacturer?: string;
       isHydrofuge?: boolean;
       isIgnifuge?: boolean;
       isPreglued?: boolean;
+      chantMaterial?: string;
     },
   ) {
     return this.smartSearchService.search(query, options);
@@ -756,5 +855,273 @@ export class CataloguesService {
    */
   async cleanupOldViewLogs(): Promise<void> {
     return this.viewTrackingService.cleanupOldViewLogs();
+  }
+
+  // ============================================
+  // ADMIN CATEGORIES - Gestion de l'arborescence
+  // ============================================
+
+  /**
+   * Get all categories with full tree structure for admin
+   * Returns root categories with nested children (up to 4 levels)
+   * Only returns categories from the 'cutx' catalogue
+   */
+  async getAllCategoriesForAdmin(): Promise<Category[]> {
+    // Get the cutx catalogue ID
+    const cutxCatalogue = await this.prisma.catalogue.findFirst({
+      where: { slug: 'cutx' },
+    });
+
+    if (!cutxCatalogue) {
+      return [];
+    }
+
+    // Note: orderBy uses sortOrder field added to schema
+    // After server restart and prisma generate, TypeScript will recognize it
+    const orderBy = [{ sortOrder: 'asc' as const }, { name: 'asc' as const }] as any;
+
+    return this.prisma.category.findMany({
+      where: {
+        parentId: null,
+        catalogueId: cutxCatalogue.id,
+      },
+      include: {
+        children: {
+          include: {
+            children: {
+              include: {
+                children: {
+                  include: {
+                    children: {
+                      include: {
+                        _count: { select: { panels: true } },
+                      },
+                      orderBy,
+                    },
+                    _count: { select: { panels: true } },
+                  },
+                  orderBy,
+                },
+                _count: { select: { panels: true } },
+              },
+              orderBy,
+            },
+            _count: { select: { panels: true } },
+          },
+          orderBy,
+        },
+        _count: { select: { panels: true } },
+      },
+      orderBy,
+    });
+  }
+
+  /**
+   * Create a new category
+   */
+  async createCategory(dto: CreateCategoryDto): Promise<Category> {
+    // Get default catalogue (cutx) if not specified
+    let catalogueId = dto.catalogueId;
+    if (!catalogueId) {
+      const cutx = await this.prisma.catalogue.findFirst({
+        where: { slug: 'cutx' },
+      });
+      if (!cutx) {
+        throw new BadRequestException('Catalogue CutX non trouvé');
+      }
+      catalogueId = cutx.id;
+    }
+
+    // Check if slug already exists in this catalogue
+    const existing = await this.prisma.category.findFirst({
+      where: { slug: dto.slug, catalogueId },
+    });
+    if (existing) {
+      throw new BadRequestException(`Le slug "${dto.slug}" existe déjà`);
+    }
+
+    return this.prisma.category.create({
+      data: {
+        name: dto.name,
+        slug: dto.slug,
+        parentId: dto.parentId || null,
+        catalogueId,
+      },
+      include: {
+        _count: { select: { panels: true } },
+      },
+    });
+  }
+
+  /**
+   * Update an existing category
+   */
+  async updateCategory(id: string, dto: UpdateCategoryDto): Promise<Category> {
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Catégorie avec l'ID "${id}" non trouvée`);
+    }
+
+    // If updating slug, check for duplicates
+    if (dto.slug && dto.slug !== category.slug) {
+      const existing = await this.prisma.category.findFirst({
+        where: {
+          slug: dto.slug,
+          catalogueId: category.catalogueId,
+          id: { not: id },
+        },
+      });
+      if (existing) {
+        throw new BadRequestException(`Le slug "${dto.slug}" existe déjà`);
+      }
+    }
+
+    // Prevent setting parent to self or descendant
+    if (dto.parentId) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('Une catégorie ne peut pas être son propre parent');
+      }
+      // Check if new parent is a descendant
+      const descendants = await this.getDescendantIds(id);
+      if (descendants.includes(dto.parentId)) {
+        throw new BadRequestException('Impossible de déplacer une catégorie vers un de ses descendants');
+      }
+    }
+
+    return this.prisma.category.update({
+      where: { id },
+      data: {
+        ...(dto.name && { name: dto.name }),
+        ...(dto.slug && { slug: dto.slug }),
+        ...(dto.parentId !== undefined && { parentId: dto.parentId }),
+      },
+      include: {
+        _count: { select: { panels: true } },
+      },
+    });
+  }
+
+  /**
+   * Delete a category (only if empty and no children)
+   */
+  async deleteCategory(id: string): Promise<{ success: boolean }> {
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+      include: {
+        children: true,
+        _count: { select: { panels: true } },
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Catégorie avec l'ID "${id}" non trouvée`);
+    }
+
+    if (category.children.length > 0) {
+      throw new BadRequestException(
+        'Impossible de supprimer : la catégorie contient des sous-catégories',
+      );
+    }
+
+    if (category._count.panels > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer : la catégorie contient ${category._count.panels} panneau(x)`,
+      );
+    }
+
+    await this.prisma.category.delete({ where: { id } });
+    return { success: true };
+  }
+
+  /**
+   * Move a category to a new parent
+   */
+  async moveCategory(
+    id: string,
+    newParentId: string | null,
+  ): Promise<Category> {
+    return this.updateCategory(id, { parentId: newParentId });
+  }
+
+  /**
+   * Reorder categories - update sortOrder for multiple categories
+   * Used for drag & drop reordering
+   */
+  async reorderCategories(
+    updates: Array<{ id: string; sortOrder: number; parentId?: string | null }>,
+  ): Promise<{ success: boolean }> {
+    console.log(`Reordering ${updates.length} categories...`);
+
+    // Validate all category IDs exist before updating
+    const ids = updates.map((u) => u.id);
+    const existingCategories = await this.prisma.category.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existingCategories.map((c) => c.id));
+    const missingIds = ids.filter((id) => !existingIds.has(id));
+
+    if (missingIds.length > 0) {
+      throw new Error(`Categories not found: ${missingIds.join(', ')}`);
+    }
+
+    try {
+      // Use transaction to update all categories atomically
+      await this.prisma.$transaction(
+        updates.map((update) =>
+          this.prisma.category.update({
+            where: { id: update.id },
+            data: {
+              sortOrder: update.sortOrder,
+              ...(update.parentId !== undefined && { parentId: update.parentId }),
+            },
+          }),
+        ),
+      );
+
+      console.log('Reorder successful');
+      return { success: true };
+    } catch (error) {
+      console.error('Reorder categories error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all descendant IDs of a category (for circular reference check)
+   * @param maxDepth - Maximum recursion depth to prevent stack overflow (default: 10)
+   */
+  private async getDescendantIds(
+    categoryId: string,
+    maxDepth: number = 10,
+  ): Promise<string[]> {
+    const descendants: string[] = [];
+    const visited = new Set<string>();
+
+    const collectDescendants = async (parentId: string, depth: number) => {
+      // Prevent infinite recursion
+      if (depth > maxDepth || visited.has(parentId)) {
+        return;
+      }
+      visited.add(parentId);
+
+      const children = await this.prisma.category.findMany({
+        where: { parentId },
+        select: { id: true },
+      });
+
+      for (const child of children) {
+        if (!visited.has(child.id)) {
+          descendants.push(child.id);
+          await collectDescendants(child.id, depth + 1);
+        }
+      }
+    };
+
+    await collectDescendants(categoryId, 0);
+    return descendants;
   }
 }

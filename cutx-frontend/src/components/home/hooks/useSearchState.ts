@@ -65,22 +65,37 @@ export function useSearchState(): UseSearchStateReturn {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Read initial values from URL
-  const urlQuery = searchParams.get('q') || '';
-  const urlFilters = searchParams.get('filters') || '';
+  // Initialize with safe defaults (same on server and client) to prevent hydration mismatch
+  const [query, setQueryState] = useState('');
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  // Local state (synced with URL)
-  const [query, setQueryState] = useState(urlQuery);
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(() => deserializeFilters(urlFilters));
-  const [hasSearched, setHasSearched] = useState(urlQuery.length >= 2);
-
-  // Track if we're initializing (skip first URL sync)
-  const isInitializedRef = useRef(false);
+  // Track if we've done initial hydration
+  const hasHydratedRef = useRef(false);
   // Track the last URL we set to avoid sync loop from our own updates
-  const lastUrlUpdateRef = useRef<string>(`${urlQuery}|${urlFilters}`);
+  const lastUrlUpdateRef = useRef<string>('|');
 
-  // Sync URL -> state ONLY for browser navigation (back/forward)
+  // Sync from URL on mount (client-only) to prevent hydration mismatch
   useEffect(() => {
+    if (!hasHydratedRef.current) {
+      hasHydratedRef.current = true;
+      const urlQuery = searchParams.get('q') || '';
+      const urlFilters = searchParams.get('filters') || '';
+
+      if (urlQuery || urlFilters) {
+        setQueryState(urlQuery);
+        setActiveFilters(deserializeFilters(urlFilters));
+        setHasSearched(urlQuery.length >= 2);
+        lastUrlUpdateRef.current = `${urlQuery}|${urlFilters}`;
+      }
+    }
+  }, [searchParams]);
+
+  // Sync URL -> state ONLY for browser navigation (back/forward) - after hydration
+  useEffect(() => {
+    // Skip if we haven't hydrated yet (handled by hydration effect above)
+    if (!hasHydratedRef.current) return;
+
     const currentUrl = `${searchParams.get('q') || ''}|${searchParams.get('filters') || ''}`;
 
     // Skip if this is our own URL update
@@ -99,9 +114,8 @@ export function useSearchState(): UseSearchStateReturn {
 
   // Sync state -> URL via useEffect (not during render!)
   useEffect(() => {
-    // Skip first render (already synced from URL)
-    if (!isInitializedRef.current) {
-      isInitializedRef.current = true;
+    // Skip until hydrated (don't push URL changes before we've read the initial URL)
+    if (!hasHydratedRef.current) {
       return;
     }
 

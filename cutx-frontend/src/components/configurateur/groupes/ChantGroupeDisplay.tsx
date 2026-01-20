@@ -31,7 +31,7 @@ export function ChantGroupeDisplay({
           />
         )}
         <div className="chant-info">
-          <span className="chant-label">Chant</span>
+          <span className="chant-label">CHANT</span>
           <span className="chant-nom" title={chant.nom}>
             {chant.nom}
           </span>
@@ -55,30 +55,31 @@ export function ChantGroupeDisplay({
           .chant-display {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: var(--cx-radius-md);
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: var(--cx-radius-lg);
             background: var(--cx-warning-muted);
             border: 1px solid var(--cx-warning-subtle);
           }
 
           .chant-thumb {
-            width: 28px;
-            height: 28px;
-            border-radius: 4px;
+            width: 44px;
+            height: 44px;
+            border-radius: 6px;
             object-fit: cover;
             flex-shrink: 0;
+            border: 1px solid var(--cx-warning-subtle);
           }
 
           .chant-info {
             display: flex;
             flex-direction: column;
-            gap: 1px;
+            gap: 2px;
             min-width: 0;
           }
 
           .chant-label {
-            font-size: 9px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--cx-warning);
@@ -86,19 +87,19 @@ export function ChantGroupeDisplay({
           }
 
           .chant-nom {
-            font-size: var(--cx-text-xs);
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             color: var(--cx-text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 180px;
+            max-width: 200px;
           }
 
           .chant-meta {
             display: flex;
-            gap: 6px;
-            font-size: 10px;
+            gap: 8px;
+            font-size: 11px;
             color: var(--cx-text-tertiary);
           }
 
@@ -111,8 +112,8 @@ export function ChantGroupeDisplay({
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             padding: 0;
             border: none;
             border-radius: 4px;
@@ -143,19 +144,19 @@ export function ChantGroupeDisplay({
       className="chant-add-btn"
     >
       <Plus className="w-4 h-4" />
-      <span>Bande de chant</span>
+      <span>Bande de chant...</span>
 
       <style jsx>{`
         .chant-add-btn {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
+          gap: 8px;
+          padding: 12px 16px;
           border: 1px dashed var(--cx-warning-subtle);
-          border-radius: var(--cx-radius-md);
+          border-radius: var(--cx-radius-lg);
           background: transparent;
           color: var(--cx-warning);
-          font-size: var(--cx-text-xs);
+          font-size: 13px;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.15s;

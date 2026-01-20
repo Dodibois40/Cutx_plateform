@@ -169,167 +169,111 @@ export function GroupePanneau({
         {/* Indicateur panneau */}
         <div className="panneau-indicator" />
 
-        {/* Info panneau - cliquable pour changer */}
-        <div className="panneau-info">
-          {groupe.panneau ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                // Si c'est un panneau multicouche et qu'on a le callback, ouvrir le popup multicouche
-                if (groupe.panneau?.type === 'multicouche' && onSelectMulticouche) {
-                  onSelectMulticouche();
-                } else {
-                  onSelectPanneau();
-                }
-              }}
-              className="panneau-details panneau-details--clickable"
-            >
-              {(() => {
-                const info = getPanneauDisplayInfo(groupe.panneau);
-                if (!info) return null;
+        {/* Panneau et Chant côte à côte */}
+        <div className="panneau-chant-row">
+          {/* Card Panneau */}
+          <div className="panneau-card">
+            {groupe.panneau ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (groupe.panneau?.type === 'multicouche' && onSelectMulticouche) {
+                    onSelectMulticouche();
+                  } else {
+                    onSelectPanneau();
+                  }
+                }}
+                className="panneau-card-btn"
+              >
+                {(() => {
+                  const info = getPanneauDisplayInfo(groupe.panneau);
+                  if (!info) return null;
 
-                // Pour multicouche, afficher en 2 colonnes alignées ligne par ligne
-                if (info.isMulticouche && groupe.panneau?.type === 'multicouche') {
-                  const couches = groupe.panneau.panneau.couches;
-                  const prixTotalM2 = couches.reduce((sum, c) => sum + (c.prixPanneauM2 || 0), 0);
-                  // Calculer le prix total de tous les panneaux
-                  const prixTotalPanneaux = couches.reduce((sum, c) => {
-                    if (c.panneauLongueur && c.panneauLargeur) {
-                      return sum + (c.panneauLongueur * c.panneauLargeur / 1_000_000) * (c.prixPanneauM2 || 0);
-                    }
-                    return sum;
-                  }, 0);
-
-                  return (
-                    <div className="multicouche-layout">
-                      {/* Colonne gauche: Infos générales */}
-                      <div className="multicouche-left">
-                        {/* Ligne 1: Titre */}
-                        <div className="multicouche-row">
-                          <div className="multicouche-icon">
-                            <Layers size={16} />
-                          </div>
-                          <div className="multicouche-row-content">
-                            <span className="multicouche-title">Panneau multicouche</span>
-                          </div>
+                  // Pour multicouche
+                  if (info.isMulticouche && groupe.panneau?.type === 'multicouche') {
+                    const couches = groupe.panneau.panneau.couches;
+                    return (
+                      <>
+                        <div className="card-thumb card-thumb--multicouche">
+                          <Layers size={18} />
                         </div>
-                        {/* Ligne 2: Badges */}
-                        <div className="multicouche-row">
-                          <div className="multicouche-icon" />
-                          <div className="multicouche-row-content">
-                            <span className="badge-multicouche">{couches.length} couches</span>
-                            <span className={cn(
-                              'mode-badge',
-                              info.modeCollage === 'client' && 'mode-badge--client'
-                            )}>
-                              Collage {info.modeCollage === 'fournisseur' ? 'fournisseur' : 'client'}
+                        <div className="card-info">
+                          <span className="card-label">PANNEAU</span>
+                          <span className="card-nom">Multicouche ({couches.length} couches)</span>
+                          <span className="card-meta">
+                            <span>ép. {info.epaisseur?.toFixed(1)}mm</span>
+                            <span className={cn('mode-badge-mini', info.modeCollage === 'client' && 'mode-badge-mini--client')}>
+                              {info.modeCollage === 'fournisseur' ? 'Fournisseur' : 'Client'}
                             </span>
-                          </div>
+                          </span>
                         </div>
-                        {/* Ligne 3: Prix */}
-                        <div className="multicouche-row">
-                          <div className="multicouche-icon" />
-                          <div className="multicouche-row-content">
-                            <span className="multicouche-epaisseur">Ép. totale: {info.epaisseur?.toFixed(1)}mm</span>
-                            <span className="multicouche-prix-m2">Prix: {prixTotalM2.toFixed(2)}€/m²</span>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Colonne droite: Liste des couches */}
-                      <div className="multicouche-right">
-                        {couches.map((couche, idx) => {
-                          // Calculer prix panneau si dimensions disponibles
-                          const prixPanneau = (couche.panneauLongueur && couche.panneauLargeur)
-                            ? (couche.panneauLongueur * couche.panneauLargeur / 1_000_000) * (couche.prixPanneauM2 || 0)
-                            : null;
+                      </>
+                    );
+                  }
 
-                          return (
-                            <div key={couche.id} className="couche-row">
-                              <span className="couche-ordre">{idx + 1}</span>
-                              <span className="couche-nom" title={couche.panneauNom || couche.materiau}>
-                                {couche.panneauNom || couche.materiau}
-                              </span>
-                              <span className="couche-epaisseur">{couche.epaisseur}mm</span>
-                              <span className="couche-prix-m2">{(couche.prixPanneauM2 || 0).toFixed(2)}€/m²</span>
-                              <span className="couche-prix-panneau">
-                                {prixPanneau !== null ? `${prixPanneau.toFixed(2)}€` : '-'}
-                              </span>
-                            </div>
-                          );
-                        })}
+                  // Affichage standard
+                  return (
+                    <>
+                      {info.imageUrl ? (
+                        <img src={info.imageUrl} alt="" className="card-thumb" />
+                      ) : (
+                        <div className="card-thumb card-thumb--empty">
+                          <Package size={16} />
+                        </div>
+                      )}
+                      <div className="card-info">
+                        <span className="card-label">PANNEAU</span>
+                        <span className="card-nom" title={info.nomSansDimensions}>
+                          {info.nomSansDimensions}
+                        </span>
+                        <span className="card-meta">
+                          {info.longueur && info.largeur && (
+                            <span>{info.longueur} × {info.largeur} mm</span>
+                          )}
+                          {info.epaisseurs.length > 0 && (
+                            <span>ép. {info.epaisseurs.join(', ')}mm</span>
+                          )}
+                          {info.prixM2 != null && info.prixM2 > 0 && (
+                            <span className="card-prix">{info.prixM2.toFixed(2)}€/m²</span>
+                          )}
+                        </span>
                       </div>
-                    </div>
+                    </>
                   );
-                }
-
-                // Affichage standard pour panneau catalogue
-                return (
-                  <>
-                    {info.imageUrl ? (
-                      <img
-                        src={info.imageUrl}
-                        alt={info.nomSansDimensions}
-                        className="panneau-thumb"
-                      />
-                    ) : null}
-                    <div className="panneau-text">
-                      <span className="panneau-nom">
-                        {info.nomSansDimensions}
-                      </span>
-                      <span className="panneau-meta">
-                        {/* Dimensions brut du panneau */}
-                        {info.longueur && info.largeur && (
-                          <span className="panneau-dimensions">
-                            {info.longueur} × {info.largeur} mm
-                          </span>
-                        )}
-                        {info.epaisseurs.length > 0 && (
-                          <span>ép. {info.epaisseurs.join(', ')}mm</span>
-                        )}
-                        {info.prixM2 != null && info.prixM2 > 0 && (
-                          <span className="panneau-prix">
-                            {info.prixM2.toFixed(2)}€/m²
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
-            </button>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectPanneau();
-              }}
-              className="select-panneau-btn"
-            >
-              <Package className="w-4 h-4" />
-              <span>Sélectionner un panneau...</span>
-            </button>
-          )}
-        </div>
-
-        {/* Chant du groupe */}
-        <div className="chant-slot">
-          <ChantGroupeDisplay
-            chant={groupe.chant}
-            onSelectChant={onSelectChant}
-            onClearChant={onClearChant}
-          />
-        </div>
-
-        {/* Stats et actions */}
-        <div className="groupe-stats">
-          {/* Prix du panneau brut - largeur fixe pour alignement */}
-          <div className="prix-panneau-slot">
-            {prixPanneauBrut !== null && (
-              <span className="prix-panneau-brut">
-                Tarif achat panneau: {prixPanneauBrut.toFixed(2)}€
-              </span>
+                })()}
+              </button>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectPanneau();
+                }}
+                className="card-add-btn"
+              >
+                <Package className="w-4 h-4" />
+                <span>Sélectionner panneau...</span>
+              </button>
             )}
           </div>
+
+          {/* Card Chant */}
+          <div className="chant-card">
+            <ChantGroupeDisplay
+              chant={groupe.chant}
+              onSelectChant={onSelectChant}
+              onClearChant={onClearChant}
+            />
+          </div>
+        </div>
+
+        {/* Stats et actions - à droite */}
+        <div className="groupe-stats">
+          {/* Prix du panneau brut */}
+          {prixPanneauBrut !== null && (
+            <span className="prix-panneau-brut">
+              Tarif achat panneau: {prixPanneauBrut.toFixed(2)}€
+            </span>
+          )}
 
           {/* Stats lignes/surface/prix */}
           <div className="stats-right">
@@ -558,7 +502,7 @@ export function GroupePanneau({
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 16px;
+          padding: 16px 20px; /* Augmenté de 12px à 16px vertical */
           background: var(--cx-surface-2);
           border-bottom: 1px solid var(--cx-border-subtle);
           cursor: pointer;
@@ -575,8 +519,8 @@ export function GroupePanneau({
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 24px;
-          height: 24px;
+          width: 28px;
+          height: 28px;
           border: none;
           background: transparent;
           color: var(--cx-text-muted);
@@ -598,253 +542,148 @@ export function GroupePanneau({
           flex-shrink: 0;
         }
 
-        .panneau-info {
+        /* Row contenant Panneau et Chant côte à côte */
+        .panneau-chant-row {
+          display: flex;
+          align-items: stretch;
+          gap: 16px;
           flex: 1;
           min-width: 0;
-          display: flex;
-          justify-content: flex-start;
         }
 
-        .chant-slot {
+        /* Card Panneau */
+        .panneau-card {
           flex-shrink: 0;
-          margin-left: 12px;
         }
 
-        .panneau-details {
+        .panneau-card-btn {
           display: flex;
           align-items: center;
           gap: 12px;
-          border: none;
-          background: transparent;
+          padding: 10px 14px;
+          border: 1px solid var(--cx-accent-subtle);
+          border-radius: var(--cx-radius-lg);
+          background: var(--cx-accent-muted);
           cursor: pointer;
-          padding: 0;
+          transition: all 0.15s;
           text-align: left;
         }
 
-        .panneau-details--clickable {
-          padding: 6px 10px;
-          border-radius: var(--cx-radius-md);
-          transition: all 0.15s;
-        }
-
-        .panneau-details--clickable:hover {
+        .panneau-card-btn:hover {
           background: var(--cx-surface-3);
+          border-color: var(--cx-accent);
         }
 
-        .panneau-thumb {
-          width: 40px;
-          height: 40px;
+        .card-thumb {
+          width: 44px;
+          height: 44px;
           border-radius: 6px;
           object-fit: cover;
           border: 1px solid var(--cx-border-subtle);
           flex-shrink: 0;
         }
 
-        .panneau-thumb--multicouche {
+        .card-thumb--multicouche {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, var(--cx-surface-3), var(--cx-surface-2));
+          background: linear-gradient(135deg, var(--cx-warning-muted), var(--cx-surface-3));
           color: var(--cx-warning);
+          border-color: var(--cx-warning-subtle);
         }
 
-        .panneau-text {
+        .card-thumb--empty {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--cx-surface-3);
+          color: var(--cx-text-muted);
+        }
+
+        .card-info {
           display: flex;
           flex-direction: column;
           gap: 2px;
           min-width: 0;
         }
 
-        .panneau-nom {
-          font-weight: 600;
-          font-size: var(--cx-text-sm);
-          color: var(--cx-text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .panneau-meta {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: var(--cx-text-xs);
-          color: var(--cx-text-tertiary);
-        }
-
-        .panneau-prix {
+        .card-label {
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
           color: var(--cx-accent);
           font-weight: 600;
         }
 
-        .panneau-dimensions {
-          color: var(--cx-text-secondary);
-          padding: 2px 6px;
-          background: var(--cx-surface-3);
-          border-radius: 4px;
+        .card-nom {
+          font-weight: 600;
+          font-size: 13px; /* Augmenté pour meilleure lisibilité */
+          color: var(--cx-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 220px;
         }
 
-        .badge-multicouche {
-          padding: 2px 6px;
-          font-size: var(--cx-text-xs);
+        .card-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px; /* Augmenté pour meilleure lisibilité */
+          color: var(--cx-text-tertiary);
+        }
+
+        .card-prix {
+          color: var(--cx-accent);
+          font-weight: 600;
+        }
+
+        .mode-badge-mini {
+          padding: 1px 5px;
+          font-size: 10px;
+          background: var(--cx-accent-muted);
+          color: var(--cx-accent);
+          border-radius: 3px;
           font-weight: 500;
-          background: var(--cx-warning-muted);
-          color: var(--cx-warning);
-          border-radius: 4px;
         }
 
-        .mode-badge {
-          padding: 2px 6px;
-          font-size: var(--cx-text-xs);
-          background: var(--cx-accent-muted);
-          color: var(--cx-accent);
-          border-radius: 4px;
-        }
-
-        .mode-badge--client {
+        .mode-badge-mini--client {
           background: var(--cx-warning-muted);
           color: var(--cx-warning);
         }
 
-        /* Multicouche layout 2 colonnes */
-        .multicouche-layout {
-          display: flex;
-          gap: 24px;
-          width: 100%;
-          align-items: stretch;
-        }
-
-        .multicouche-left {
-          display: flex;
-          flex-direction: column;
-          flex-shrink: 0;
-        }
-
-        .multicouche-row {
-          display: grid;
-          grid-template-columns: 32px 1fr;
-          align-items: center;
-          gap: 8px;
-          height: 20px; /* Même hauteur que couche-row */
-        }
-
-        .multicouche-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--cx-warning);
-        }
-
-        .multicouche-row-content {
+        .card-add-btn {
           display: flex;
           align-items: center;
           gap: 8px;
-        }
-
-        .multicouche-title {
-          font-weight: 600;
-          font-size: var(--cx-text-sm);
-          color: var(--cx-text-primary);
-          white-space: nowrap;
-        }
-
-        .multicouche-epaisseur {
-          font-size: var(--cx-text-xs);
-          color: var(--cx-text-secondary);
-          white-space: nowrap;
-        }
-
-        .multicouche-prix-m2 {
-          font-weight: 600;
-          font-size: var(--cx-text-xs);
-          color: var(--cx-accent);
-          white-space: nowrap;
-        }
-
-        .multicouche-right {
-          display: flex;
-          flex-direction: column;
-          border-left: 1px solid var(--cx-border-subtle);
-          padding-left: 16px;
-        }
-
-        .couche-row {
-          display: grid;
-          grid-template-columns: 18px 200px 40px 65px 70px;
-          align-items: center;
-          gap: 6px;
-          font-size: var(--cx-text-xs);
-          height: 20px; /* Même hauteur que multicouche-row */
-        }
-
-        .couche-ordre {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 16px;
-          height: 16px;
-          background: var(--cx-accent-muted);
-          color: var(--cx-accent);
-          border-radius: 50%;
-          font-weight: 600;
-          font-size: 9px;
-          flex-shrink: 0;
-        }
-
-        .couche-nom {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          color: var(--cx-text-primary);
-        }
-
-        .couche-epaisseur {
-          color: var(--cx-text-tertiary);
-          text-align: right;
-        }
-
-        .couche-prix-m2 {
-          color: var(--cx-text-secondary);
-          text-align: right;
-        }
-
-        .couche-prix-panneau {
-          color: var(--cx-accent);
-          font-weight: 600;
-          text-align: right;
-        }
-
-        .select-panneau-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
+          padding: 12px 16px;
           border: 1px dashed var(--cx-border-default);
-          border-radius: 8px;
+          border-radius: var(--cx-radius-lg);
           background: transparent;
           color: var(--cx-text-muted);
           cursor: pointer;
           transition: all 0.15s;
-          font-size: var(--cx-text-sm);
+          font-size: 13px;
+          font-weight: 500;
         }
 
-        .select-panneau-btn:hover {
+        .card-add-btn:hover {
           border-color: var(--cx-accent);
           color: var(--cx-accent);
           background: var(--cx-accent-subtle);
         }
 
-        .groupe-stats {
-          display: flex;
-          align-items: center;
-          gap: 16px;
+        /* Card Chant */
+        .chant-card {
           flex-shrink: 0;
         }
 
-        .prix-panneau-slot {
-          position: absolute;
-          left: 850px;
+        .groupe-stats {
           display: flex;
+          align-items: center;
+          gap: 20px;
+          flex-shrink: 0;
+          margin-left: auto;
         }
 
         .stats-right {
@@ -852,30 +691,31 @@ export function GroupePanneau({
           align-items: center;
           justify-content: flex-end;
           gap: 16px;
-          margin-left: auto;
         }
 
         .prix-panneau-brut {
-          font-size: var(--cx-text-sm);
+          font-size: 13px; /* Augmenté */
           font-weight: 600;
           color: var(--cx-warning);
-          padding: 4px 10px;
+          padding: 6px 12px;
           background: var(--cx-warning-muted);
           border-radius: var(--cx-radius-md);
+          white-space: nowrap;
         }
 
         .lignes-count {
-          font-size: var(--cx-text-sm);
+          font-size: 13px;
           color: var(--cx-text-tertiary);
         }
 
         .surface-total {
-          font-size: var(--cx-text-sm);
+          font-size: 13px;
+          font-weight: 500;
           color: var(--cx-text-secondary);
         }
 
         .prix-total {
-          font-size: var(--cx-text-sm);
+          font-size: 13px;
           font-weight: 600;
           color: var(--cx-accent);
         }

@@ -42,6 +42,23 @@ export const PRODUCT_TYPE_SYNONYMS: Record<string, string> = {
   massif: 'PANNEAU_MASSIF',
   // Solid Surface
   solid: 'SOLID_SURFACE', corian: 'SOLID_SURFACE',
+  // Panneau Mural
+  mural: 'PANNEAU_MURAL', muraux: 'PANNEAU_MURAL',
+  // Panneau Décoratif (acoustique, design)
+  decoratif: 'PANNEAU_DECORATIF', décoratif: 'PANNEAU_DECORATIF',
+  acoustique: 'PANNEAU_DECORATIF', design: 'PANNEAU_DECORATIF',
+  // Panneau 3 Plis
+  '3plis': 'PANNEAU_3_PLIS', 'trois-plis': 'PANNEAU_3_PLIS',
+  triplis: 'PANNEAU_3_PLIS', triply: 'PANNEAU_3_PLIS', '3-plis': 'PANNEAU_3_PLIS',
+  // Latté (panneau lamellé-collé)
+  latte: 'LATTE', latté: 'LATTE', lamelle: 'LATTE', lamellé: 'LATTE',
+  // Panneau Isolant
+  isolant: 'PANNEAU_ISOLANT', isolation: 'PANNEAU_ISOLANT',
+  thermique: 'PANNEAU_ISOLANT',
+  // Panneau Alvéolaire
+  alveolaire: 'PANNEAU_ALVEOLAIRE', alvéolaire: 'PANNEAU_ALVEOLAIRE',
+  // Ciment-Bois (Fermacell, etc.)
+  ciment: 'CIMENT_BOIS', fermacell: 'CIMENT_BOIS', aquapanel: 'CIMENT_BOIS',
 };
 
 // Mapping des types de produits vers les noms complets pour recherche textuelle
@@ -55,6 +72,13 @@ export const PRODUCT_TYPE_FULL_NAMES: Record<string, string[]> = {
   OSB: ['osb'],
   PLACAGE: ['placage', 'plaqué'],
   COMPACT: ['compact'],
+  PANNEAU_MURAL: ['mural', 'muraux', 'revêtement mural'],
+  PANNEAU_DECORATIF: ['décoratif', 'decoratif', 'acoustique', 'design'],
+  PANNEAU_3_PLIS: ['3 plis', '3plis', 'trois plis', 'triplis'],
+  LATTE: ['latté', 'latte', 'lamellé', 'lamelle'],
+  PANNEAU_ISOLANT: ['isolant', 'isolation', 'thermique'],
+  PANNEAU_ALVEOLAIRE: ['alvéolaire', 'alveolaire', 'nid d\'abeille'],
+  CIMENT_BOIS: ['ciment', 'fermacell', 'aquapanel'],
 };
 
 // ============================================================================
@@ -297,9 +321,11 @@ function tokenize(query: string): string[] {
   const tokens: string[] = [];
   // Match in order of priority:
   // 1. Dimensions: 2800x2070, 2800*2070, 2800×2070
-  // 2. Decimal numbers (0.8), integers (19), or number+mm (19mm)
-  // 3. Words with accents (\p{L} matches any Unicode letter)
-  const regex = /(\d+\s*[xX×*]\s*\d+|\d+(?:[.,]\d+)?(?:mm)?|[\p{L}\w]+)/giu;
+  // 2. Compound words with hyphens (trois-plis, bouche-pores)
+  // 3. Number+letter combinations (3plis)
+  // 4. Decimal numbers (0.8), integers (19), or number+mm (19mm)
+  // 5. Words with accents (\p{L} matches any Unicode letter)
+  const regex = /(\d+\s*[xX×*]\s*\d+|[\p{L}\w]+-[\p{L}\w]+(?:-[\p{L}\w]+)?|\d+[\p{L}]+|\d+(?:[.,]\d+)?(?:mm)?|[\p{L}\w]+)/giu;
   let match;
   while ((match = regex.exec(query)) !== null) {
     tokens.push(match[1]);
@@ -308,7 +334,12 @@ function tokenize(query: string): string[] {
 }
 
 function parseThickness(token: string): number | null {
-  const cleaned = token.replace(/mm$/i, '').replace(',', '.');
+  // Only match pure numbers, optionally with "mm" suffix
+  // This prevents "3plis" from being parsed as thickness 3mm
+  const match = token.match(/^(\d+(?:[.,]\d+)?)(mm)?$/i);
+  if (!match) return null;
+
+  const cleaned = match[1].replace(',', '.');
   const num = parseFloat(cleaned);
   if (!isNaN(num) && num > 0 && num <= 100) return num;
   return null;
@@ -351,7 +382,8 @@ export function parseSmartQuery(query: string): ParsedSmartQuery {
     recognizedTokens: [], unrecognizedTokens: [],
   };
 
-  if (!query || query.trim().length === 0) return result;
+  // Wildcard '*' means "match all" - return empty result (base condition only)
+  if (!query || query.trim().length === 0 || query.trim() === '*') return result;
 
   const tokens = tokenize(query);
   const unrecognized: string[] = [];
@@ -537,20 +569,37 @@ export function buildSmartSearchSQL(parsed: ParsedSmartQuery): {
   searchTerms.push(...parsed.colorQualifiers);
 
   // Pour les essences de bois, inclure tous les synonymes (ex: "chêne" → cherche aussi "oak")
+  // IMPORTANT: Si on a un terme de recherche non reconnu (ex: "querkus"), l'essence devient optionnelle
+  // car les marques n'ont pas forcément l'essence dans le nom (Querkus = chêne implicite)
+  const hasUnrecognizedSearchTerm = parsed.searchText && parsed.searchText.length >= 4;
+
   for (const wood of parsed.woods) {
     const synonyms = WOOD_SYNONYMS[wood] || WOOD_SYNONYMS[wood.toLowerCase()] || [wood];
     const allVariants = [wood, ...synonyms.filter(s => s.toLowerCase() !== wood.toLowerCase())];
 
     // Construire une condition OR pour tous les synonymes
+    // Cherche dans name ET decorName (important pour les marques comme Querkus)
     const woodConditions = allVariants.map(() => {
-      const condition = `unaccent(lower(p.name)) ILIKE '%' || unaccent(lower($${paramIndex})) || '%'`;
+      const condition = `(
+        unaccent(lower(p.name)) ILIKE '%' || unaccent(lower($${paramIndex})) || '%'
+        OR unaccent(lower(COALESCE(p."decorName", ''))) ILIKE '%' || unaccent(lower($${paramIndex})) || '%'
+      )`;
       paramIndex++;
       return condition;
     });
 
     if (woodConditions.length > 0) {
-      whereParts.push(`(${woodConditions.join(' OR ')})`);
-      params.push(...allVariants);
+      // Si on a un terme non reconnu (marque/référence), l'essence devient optionnelle
+      // Ex: "querkus chêne" → cherche "querkus" sans exiger "chêne" dans le nom
+      if (hasUnrecognizedSearchTerm) {
+        // Ne pas ajouter la condition essence comme filtre obligatoire
+        // L'utilisateur cherche probablement une marque, pas filtrer par essence
+        // On réinitialise paramIndex car les conditions ne sont pas utilisées
+        paramIndex -= allVariants.length;
+      } else {
+        whereParts.push(`(${woodConditions.join(' OR ')})`);
+        params.push(...allVariants);
+      }
     }
   }
 

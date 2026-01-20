@@ -73,6 +73,12 @@
   --cx-transition-base: 200ms ease-out;
   --cx-transition-slow: 300ms ease-out;
 
+  /* MODERN EASINGS (Linear/Vercel-inspired) */
+  --cx-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);    /* Bounce subtil */
+  --cx-ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);     /* Linear-style */
+  --cx-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);      /* Rapide puis lent */
+  --cx-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);         /* Smooth in-out */
+
   /* TYPOGRAPHY */
   --cx-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --cx-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
@@ -115,26 +121,50 @@ body {
   margin: 0 auto;
 }
 
-/* === CARD COMPONENT === */
+/* === CARD COMPONENT (Modern Interactions) === */
 .cx-card {
   background: var(--cx-surface-2);
   border: 1px solid var(--cx-border-subtle);
   border-radius: var(--cx-radius-xl);
-  transition: border-color var(--cx-transition-base),
-              box-shadow var(--cx-transition-base);
+  transition:
+    border-color 200ms var(--cx-ease-smooth),
+    box-shadow 250ms var(--cx-ease-smooth),
+    transform 200ms var(--cx-ease-out-expo),
+    background-color 200ms var(--cx-ease-smooth);
 }
 
 .cx-card:hover {
   border-color: var(--cx-border-default);
 }
 
-.cx-card--interactive:hover {
-  border-color: var(--cx-border-accent);
-  box-shadow: var(--cx-shadow-glow);
+/* Interactive card - lift + glow on hover */
+.cx-card--interactive {
+  cursor: pointer;
 }
 
-/* === BUTTON SYSTEM === */
+.cx-card--interactive:hover {
+  border-color: var(--cx-border-accent);
+  box-shadow:
+    var(--cx-shadow-glow),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
+}
+
+.cx-card--interactive:active {
+  transform: translateY(0);
+  box-shadow: var(--cx-shadow-sm);
+  transition-duration: 75ms;
+}
+
+/* Selectable card state */
+.cx-card--selected {
+  border-color: var(--cx-accent);
+  box-shadow: 0 0 0 1px var(--cx-accent), var(--cx-shadow-glow);
+}
+
+/* === BUTTON SYSTEM (Modern Animations) === */
 .cx-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -147,8 +177,29 @@ body {
   border-radius: var(--cx-radius-md);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: all var(--cx-transition-fast);
   white-space: nowrap;
+  /* Modern transition - separate properties for better control */
+  transition:
+    transform 150ms var(--cx-ease-out-expo),
+    background-color 150ms var(--cx-ease-smooth),
+    border-color 150ms var(--cx-ease-smooth),
+    box-shadow 200ms var(--cx-ease-smooth),
+    color 120ms ease-out;
+  /* Prevent layout shift on transform */
+  will-change: transform;
+  /* Subtle lift effect base */
+  transform: translateY(0);
+}
+
+/* Hover: subtle lift + shadow */
+.cx-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* Active: press down feedback (tactile) */
+.cx-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 75ms;
 }
 
 .cx-btn:disabled {
@@ -156,16 +207,31 @@ body {
   cursor: not-allowed;
 }
 
-/* Primary Button */
+/* Focus: modern glow ring */
+.cx-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--cx-surface-0), 0 0 0 4px var(--cx-accent-muted);
+}
+
+/* Primary Button - Olive accent */
 .cx-btn--primary {
   background: var(--cx-accent);
   color: #000;
   border-color: var(--cx-accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .cx-btn--primary:hover:not(:disabled) {
   background: var(--cx-accent-hover);
   border-color: var(--cx-accent-hover);
+  box-shadow:
+    0 4px 12px rgba(139, 154, 75, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.cx-btn--primary:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Secondary Button */
@@ -173,11 +239,17 @@ body {
   background: var(--cx-surface-3);
   color: var(--cx-text-primary);
   border-color: var(--cx-border-default);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .cx-btn--secondary:hover:not(:disabled) {
   background: var(--cx-surface-4);
   border-color: var(--cx-border-strong);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.cx-btn--secondary:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* Ghost Button */
@@ -192,7 +264,11 @@ body {
   color: var(--cx-text-primary);
 }
 
-/* Accent Ghost */
+.cx-btn--ghost:active:not(:disabled) {
+  background: var(--cx-surface-4);
+}
+
+/* Accent Ghost - Olive transparent */
 .cx-btn--accent-ghost {
   background: transparent;
   color: var(--cx-accent);
@@ -201,6 +277,57 @@ body {
 
 .cx-btn--accent-ghost:hover:not(:disabled) {
   background: var(--cx-accent-subtle);
+  box-shadow: 0 0 0 1px var(--cx-accent-muted);
+}
+
+.cx-btn--accent-ghost:active:not(:disabled) {
+  background: var(--cx-accent-muted);
+}
+
+/* Amber CTA Button (for important actions) */
+.cx-btn--amber {
+  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+  color: #000;
+  border-color: #f59e0b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.cx-btn--amber:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fcd34d 0%, #fbbf24 100%);
+  border-color: #fbbf24;
+  box-shadow:
+    0 4px 16px rgba(245, 158, 11, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.cx-btn--amber:active:not(:disabled) {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* Button with icon - icon micro-movement */
+.cx-btn svg,
+.cx-btn [data-icon] {
+  transition: transform 200ms var(--cx-ease-out-expo);
+}
+
+/* Arrow icons move right on hover */
+.cx-btn:hover:not(:disabled) svg[data-direction="right"],
+.cx-btn:hover:not(:disabled) .icon-arrow-right {
+  transform: translateX(2px);
+}
+
+/* Arrow icons move left on hover */
+.cx-btn:hover:not(:disabled) svg[data-direction="left"],
+.cx-btn:hover:not(:disabled) .icon-arrow-left {
+  transform: translateX(-2px);
+}
+
+/* Plus icons scale on hover */
+.cx-btn:hover:not(:disabled) svg[data-icon="plus"],
+.cx-btn:hover:not(:disabled) .icon-plus {
+  transform: scale(1.1);
 }
 
 /* Button Sizes */
@@ -212,6 +339,12 @@ body {
 .cx-btn--lg {
   padding: var(--cx-space-3) var(--cx-space-6);
   font-size: var(--cx-text-md);
+}
+
+/* Icon-only button (square) */
+.cx-btn--icon {
+  padding: var(--cx-space-2);
+  aspect-ratio: 1;
 }
 
 /* === INPUT SYSTEM === */
@@ -1567,4 +1700,218 @@ body {
   50% {
     transform: translateX(-4px);
   }
+}
+
+/* ============================================
+   MODERN INTERACTION UTILITIES (2025)
+   Linear/Vercel/Stripe-inspired effects
+   ============================================ */
+
+/* === Hover Lift Effect === */
+.cx-hover-lift {
+  transition:
+    transform 200ms var(--cx-ease-out-expo),
+    box-shadow 200ms var(--cx-ease-smooth);
+}
+
+.cx-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.cx-hover-lift:active {
+  transform: translateY(0);
+  transition-duration: 75ms;
+}
+
+/* === Hover Scale Effect (subtle) === */
+.cx-hover-scale {
+  transition: transform 200ms var(--cx-ease-spring);
+}
+
+.cx-hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.cx-hover-scale:active {
+  transform: scale(0.98);
+  transition-duration: 75ms;
+}
+
+/* === Hover Glow Effect === */
+.cx-hover-glow {
+  transition: box-shadow 250ms var(--cx-ease-smooth);
+}
+
+.cx-hover-glow:hover {
+  box-shadow: 0 0 20px rgba(139, 154, 75, 0.2);
+}
+
+/* Amber glow variant */
+.cx-hover-glow--amber:hover {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+}
+
+/* === Press Feedback (tactile) === */
+.cx-press-feedback {
+  transition: transform 150ms var(--cx-ease-out-expo);
+}
+
+.cx-press-feedback:active {
+  transform: scale(0.97);
+  transition-duration: 75ms;
+}
+
+/* === Shimmer Loading Effect === */
+@keyframes cx-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.cx-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--cx-surface-2) 0%,
+    var(--cx-surface-3) 50%,
+    var(--cx-surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: cx-shimmer 1.5s ease-in-out infinite;
+}
+
+/* === Skeleton Loading === */
+.cx-skeleton {
+  background: var(--cx-surface-3);
+  border-radius: var(--cx-radius-md);
+  animation: cx-shimmer 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    var(--cx-surface-2) 0%,
+    var(--cx-surface-3) 50%,
+    var(--cx-surface-2) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* === Smooth Appear (for modals/dropdowns) === */
+@keyframes cx-smooth-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cx-smooth-appear {
+  animation: cx-smooth-appear 200ms var(--cx-ease-out-expo);
+}
+
+/* === Bounce In (for notifications/toasts) === */
+@keyframes cx-bounce-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.cx-bounce-in {
+  animation: cx-bounce-in 300ms var(--cx-ease-spring);
+}
+
+/* === Stagger Children (for lists) === */
+.cx-stagger-children > * {
+  animation: cx-slide-up 250ms var(--cx-ease-out-expo) backwards;
+}
+
+.cx-stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.cx-stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.cx-stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.cx-stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.cx-stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.cx-stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.cx-stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.cx-stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+
+/* === Icon Spin (for loading states) === */
+@keyframes cx-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.cx-spin {
+  animation: cx-spin 1s linear infinite;
+}
+
+/* === Subtle Pulse (for attention) === */
+@keyframes cx-subtle-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.cx-subtle-pulse {
+  animation: cx-subtle-pulse 2s ease-in-out infinite;
+}
+
+/* === Border Highlight Animation === */
+@keyframes cx-border-highlight {
+  0% {
+    border-color: var(--cx-border-default);
+  }
+  50% {
+    border-color: var(--cx-accent);
+  }
+  100% {
+    border-color: var(--cx-border-default);
+  }
+}
+
+.cx-border-highlight {
+  animation: cx-border-highlight 2s ease-in-out;
+}
+
+/* === Focus Ring (modern accessible) === */
+.cx-focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--cx-surface-0),
+    0 0 0 4px var(--cx-accent-muted);
+}
+
+/* === Underline Reveal (for links) === */
+.cx-underline-reveal {
+  position: relative;
+  text-decoration: none;
+}
+
+.cx-underline-reveal::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 200ms var(--cx-ease-out-expo);
+}
+
+.cx-underline-reveal:hover::after {
+  width: 100%;
 }

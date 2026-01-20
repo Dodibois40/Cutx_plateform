@@ -28,12 +28,17 @@ export interface SmartSearchOptions {
   enStock?: boolean;
   // Category: panels (all except chants), chants (only chants), all (everything)
   category?: 'panels' | 'chants' | 'all';
+  // Category slug from tree navigation (e.g. 'chants-abs', 'essences-chene')
+  categorySlug?: string;
   // Explicit filters
   decorCategory?: string;
   manufacturer?: string;
   isHydrofuge?: boolean;
   isIgnifuge?: boolean;
   isPreglued?: boolean;
+  // Chant material filter: 'ABS' | 'BOIS' | 'MELAMINE' | 'PVC'
+  // Maps to panelSubType: CHANT_ABS, CHANT_BOIS, CHANT_MELAMINE, CHANT_PVC
+  chantMaterial?: string;
 }
 
 export interface SmartSearchParsed {
@@ -109,6 +114,13 @@ export class SmartSearchService {
     }
     // 'all' or undefined = no filter
 
+    // Add tree category slug filter (matches category or parent category)
+    let treeCategoryCondition = '';
+    if (options?.categorySlug) {
+      treeCategoryCondition = `AND (cat.slug = $${params.length + 1} OR parent.slug = $${params.length + 1})`;
+      params.push(options.categorySlug);
+    }
+
     // Save param count BEFORE explicit filters (for facets)
     const baseParamsCount = params.length;
 
@@ -131,6 +143,25 @@ export class SmartSearchService {
     }
     if (options?.isPreglued) {
       explicitFilters += ` AND p."isPreglued" = true`;
+    }
+    // Chant material filter - maps short names to panelSubType enum
+    if (options?.chantMaterial) {
+      const chantMaterialMap: Record<string, string> = {
+        ABS: 'CHANT_ABS',
+        BOIS: 'CHANT_BOIS',
+        MELAMINE: 'CHANT_MELAMINE',
+        PVC: 'CHANT_PVC',
+        // Also accept full enum names
+        CHANT_ABS: 'CHANT_ABS',
+        CHANT_BOIS: 'CHANT_BOIS',
+        CHANT_MELAMINE: 'CHANT_MELAMINE',
+        CHANT_PVC: 'CHANT_PVC',
+      };
+      const subType =
+        chantMaterialMap[options.chantMaterial.toUpperCase()] ||
+        options.chantMaterial;
+      explicitFilters += ` AND p."panelSubType" = $${params.length + 1}::"ProductSubType"`;
+      params.push(subType);
     }
 
     // Build ORDER BY
@@ -179,6 +210,7 @@ export class SmartSearchService {
         ${catalogueCondition}
         ${stockCondition}
         ${categoryCondition}
+        ${treeCategoryCondition}
         ${explicitFilters}
       ORDER BY ${orderByClause}
       LIMIT ${limit} OFFSET ${offset}
@@ -189,10 +221,13 @@ export class SmartSearchService {
       SELECT COUNT(*) as total
       FROM "Panel" p
       JOIN "Catalogue" c ON p."catalogueId" = c.id AND c."isActive" = true
+      LEFT JOIN "Category" cat ON p."categoryId" = cat.id
+      LEFT JOIN "Category" parent ON cat."parentId" = parent.id
       WHERE ${whereClause}
         ${catalogueCondition}
         ${stockCondition}
         ${categoryCondition}
+        ${treeCategoryCondition}
         ${explicitFilters}
     `;
 
@@ -211,11 +246,11 @@ export class SmartSearchService {
 
     // Aggregate available facets (without explicit filters to allow changes)
     // Only use base params (before decorCategory, manufacturer, etc.)
-    // categoryCondition is included so facets reflect panels/chants mode
+    // categoryCondition and treeCategoryCondition are included so facets reflect the current filter state
     const facets = await this.facetsService.aggregate(
       whereClause,
       params.slice(0, baseParamsCount),
-      `${catalogueCondition} ${categoryCondition}`,
+      `${catalogueCondition} ${categoryCondition} ${treeCategoryCondition}`,
     );
 
     return {

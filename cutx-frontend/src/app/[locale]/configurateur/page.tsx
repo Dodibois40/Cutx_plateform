@@ -31,6 +31,12 @@ import { readImportedLinesFromSession } from '@/components/home/hooks/useFileImp
 import { MULTI_GROUP_CONFIG_KEY, MASSIF_PIECES_STORAGE_KEY, type GroupConfig } from '@/components/home/MultiFileImportWizard';
 import type { DxfMassifPiece } from '@/lib/configurateur/import/types';
 import type { InitialGroupeData } from '@/contexts/GroupesContext';
+import {
+  MULTICOUCHE_BUILDER_STORAGE_KEY,
+  type MulticoucheBuilderStorageData,
+} from '@/components/home/multicouche-builder';
+import type { PanneauMulticouche, CoucheMulticouche } from '@/lib/configurateur-multicouche/types';
+import type { ChantGroupe } from '@/lib/configurateur/groupes/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
@@ -283,6 +289,101 @@ function ConfigurateurContent() {
       } catch (err) {
         console.error('[ConfigV3] Erreur lecture multi-import:', err);
         setError('Erreur lors du chargement des fichiers importés');
+        setIsMultiImportReady(true);
+      }
+      return; // Skip other import modes
+    }
+
+    // Mode Multicouche Artisanal: Import from homepage multicouche builder
+    if (importId === 'multicouche-artisanal' && !hasReceivedData.current) {
+      hasReceivedData.current = true;
+      console.log('[ConfigV3] Mode Multicouche Artisanal detecte');
+
+      try {
+        const storedData = sessionStorage.getItem(MULTICOUCHE_BUILDER_STORAGE_KEY);
+        if (storedData) {
+          sessionStorage.removeItem(MULTICOUCHE_BUILDER_STORAGE_KEY);
+          const builderData: MulticoucheBuilderStorageData = JSON.parse(storedData);
+          console.log('[ConfigV3] Multicouche data:', builderData.couches.length, 'couches');
+
+          // Convert BuilderCouche[] to CoucheMulticouche[]
+          const couchesMulticouche: CoucheMulticouche[] = builderData.couches.map((bc) => ({
+            id: bc.id,
+            ordre: bc.ordre,
+            type: bc.type,
+            materiau: bc.materiau,
+            epaisseur: bc.epaisseur,
+            sensDuFil: bc.sensDuFil,
+            panneauId: bc.panneauId,
+            panneauNom: bc.panneauNom,
+            panneauReference: bc.panneauReference,
+            panneauImageUrl: bc.panneauImageUrl,
+            panneauLongueur: bc.panneauLongueur,
+            panneauLargeur: bc.panneauLargeur,
+            prixPanneauM2: bc.prixPanneauM2,
+            surfaceM2: bc.surfaceM2,
+            prixCouche: bc.prixCouche,
+          }));
+
+          // Calculate prix estimé au M2 from total price and dimensions
+          const surfaceM2 = (builderData.dimensionsFinales.longueur * builderData.dimensionsFinales.largeur) / 1_000_000;
+          const prixEstimeM2 = surfaceM2 > 0 ? builderData.prixTotal / surfaceM2 : 0;
+
+          // Create PanneauMulticouche
+          const panneauMulticouche: PanneauMulticouche = {
+            id: `multicouche-${Date.now()}`,
+            couches: couchesMulticouche,
+            modeCollage: builderData.modeCollage,
+            epaisseurTotale: builderData.epaisseurTotale,
+            prixEstimeM2,
+          };
+
+          // Convert chant if present
+          let chantGroupe: ChantGroupe | undefined;
+          if (builderData.chants.chant) {
+            chantGroupe = {
+              id: builderData.chants.chant.id,
+              reference: builderData.chants.chant.reference,
+              nom: builderData.chants.chant.nom,
+              refFabricant: builderData.chants.chant.refFabricant,
+              epaisseur: builderData.chants.chant.epaisseur,
+              prixMl: builderData.chants.chant.prixMl,
+              imageUrl: builderData.chants.chant.imageUrl,
+            };
+          }
+
+          // Create initial ligne with final dimensions
+          const ligne = creerNouvelleLigne();
+          ligne.reference = 'Panneau multicouche';
+          ligne.forme = 'rectangle';
+          ligne.dimensions = {
+            longueur: builderData.avecSurcote
+              ? builderData.dimensionsFinales.longueur + builderData.surcoteMm
+              : builderData.dimensionsFinales.longueur,
+            largeur: builderData.avecSurcote
+              ? builderData.dimensionsFinales.largeur + builderData.surcoteMm
+              : builderData.dimensionsFinales.largeur,
+            epaisseur: builderData.epaisseurTotale,
+          };
+          // Set chants from builder config
+          ligne.chants = builderData.chants.actifs;
+
+          // Create InitialGroupeData
+          const groupeData: InitialGroupeData = {
+            panneau: { type: 'multicouche', panneau: panneauMulticouche },
+            lignes: [mettreAJourCalculsLigne(ligne)],
+            chant: chantGroupe,
+          };
+
+          setInitialGroupes([groupeData]);
+          setProjetNom(`Panneau multicouche ${builderData.epaisseurTotale}mm (${builderData.couches.length} couches)`);
+          console.log('[ConfigV3] Groupe multicouche cree');
+        }
+
+        setIsMultiImportReady(true);
+      } catch (err) {
+        console.error('[ConfigV3] Erreur lecture multicouche-artisanal:', err);
+        setError('Erreur lors du chargement du panneau multicouche');
         setIsMultiImportReady(true);
       }
       return; // Skip other import modes

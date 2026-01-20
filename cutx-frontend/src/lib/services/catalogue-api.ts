@@ -403,6 +403,8 @@ export async function smartSearch(
     enStock?: boolean;
     /** Catégorie: 'panels' (panneaux), 'chants' (bandes de chant), 'all' (tous) */
     category?: 'panels' | 'chants' | 'all';
+    /** Slug de la catégorie sélectionnée dans l'arborescence (ex: 'chants-abs', 'essences-chene') */
+    categorySlug?: string;
     // Filtres explicites
     decorCategory?: string;
     manufacturer?: string;
@@ -422,6 +424,8 @@ export async function smartSearch(
   if (options?.enStock) queryParams.append('enStock', 'true');
   // Catégorie: panels | chants | all
   if (options?.category) queryParams.append('category', options.category);
+  // Slug de catégorie (arborescence)
+  if (options?.categorySlug) queryParams.append('categorySlug', options.categorySlug);
   // Filtres explicites
   if (options?.decorCategory) queryParams.append('decorCategory', options.decorCategory);
   if (options?.manufacturer) queryParams.append('manufacturer', options.manufacturer);
@@ -430,6 +434,7 @@ export async function smartSearch(
   if (options?.isPreglued) queryParams.append('isPreglued', 'true');
 
   const endpoint = `/api/catalogues/smart-search?${queryParams}`;
+  console.log('[smartSearch] Calling API:', endpoint);
 
   const response = await apiCall<{
     panels: ApiPanel[];
@@ -440,6 +445,11 @@ export async function smartSearch(
     parsed: SmartSearchParsed;
     facets: SmartSearchFacets;
   }>(endpoint);
+  console.log('[smartSearch] API response:', {
+    panelsCount: response.panels?.length,
+    total: response.total,
+    keys: Object.keys(response),
+  });
 
   // Transformer les panels en produits
   const produits = (response.panels || []).map(transformPanel);

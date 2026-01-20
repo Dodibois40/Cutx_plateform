@@ -1,0 +1,410 @@
+/* ============================================================================
+   CutX Command Palette Styles
+   Inspired by Linear, Raycast, Notion
+   ============================================================================ */
+
+/* CSS Variables for theming */
+.cutx-command-palette {
+  --cmdk-bg: var(--cx-surface-1, #1a1a19);
+  --cmdk-bg-elevated: var(--cx-surface-2, #1f1f1e);
+  --cmdk-border: var(--cx-border, rgba(255, 255, 255, 0.1));
+  --cmdk-border-subtle: var(--cx-border-subtle, rgba(255, 255, 255, 0.06));
+  --cmdk-text: var(--cx-text, rgba(255, 255, 255, 0.95));
+  --cmdk-text-secondary: var(--cx-text-secondary, rgba(255, 255, 255, 0.72));
+  --cmdk-text-muted: var(--cx-text-muted, rgba(255, 255, 255, 0.5));
+  --cmdk-accent: #8b9a4b;
+  --cmdk-accent-bg: rgba(139, 154, 75, 0.12);
+  --cmdk-accent-border: rgba(139, 154, 75, 0.3);
+}
+
+/* Overlay */
+.cutx-command-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  animation: overlayFadeIn 150ms ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Dialog Container */
+.cutx-command-dialog {
+  position: fixed;
+  left: 50%;
+  top: 15%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 640px;
+  max-height: 70vh;
+  background: var(--cmdk-bg);
+  border: 1px solid var(--cmdk-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  overflow: hidden;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  animation: dialogSlideIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.96) translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+  }
+}
+
+/* Input Container */
+.cutx-command-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--cmdk-border-subtle);
+}
+
+.cutx-command-input-icon {
+  position: absolute;
+  left: 16px;
+  width: 20px;
+  height: 20px;
+  color: var(--cmdk-text-muted);
+  pointer-events: none;
+}
+
+.cutx-command-input {
+  width: 100%;
+  padding: 16px 16px 16px 48px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  color: var(--cmdk-text);
+  outline: none;
+  caret-color: var(--cmdk-accent);
+}
+
+.cutx-command-input::placeholder {
+  color: var(--cmdk-text-muted);
+}
+
+.cutx-command-input-loader {
+  position: absolute;
+  right: 16px;
+  width: 18px;
+  height: 18px;
+  color: var(--cmdk-accent);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* List Container */
+.cutx-command-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cmdk-border) transparent;
+}
+
+.cutx-command-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cutx-command-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cutx-command-list::-webkit-scrollbar-thumb {
+  background: var(--cmdk-border);
+  border-radius: 3px;
+}
+
+/* Empty State */
+.cutx-command-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  color: var(--cmdk-text-muted);
+  text-align: center;
+}
+
+.cutx-command-empty-icon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.cutx-command-empty-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.cutx-command-empty-subtitle {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+/* Group */
+.cutx-command-group {
+  margin-bottom: 8px;
+}
+
+.cutx-command-group:last-child {
+  margin-bottom: 0;
+}
+
+.cutx-command-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cmdk-text-muted);
+}
+
+.cutx-command-group-heading-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Item */
+.cutx-command-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin: 2px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 100ms ease;
+  color: var(--cmdk-text);
+}
+
+.cutx-command-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cutx-command-item[data-selected='true'] {
+  background: var(--cmdk-accent-bg);
+  color: var(--cmdk-accent);
+}
+
+.cutx-command-item[data-selected='true'] .cutx-command-item-icon {
+  color: var(--cmdk-accent);
+}
+
+.cutx-command-item-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--cmdk-text-muted);
+}
+
+.cutx-command-item-image {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--cmdk-bg-elevated);
+}
+
+.cutx-command-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.cutx-command-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cutx-command-item-subtitle {
+  font-size: 12px;
+  color: var(--cmdk-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.cutx-command-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cutx-command-item-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--cmdk-bg-elevated);
+  color: var(--cmdk-text-secondary);
+}
+
+.cutx-command-item-badge--accent {
+  background: var(--cmdk-accent-bg);
+  color: var(--cmdk-accent);
+}
+
+.cutx-command-item-shortcut {
+  display: flex;
+  gap: 4px;
+}
+
+.cutx-command-item-shortcut kbd {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--cmdk-bg-elevated);
+  border: 1px solid var(--cmdk-border-subtle);
+  color: var(--cmdk-text-muted);
+}
+
+/* Footer */
+.cutx-command-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-top: 1px solid var(--cmdk-border-subtle);
+  background: var(--cmdk-bg-elevated);
+}
+
+.cutx-command-footer-hints {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--cmdk-text-muted);
+}
+
+.cutx-command-footer-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cutx-command-footer-hint kbd {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--cmdk-border-subtle);
+  color: var(--cmdk-text-secondary);
+}
+
+.cutx-command-footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cmdk-accent);
+}
+
+.cutx-command-footer-logo svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Separator */
+.cutx-command-separator {
+  height: 1px;
+  background: var(--cmdk-border-subtle);
+  margin: 8px 12px;
+}
+
+/* Loading skeleton */
+.cutx-command-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.cutx-command-skeleton-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--cmdk-bg-elevated) 25%,
+    rgba(255, 255, 255, 0.05) 50%,
+    var(--cmdk-bg-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.cutx-command-skeleton-lines {
+  flex: 1;
+}
+
+.cutx-command-skeleton-line {
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--cmdk-bg-elevated) 25%,
+    rgba(255, 255, 255, 0.05) 50%,
+    var(--cmdk-bg-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.cutx-command-skeleton-line:first-child {
+  width: 60%;
+  margin-bottom: 6px;
+}
+
+.cutx-command-skeleton-line:last-child {
+  width: 40%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

@@ -240,10 +240,34 @@ export default function FournisseursAdminPage() {
           <div className="px-3 py-2 text-xs font-medium text-[#666666] uppercase tracking-wider">
             Administration
           </div>
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-white">
-            <Store size={18} className="text-[#FF6B4A]" />
-            <span className="text-sm">Fournisseurs</span>
-          </button>
+          <div className="space-y-1">
+            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-white">
+              <Store size={18} className="text-[#FF6B4A]" />
+              <span className="text-sm">Fournisseurs</span>
+            </button>
+            <Link
+              href="/fr/admin/arborescence"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#1A1A1A] text-[#A0A0A0] hover:text-white transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-[#6b7c4c]"
+              >
+                <path d="M17 17h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H3" />
+                <path d="M17 7h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3" />
+                <path d="M3 3v18" />
+              </svg>
+              <span className="text-sm">Arborescence</span>
+            </Link>
+          </div>
         </nav>
 
         {/* Footer */}

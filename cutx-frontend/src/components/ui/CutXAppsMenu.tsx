@@ -34,7 +34,11 @@ interface AppCategory {
   apps: AppItem[];
 }
 
-export function CutXAppsMenu() {
+interface CutXAppsMenuProps {
+  hideTeaser?: boolean;
+}
+
+export function CutXAppsMenu({ hideTeaser = false }: CutXAppsMenuProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(true); // Always show for now
@@ -232,8 +236,8 @@ export function CutXAppsMenu() {
 
   return (
     <div ref={menuRef} className="relative">
-      {/* Teaser bubble - first time only */}
-      {showTeaser && (
+      {/* Teaser bubble - hidden when search is active */}
+      {showTeaser && !hideTeaser && (
         <div
           className="
             absolute left-full top-1/2 -translate-y-1/2 ml-4

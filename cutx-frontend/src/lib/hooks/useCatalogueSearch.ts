@@ -26,6 +26,8 @@ interface UseCatalogueSearchParams {
   useSmartSearch?: boolean;
   /** Catégorie: 'panels' (panneaux), 'chants' (bandes de chant), 'all' (tous) */
   category?: 'panels' | 'chants' | 'all';
+  /** Slug de catégorie sélectionnée dans l'arborescence (ex: 'chants-abs', 'essences-chene') */
+  categorySlug?: string;
   // Filtres explicites pour smart search
   decorCategory?: string;
   manufacturer?: string;
@@ -53,9 +55,22 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
   const query = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam = 1 }) => {
-      // Si smart search activé ET qu'il y a une recherche texte, utiliser smart search
-      if (useSmartSearch && searchParams.search && searchParams.search.length >= 2) {
-        const result = await smartSearch(searchParams.search, {
+      console.log('[useCatalogueSearch] queryFn called:', {
+        search: searchParams.search,
+        useSmartSearch,
+        category: searchParams.category,
+        categorySlug: searchParams.categorySlug,
+        pageParam,
+        enabled,
+      });
+      // Si smart search activé ET (recherche texte OU catégorie sélectionnée), utiliser smart search
+      const hasTextSearch = searchParams.search && searchParams.search.length >= 2;
+      const hasCategoryFilter = !!searchParams.categorySlug;
+      if (useSmartSearch && (hasTextSearch || hasCategoryFilter)) {
+        console.log('[useCatalogueSearch] Calling smartSearch...');
+        // Use '*' as query when only category filter is used (matches all in that category)
+        const searchQuery = hasTextSearch ? searchParams.search! : '*';
+        const result = await smartSearch(searchQuery, {
           page: pageParam,
           limit: PAGE_SIZE,
           catalogueSlug: searchParams.catalogue || undefined,
@@ -64,12 +79,19 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
           enStock: searchParams.enStock,
           // Catégorie: panels | chants | all
           category: searchParams.category,
+          // Slug de catégorie (arborescence)
+          categorySlug: searchParams.categorySlug,
           // Filtres explicites
           decorCategory: searchParams.decorCategory,
           manufacturer: searchParams.manufacturer,
           isHydrofuge: searchParams.isHydrofuge,
           isIgnifuge: searchParams.isIgnifuge,
           isPreglued: searchParams.isPreglued,
+        });
+        console.log('[useCatalogueSearch] Result:', {
+          produitsCount: result.produits?.length,
+          total: result.total,
+          hasMore: result.hasMore,
         });
 
         return {

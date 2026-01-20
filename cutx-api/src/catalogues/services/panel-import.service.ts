@@ -53,7 +53,11 @@ export interface ImportOptions {
   /**
    * Callback de progression
    */
-  onProgress?: (progress: { current: number; total: number; phase: string }) => void;
+  onProgress?: (progress: {
+    current: number;
+    total: number;
+    phase: string;
+  }) => void;
 }
 
 @Injectable()
@@ -95,7 +99,11 @@ export class PanelImportService {
     };
 
     this.logger.log(`Starting bulk import of ${products.length} products`);
-    options.onProgress?.({ current: 0, total: products.length, phase: 'validation' });
+    options.onProgress?.({
+      current: 0,
+      total: products.length,
+      phase: 'validation',
+    });
 
     // ========================================
     // PHASE 1: Validation
@@ -109,10 +117,14 @@ export class PanelImportService {
 
       if (!result.success) {
         stats.invalid++;
-        const ref = (product as Record<string, unknown>)?.reference as string || `index-${i}`;
+        const ref =
+          ((product as Record<string, unknown>)?.reference as string) ||
+          `index-${i}`;
         stats.errors.push({
           reference: ref,
-          error: result.errors?.issues.map(i => i.message).join('; ') || 'Validation failed',
+          error:
+            result.errors?.issues.map((i) => i.message).join('; ') ||
+            'Validation failed',
         });
         continue;
       }
@@ -127,13 +139,20 @@ export class PanelImportService {
       }
     }
 
-    this.logger.log(`Validation complete: ${stats.validated} valid, ${stats.invalid} invalid`);
-    options.onProgress?.({ current: stats.validated, total: products.length, phase: 'classification' });
+    this.logger.log(
+      `Validation complete: ${stats.validated} valid, ${stats.invalid} invalid`,
+    );
+    options.onProgress?.({
+      current: stats.validated,
+      total: products.length,
+      phase: 'classification',
+    });
 
     // ========================================
     // PHASE 2: Classification (auto-correction)
     // ========================================
-    const { results: classifiedResults, stats: classStats } = classifyProducts(validatedProducts);
+    const { results: classifiedResults, stats: classStats } =
+      classifyProducts(validatedProducts);
     stats.classificationChanges = {
       edgeBandsReclassified: classStats.edgeBandsReclassified,
       pricesMoved: classStats.pricesMoved,
@@ -142,26 +161,32 @@ export class PanelImportService {
 
     // Log modifications
     classifiedResults
-      .filter(r => r.wasModified)
-      .forEach(r => {
-        this.logger.debug(`Modified ${r.data.reference}: ${r.modifications.join(', ')}`);
+      .filter((r) => r.wasModified)
+      .forEach((r) => {
+        this.logger.debug(
+          `Modified ${r.data.reference}: ${r.modifications.join(', ')}`,
+        );
       });
 
-    const classifiedProducts = classifiedResults.map(r => r.data);
+    const classifiedProducts = classifiedResults.map((r) => r.data);
 
     this.logger.log(
       `Classification complete: ${classStats.modified} modified ` +
-      `(${classStats.edgeBandsReclassified} edge bands reclassified, ` +
-      `${classStats.pricesMoved} prices moved, ` +
-      `${classStats.thicknessAutoFilled} thickness auto-filled)`
+        `(${classStats.edgeBandsReclassified} edge bands reclassified, ` +
+        `${classStats.pricesMoved} prices moved, ` +
+        `${classStats.thicknessAutoFilled} thickness auto-filled)`,
     );
 
     // ========================================
     // PHASE 3: Identifier existants vs nouveaux
     // ========================================
-    options.onProgress?.({ current: 0, total: classifiedProducts.length, phase: 'checking-existing' });
+    options.onProgress?.({
+      current: 0,
+      total: classifiedProducts.length,
+      phase: 'checking-existing',
+    });
 
-    const references = classifiedProducts.map(p => p.reference);
+    const references = classifiedProducts.map((p) => p.reference);
 
     // Charger les références existantes par batch pour éviter query trop large
     const existingRefs = new Set<string>();
@@ -174,28 +199,36 @@ export class PanelImportService {
         },
         select: { reference: true },
       });
-      existing.forEach(p => existingRefs.add(p.reference));
+      existing.forEach((p) => existingRefs.add(p.reference));
     }
 
-    const toInsert = classifiedProducts.filter(p => !existingRefs.has(p.reference));
-    const toUpdate = classifiedProducts.filter(p => existingRefs.has(p.reference));
+    const toInsert = classifiedProducts.filter(
+      (p) => !existingRefs.has(p.reference),
+    );
+    const toUpdate = classifiedProducts.filter((p) =>
+      existingRefs.has(p.reference),
+    );
 
     this.logger.log(
       `Found ${existingRefs.size} existing, ` +
-      `${toInsert.length} to insert, ${toUpdate.length} to update`
+        `${toInsert.length} to insert, ${toUpdate.length} to update`,
     );
 
     // ========================================
     // PHASE 4: Bulk INSERT (nouveaux produits)
     // ========================================
-    options.onProgress?.({ current: 0, total: toInsert.length, phase: 'inserting' });
+    options.onProgress?.({
+      current: 0,
+      total: toInsert.length,
+      phase: 'inserting',
+    });
 
     for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
       const batch = toInsert.slice(i, i + BATCH_SIZE);
 
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const createData = batch.map(p => ({
+        const createData = batch.map((p) => ({
           ...this.mapToPrismaData(p),
           catalogueId: options.catalogueId,
         })) as any;
@@ -206,7 +239,11 @@ export class PanelImportService {
         });
 
         stats.inserted += result.count;
-        options.onProgress?.({ current: stats.inserted, total: toInsert.length, phase: 'inserting' });
+        options.onProgress?.({
+          current: stats.inserted,
+          total: toInsert.length,
+          phase: 'inserting',
+        });
       } catch (error) {
         this.logger.error(`Insert batch failed at index ${i}:`, error);
         // Fallback: insert one by one to identify problematic records
@@ -239,7 +276,11 @@ export class PanelImportService {
       stats.skipped = toUpdate.length;
       this.logger.log(`Skipping ${stats.skipped} existing products`);
     } else {
-      options.onProgress?.({ current: 0, total: toUpdate.length, phase: 'updating' });
+      options.onProgress?.({
+        current: 0,
+        total: toUpdate.length,
+        phase: 'updating',
+      });
 
       for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
         const batch = toUpdate.slice(i, i + BATCH_SIZE);
@@ -249,7 +290,7 @@ export class PanelImportService {
           // Note: Array-based transactions don't support timeout option in Prisma
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await this.prisma.$transaction(
-            batch.map(p =>
+            batch.map((p) =>
               this.prisma.panel.update({
                 where: {
                   catalogueId_reference: {
@@ -258,12 +299,16 @@ export class PanelImportService {
                   },
                 },
                 data: this.mapToPrismaData(p) as any,
-              })
-            )
+              }),
+            ),
           );
 
           stats.updated += batch.length;
-          options.onProgress?.({ current: stats.updated, total: toUpdate.length, phase: 'updating' });
+          options.onProgress?.({
+            current: stats.updated,
+            total: toUpdate.length,
+            phase: 'updating',
+          });
         } catch (error) {
           this.logger.error(`Update batch failed at index ${i}:`, error);
           // Fallback: update one by one
@@ -300,8 +345,8 @@ export class PanelImportService {
 
     this.logger.log(
       `Import complete in ${(stats.duration / 1000).toFixed(1)}s: ` +
-      `${stats.inserted} inserted, ${stats.updated} updated, ` +
-      `${stats.skipped} skipped, ${stats.errors.length} errors`
+        `${stats.inserted} inserted, ${stats.updated} updated, ` +
+        `${stats.skipped} skipped, ${stats.errors.length} errors`,
     );
 
     return stats;
@@ -321,19 +366,26 @@ export class PanelImportService {
     };
 
     // Add optional fields only if they have a value (not undefined)
-    if (product.defaultThickness !== undefined) data.defaultThickness = product.defaultThickness;
-    if (product.defaultWidth !== undefined) data.defaultWidth = product.defaultWidth;
-    if (product.defaultLength !== undefined) data.defaultLength = product.defaultLength;
+    if (product.defaultThickness !== undefined)
+      data.defaultThickness = product.defaultThickness;
+    if (product.defaultWidth !== undefined)
+      data.defaultWidth = product.defaultWidth;
+    if (product.defaultLength !== undefined)
+      data.defaultLength = product.defaultLength;
     if (product.pricePerM2 !== undefined) data.pricePerM2 = product.pricePerM2;
     if (product.pricePerMl !== undefined) data.pricePerMl = product.pricePerMl;
-    if (product.productType !== undefined) data.productType = product.productType;
+    if (product.productType !== undefined)
+      data.productType = product.productType;
     if (product.categoryId !== undefined) data.categoryId = product.categoryId;
     if (product.decor !== undefined) data.decor = product.decor;
-    if (product.colorChoice !== undefined) data.colorChoice = product.colorChoice;
+    if (product.colorChoice !== undefined)
+      data.colorChoice = product.colorChoice;
     if (product.material !== undefined) data.material = product.material;
-    if (product.stockStatus !== undefined) data.stockStatus = product.stockStatus;
+    if (product.stockStatus !== undefined)
+      data.stockStatus = product.stockStatus;
     if (product.imageUrl !== undefined) data.imageUrl = product.imageUrl;
-    if (product.sousCategorie !== undefined) data.sousCategorie = product.sousCategorie;
+    if (product.sousCategorie !== undefined)
+      data.sousCategorie = product.sousCategorie;
 
     return data;
   }
@@ -360,19 +412,16 @@ export class PanelImportService {
     issues: Array<{ type: string; count: number; examples: string[] }>;
     healthy: boolean;
   }> {
-    const catalogueCondition = catalogueId
-      ? { catalogueId }
-      : {};
+    const catalogueCondition = catalogueId ? { catalogueId } : {};
 
-    const issues: Array<{ type: string; count: number; examples: string[] }> = [];
+    const issues: Array<{ type: string; count: number; examples: string[] }> =
+      [];
 
     // 1. Épaisseurs aberrantes
     const aberrantThickness = await this.prisma.panel.findMany({
       where: {
         ...catalogueCondition,
-        OR: [
-          { defaultThickness: { gt: 100 } },
-        ],
+        OR: [{ defaultThickness: { gt: 100 } }],
         isActive: true,
       },
       select: { reference: true, defaultThickness: true },
@@ -390,7 +439,9 @@ export class PanelImportService {
       issues.push({
         type: 'Épaisseur aberrante (> 100mm)',
         count,
-        examples: aberrantThickness.map(p => `${p.reference}: ${p.defaultThickness}mm`),
+        examples: aberrantThickness.map(
+          (p) => `${p.reference}: ${p.defaultThickness}mm`,
+        ),
       });
     }
 
@@ -416,7 +467,12 @@ export class PanelImportService {
           productType: { not: 'BANDE_DE_CHANT' },
           isActive: true,
         },
-        select: { reference: true, productType: true, defaultWidth: true, defaultThickness: true },
+        select: {
+          reference: true,
+          productType: true,
+          defaultWidth: true,
+          defaultThickness: true,
+        },
         take: 5,
       });
 
@@ -424,13 +480,16 @@ export class PanelImportService {
         type: 'Chants potentiellement mal classifiés',
         count: edgeBandCount,
         examples: examples.map(
-          p => `${p.reference}: ${p.productType} (${p.defaultWidth}x${p.defaultThickness}mm)`
+          (p) =>
+            `${p.reference}: ${p.productType} (${p.defaultWidth}x${p.defaultThickness}mm)`,
         ),
       });
     }
 
     // 3. defaultThickness manquant avec thickness[] non vide
-    const missingDefaultThickness = await this.prisma.$queryRaw<{ count: bigint }[]>`
+    const missingDefaultThickness = await this.prisma.$queryRaw<
+      { count: bigint }[]
+    >`
       SELECT COUNT(*) as count FROM "Panel"
       WHERE "defaultThickness" IS NULL
         AND array_length(thickness, 1) > 0
