@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -18,12 +19,20 @@ import {
   Upload,
   X,
   Star,
+  FolderTree,
+  Search,
+  ChevronRight,
+  Layers,
 } from 'lucide-react';
 import { createChute, uploadChuteImage } from '@/lib/services/chutes-api';
 import type { CreateChuteInput, ProductType, ChuteCondition, BoostLevel } from '@/types/chutes';
 import { PRODUCT_TYPE_LABELS, CONDITION_LABELS, BOOST_LABELS } from '@/types/chutes';
 import { CutXAppsMenu } from '@/components/ui/CutXAppsMenu';
 import { UserAccountMenu } from '@/components/ui/UserAccountMenu';
+import { useTreeNavigation } from '@/components/command-search/hooks/useTreeNavigation';
+import type { CategoryTreeNode, BreadcrumbItem } from '@/components/command-search/types';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cutxplateform-production.up.railway.app';
 
 // Types pour le wizard
 interface WizardStep {
@@ -33,6 +42,10 @@ interface WizardStep {
 }
 
 interface FormData {
+  // Panneau source (optionnel)
+  catalogPanelId: string | null;
+  catalogPanelName: string | null;
+  catalogPanelImage: string | null;
   // Étape 1: Type
   productType: ProductType | '';
   material: string;
@@ -51,6 +64,7 @@ interface FormData {
   price: number | '';
   acceptsOffers: boolean;
   minimumOffer: number | '';
+  originalPanelPrice: number | '';
   // Étape 6: Localisation
   city: string;
   postalCode: string;
@@ -60,6 +74,19 @@ interface FormData {
   title: string;
   description: string;
   isDraft: boolean;
+  categoryId: string | null;
+}
+
+interface Panel {
+  id: string;
+  name: string;
+  reference: string | null;
+  thickness: number | null;
+  productType: string | null;
+  decor: string | null;
+  finish: string | null;
+  imageUrl: string | null;
+  price: number | null;
 }
 
 const STEPS: WizardStep[] = [
@@ -99,6 +126,92 @@ const BOOST_OPTIONS: { value: BoostLevel; price: number; description: string }[]
   { value: 'URGENT', price: 10, description: 'Bannière rouge + push, commission 12%' },
 ];
 
+// Map productType from database to our ProductType enum
+function mapProductType(dbProductType: string | null): ProductType | '' {
+  if (!dbProductType) return '';
+  const mapping: Record<string, ProductType> = {
+    MELAMINE: 'MELAMINE',
+    STRATIFIE: 'STRATIFIE',
+    MDF: 'MDF',
+    CONTREPLAQUE: 'CONTREPLAQUE',
+    AGGLO_BRUT: 'AGGLO_BRUT',
+    OSB: 'OSB',
+    MASSIF: 'MASSIF',
+    PLACAGE: 'PLACAGE',
+    PANNEAU_MASSIF: 'MASSIF',
+    PANNEAU_DECO: 'MELAMINE',
+    COMPACT: 'STRATIFIE',
+  };
+  return mapping[dbProductType] || '';
+}
+
+// Tree Node Component (simplified for this page)
+function TreeNodeItem({
+  node,
+  level,
+  expandedNodes,
+  selectedSlug,
+  onToggle,
+  onSelect,
+}: {
+  node: CategoryTreeNode;
+  level: number;
+  expandedNodes: Set<string>;
+  selectedSlug: string | null;
+  onToggle: (slug: string) => void;
+  onSelect: (slug: string, name: string) => void;
+}) {
+  const isExpanded = expandedNodes.has(node.slug);
+  const isSelected = selectedSlug === node.slug;
+  const hasChildren = node.children && node.children.length > 0;
+
+  return (
+    <div>
+      <button
+        onClick={() => {
+          if (hasChildren) {
+            onToggle(node.slug);
+          }
+          onSelect(node.slug, node.name);
+        }}
+        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-lg transition-colors ${
+          isSelected
+            ? 'bg-green-500/20 text-green-400'
+            : 'text-white/70 hover:bg-white/5 hover:text-white'
+        }`}
+        style={{ paddingLeft: `${level * 12 + 8}px` }}
+      >
+        {hasChildren && (
+          <ChevronRight
+            size={14}
+            className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+          />
+        )}
+        {!hasChildren && <div className="w-3.5" />}
+        <span className="truncate flex-1 text-left">{node.name}</span>
+        {node.panelCount > 0 && (
+          <span className="text-xs text-white/40">{node.panelCount}</span>
+        )}
+      </button>
+      {hasChildren && isExpanded && (
+        <div>
+          {node.children.map((child) => (
+            <TreeNodeItem
+              key={child.slug}
+              node={child}
+              level={level + 1}
+              expandedNodes={expandedNodes}
+              selectedSlug={selectedSlug}
+              onToggle={onToggle}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function VendrePage() {
   const router = useRouter();
   const { getToken, isSignedIn } = useAuth();
@@ -107,7 +220,53 @@ export default function VendrePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Tree navigation state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  const [panelSearchQuery, setPanelSearchQuery] = useState('');
+
+  const {
+    tree,
+    isLoading: isTreeLoading,
+    expandedNodes,
+    toggleNode,
+  } = useTreeNavigation({ catalogueSlug: 'cutx', enabled: true });
+
+  // Fetch panels for selected category
+  const { data: panels = [], isLoading: isPanelsLoading } = useQuery({
+    queryKey: ['category-panels', selectedCategory, panelSearchQuery],
+    queryFn: async (): Promise<Panel[]> => {
+      if (!selectedCategory) return [];
+      const params = new URLSearchParams({
+        categorySlug: selectedCategory,
+        limit: '50',
+      });
+      if (panelSearchQuery) {
+        params.set('q', panelSearchQuery);
+      }
+      const res = await fetch(`${API_URL}/api/catalogues/smart-search?${params}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.results || []).map((p: Record<string, unknown>) => ({
+        id: p.id,
+        name: p.name || p.reference || 'Sans nom',
+        reference: p.reference,
+        thickness: p.thickness,
+        productType: p.productType,
+        decor: p.decor,
+        finish: p.finish,
+        imageUrl: p.imageUrl,
+        price: p.prixM2 || p.price,
+      }));
+    },
+    enabled: !!selectedCategory,
+    staleTime: 30 * 1000,
+  });
+
   const [formData, setFormData] = useState<FormData>({
+    catalogPanelId: null,
+    catalogPanelName: null,
+    catalogPanelImage: null,
     productType: '',
     material: '',
     thickness: '',
@@ -121,12 +280,14 @@ export default function VendrePage() {
     price: '',
     acceptsOffers: true,
     minimumOffer: '',
+    originalPanelPrice: '',
     city: '',
     postalCode: '',
     boostLevel: 'NONE',
     title: '',
     description: '',
     isDraft: false,
+    categoryId: null,
   });
 
   // Prévisualisation des images
@@ -135,6 +296,36 @@ export default function VendrePage() {
   // Mettre à jour le formulaire
   const updateForm = useCallback(<K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  // Sélectionner un panneau du catalogue
+  const handlePanelSelect = useCallback((panel: Panel) => {
+    setFormData((prev) => ({
+      ...prev,
+      catalogPanelId: panel.id,
+      catalogPanelName: panel.name,
+      catalogPanelImage: panel.imageUrl,
+      productType: mapProductType(panel.productType),
+      material: [panel.decor, panel.finish].filter(Boolean).join(' ') || '',
+      thickness: panel.thickness || '',
+      originalPanelPrice: panel.price || '',
+      useCatalogImage: !!panel.imageUrl,
+    }));
+    // Passer à l'étape suivante automatiquement si on est à l'étape type
+    if (currentStep === 0) {
+      setCurrentStep(1);
+    }
+  }, [currentStep]);
+
+  // Désélectionner le panneau
+  const clearPanelSelection = useCallback(() => {
+    setFormData((prev) => ({
+      ...prev,
+      catalogPanelId: null,
+      catalogPanelName: null,
+      catalogPanelImage: null,
+      useCatalogImage: false,
+    }));
   }, []);
 
   // Gérer l'upload d'images
@@ -243,12 +434,15 @@ export default function VendrePage() {
         condition: formData.condition as ChuteCondition,
         certificationChecks: formData.certificationChecks,
         price: formData.price as number,
+        originalPanelPrice: formData.originalPanelPrice ? (formData.originalPanelPrice as number) : undefined,
         acceptsOffers: formData.acceptsOffers,
         minimumOffer: formData.minimumOffer ? (formData.minimumOffer as number) : undefined,
         city: formData.city,
         postalCode: formData.postalCode,
         boostLevel: formData.boostLevel,
         useCatalogImage: formData.useCatalogImage,
+        catalogPanelId: formData.catalogPanelId || undefined,
+        categoryId: formData.categoryId || undefined,
         isDraft,
       };
 
@@ -290,6 +484,32 @@ export default function VendrePage() {
       case 0: // Type de produit
         return (
           <div className="space-y-6">
+            {/* Panneau sélectionné */}
+            {formData.catalogPanelId && (
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                <div className="flex items-center gap-4">
+                  {formData.catalogPanelImage && (
+                    <img
+                      src={formData.catalogPanelImage}
+                      alt=""
+                      className="w-16 h-16 rounded-lg object-cover"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm text-green-400 font-medium">Panneau sélectionné</p>
+                    <p className="text-white">{formData.catalogPanelName}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearPanelSelection}
+                    className="p-2 text-white/50 hover:text-white"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-white mb-3">
                 Type de panneau *
@@ -302,7 +522,7 @@ export default function VendrePage() {
                     onClick={() => updateForm('productType', type)}
                     className={`p-4 rounded-lg border-2 text-center transition-all ${
                       formData.productType === type
-                        ? 'border-[var(--cx-accent)] bg-[var(--cx-accent)]/10 text-white'
+                        ? 'border-green-500 bg-green-500/10 text-white'
                         : 'border-white/10 bg-[var(--cx-surface-1)] text-white/70 hover:border-white/30'
                     }`}
                   >
@@ -321,7 +541,7 @@ export default function VendrePage() {
                 value={formData.material}
                 onChange={(e) => updateForm('material', e.target.value)}
                 placeholder="Ex: Blanc mat, Chêne naturel, U104..."
-                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
               />
             </div>
           </div>
@@ -342,7 +562,7 @@ export default function VendrePage() {
                   min="1"
                   max="100"
                   placeholder="19"
-                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
                 />
               </div>
 
@@ -357,7 +577,7 @@ export default function VendrePage() {
                   min="50"
                   max="5000"
                   placeholder="1200"
-                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
                 />
               </div>
 
@@ -372,7 +592,7 @@ export default function VendrePage() {
                   min="50"
                   max="3000"
                   placeholder="800"
-                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
                 />
               </div>
 
@@ -386,7 +606,7 @@ export default function VendrePage() {
                   onChange={(e) => updateForm('quantity', Math.max(1, Number(e.target.value)))}
                   min="1"
                   max="100"
-                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
                 />
               </div>
             </div>
@@ -425,7 +645,7 @@ export default function VendrePage() {
                     onClick={() => updateForm('condition', condition)}
                     className={`p-4 rounded-lg border-2 text-center transition-all ${
                       formData.condition === condition
-                        ? 'border-[var(--cx-accent)] bg-[var(--cx-accent)]/10 text-white'
+                        ? 'border-green-500 bg-green-500/10 text-white'
                         : 'border-white/10 bg-[var(--cx-surface-1)] text-white/70 hover:border-white/30'
                     }`}
                   >
@@ -505,7 +725,7 @@ export default function VendrePage() {
                       className="w-full h-full object-cover"
                     />
                     {index === 0 && (
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-[var(--cx-accent)] text-white text-xs rounded">
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded">
                         Principale
                       </div>
                     )}
@@ -535,19 +755,45 @@ export default function VendrePage() {
               </div>
             </div>
 
-            {formData.images.length === 0 && (
+            {formData.images.length === 0 && formData.catalogPanelImage && (
               <div className="p-4 bg-[var(--cx-surface-1)] rounded-lg border border-white/10">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.useCatalogImage}
                     onChange={(e) => updateForm('useCatalogImage', e.target.checked)}
-                    className="w-5 h-5 rounded border-white/30 bg-transparent"
+                    className="w-5 h-5 rounded border-white/30 bg-transparent accent-green-500"
+                  />
+                  <div className="flex items-center gap-3 flex-1">
+                    <img
+                      src={formData.catalogPanelImage}
+                      alt=""
+                      className="w-12 h-12 rounded-lg object-cover"
+                    />
+                    <div>
+                      <p className="text-white font-medium">Utiliser l&apos;image du catalogue</p>
+                      <p className="text-sm text-white/50">
+                        L&apos;image du panneau source sera affichée avec un badge
+                      </p>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            {formData.images.length === 0 && !formData.catalogPanelImage && (
+              <div className="p-4 bg-[var(--cx-surface-1)] rounded-lg border border-white/10">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.useCatalogImage}
+                    onChange={(e) => updateForm('useCatalogImage', e.target.checked)}
+                    className="w-5 h-5 rounded border-white/30 bg-transparent accent-green-500"
                   />
                   <div>
-                    <p className="text-white font-medium">Utiliser une image du catalogue</p>
+                    <p className="text-white font-medium">Pas de photo disponible</p>
                     <p className="text-sm text-white/50">
-                      Si vous n&apos;avez pas de photo, nous afficherons une image générique
+                      Une image générique sera affichée (vous pourrez ajouter des photos plus tard)
                     </p>
                   </div>
                 </label>
@@ -570,8 +816,13 @@ export default function VendrePage() {
                 min="1"
                 max="10000"
                 placeholder="35"
-                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white text-2xl font-medium placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white text-2xl font-medium placeholder:text-white/30 focus:outline-none focus:border-green-500"
               />
+              {formData.originalPanelPrice && formData.length && formData.width && (
+                <p className="text-sm text-white/50 mt-2">
+                  Prix neuf estimé: ~{((formData.originalPanelPrice as number) * ((formData.length as number) * (formData.width as number) / 1000000)).toFixed(0)}€
+                </p>
+              )}
             </div>
 
             <div className="p-4 bg-[var(--cx-surface-1)] rounded-lg border border-white/10">
@@ -586,7 +837,7 @@ export default function VendrePage() {
                   type="checkbox"
                   checked={formData.acceptsOffers}
                   onChange={(e) => updateForm('acceptsOffers', e.target.checked)}
-                  className="w-5 h-5 rounded border-white/30 bg-transparent"
+                  className="w-5 h-5 rounded border-white/30 bg-transparent accent-green-500"
                 />
               </label>
 
@@ -602,7 +853,7 @@ export default function VendrePage() {
                     min="1"
                     max={formData.price || 10000}
                     placeholder="25"
-                    className="w-full px-4 py-2 bg-[var(--cx-surface-2)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                    className="w-full px-4 py-2 bg-[var(--cx-surface-2)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
                   />
                 </div>
               )}
@@ -622,7 +873,7 @@ export default function VendrePage() {
                 value={formData.city}
                 onChange={(e) => updateForm('city', e.target.value)}
                 placeholder="Lyon"
-                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
               />
             </div>
 
@@ -636,7 +887,7 @@ export default function VendrePage() {
                 onChange={(e) => updateForm('postalCode', e.target.value.replace(/\D/g, '').slice(0, 5))}
                 placeholder="69003"
                 maxLength={5}
-                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
               />
             </div>
 
@@ -664,7 +915,7 @@ export default function VendrePage() {
                     onClick={() => updateForm('boostLevel', option.value)}
                     className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                       formData.boostLevel === option.value
-                        ? 'border-[var(--cx-accent)] bg-[var(--cx-accent)]/10'
+                        ? 'border-green-500 bg-green-500/10'
                         : 'border-white/10 bg-[var(--cx-surface-1)] hover:border-white/30'
                     }`}
                   >
@@ -673,7 +924,7 @@ export default function VendrePage() {
                         {option.value !== 'NONE' && <Star size={16} className="text-yellow-400" />}
                         {BOOST_LABELS[option.value]}
                       </span>
-                      <span className={`font-bold ${option.price > 0 ? 'text-[var(--cx-accent)]' : 'text-green-400'}`}>
+                      <span className={`font-bold ${option.price > 0 ? 'text-green-400' : 'text-green-400'}`}>
                         {option.price > 0 ? `${option.price}€/sem` : 'Gratuit'}
                       </span>
                     </div>
@@ -694,7 +945,7 @@ export default function VendrePage() {
                   value={formData.title}
                   onChange={(e) => updateForm('title', e.target.value)}
                   placeholder={generateTitle()}
-                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)]"
+                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
                 />
                 <p className="text-xs text-white/40 mt-1">
                   Laissez vide pour utiliser : &quot;{generateTitle()}&quot;
@@ -710,7 +961,7 @@ export default function VendrePage() {
                   onChange={(e) => updateForm('description', e.target.value)}
                   rows={3}
                   placeholder="Ajoutez des détails supplémentaires..."
-                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--cx-accent)] resize-none"
+                  className="w-full px-4 py-3 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-green-500 resize-none"
                 />
               </div>
             </div>
@@ -723,143 +974,265 @@ export default function VendrePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--cx-surface-0)]">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[var(--cx-surface-0)]/95 backdrop-blur-sm border-b border-white/5">
-        <div className="max-w-3xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/chutes"
-              className="flex items-center gap-2 text-white/70 hover:text-white"
-            >
-              <ArrowLeft size={20} />
-              <span>Retour</span>
-            </Link>
-
-            <h1 className="font-semibold text-white">Vendre une chute</h1>
-
-            <div className="flex items-center gap-2">
-              <CutXAppsMenu />
-              <UserAccountMenu />
+    <div className="fixed inset-0 bg-[var(--cx-background)] flex">
+      {/* Left sidebar - Tree Navigation */}
+      <div className="w-80 flex-shrink-0 bg-[var(--cx-surface-0)] border-r border-white/5 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="p-4 border-b border-white/5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <FolderTree size={20} className="text-green-400" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-white">Catalogue</h2>
+              <p className="text-xs text-white/50">Sélectionnez votre panneau</p>
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Progress */}
-      <div className="bg-[var(--cx-surface-1)] border-b border-white/5">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            {STEPS.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <button
-                  onClick={() => index < currentStep && setCurrentStep(index)}
-                  disabled={index > currentStep}
-                  className={`flex items-center gap-2 transition-all ${
-                    index === currentStep
-                      ? 'text-[var(--cx-accent)]'
-                      : index < currentStep
-                        ? 'text-green-400 cursor-pointer'
-                        : 'text-white/30 cursor-not-allowed'
-                  }`}
-                >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                      index === currentStep
-                        ? 'bg-[var(--cx-accent)] text-white'
-                        : index < currentStep
-                          ? 'bg-green-500 text-white'
-                          : 'bg-white/10 text-white/30'
-                    }`}
-                  >
-                    {index < currentStep ? <Check size={16} /> : index + 1}
-                  </div>
-                  <span className="hidden sm:inline text-sm">{step.title}</span>
-                </button>
-                {index < STEPS.length - 1 && (
-                  <div
-                    className={`w-8 sm:w-12 h-0.5 mx-2 ${
-                      index < currentStep ? 'bg-green-500' : 'bg-white/10'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+          {/* Search in tree */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <input
+              type="text"
+              value={panelSearchQuery}
+              onChange={(e) => setPanelSearchQuery(e.target.value)}
+              placeholder="Rechercher un panneau..."
+              className="w-full pl-9 pr-3 py-2 bg-[var(--cx-surface-1)] border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-green-500"
+            />
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3">
-            <AlertCircle size={20} className="text-red-400" />
-            <p className="text-red-400">{error}</p>
-          </div>
-        )}
-
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-white mb-2">
-            {STEPS[currentStep].title}
-          </h2>
-        </div>
-
-        {renderStepContent()}
-
-        {/* Navigation */}
-        <div className="mt-8 flex items-center justify-between">
-          <button
-            onClick={goBack}
-            disabled={currentStep === 0}
-            className={`cx-btn cx-btn-secondary flex items-center gap-2 ${
-              currentStep === 0 ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            <ArrowLeft size={18} />
-            Précédent
-          </button>
-
-          {currentStep < STEPS.length - 1 ? (
-            <button
-              onClick={goNext}
-              disabled={!validateCurrentStep()}
-              className={`cx-btn cx-btn-primary flex items-center gap-2 ${
-                !validateCurrentStep() ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              Suivant
-              <ArrowRight size={18} />
-            </button>
+        {/* Tree */}
+        <div className="flex-1 overflow-y-auto p-2">
+          {isTreeLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-6 h-6 border-2 border-green-500/20 border-t-green-500 rounded-full animate-spin" />
+            </div>
           ) : (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleSubmit(true)}
-                disabled={isSubmitting}
-                className="cx-btn cx-btn-secondary"
-              >
-                Enregistrer brouillon
-              </button>
-              <button
-                onClick={() => handleSubmit(false)}
-                disabled={isSubmitting || !validateCurrentStep()}
-                className="cx-btn cx-btn-primary flex items-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
-                    Publication...
-                  </>
-                ) : (
-                  <>
-                    <Check size={18} />
-                    Publier l&apos;annonce
-                  </>
-                )}
-              </button>
+            <div className="space-y-0.5">
+              {tree.map((node) => (
+                <TreeNodeItem
+                  key={node.slug}
+                  node={node}
+                  level={0}
+                  expandedNodes={expandedNodes}
+                  selectedSlug={selectedCategory}
+                  onToggle={toggleNode}
+                  onSelect={(slug, name) => {
+                    setSelectedCategory(slug);
+                    setSelectedCategoryName(name);
+                  }}
+                />
+              ))}
             </div>
           )}
         </div>
-      </main>
+
+        {/* Panels list when category selected */}
+        {selectedCategory && (
+          <div className="border-t border-white/5 max-h-[40%] overflow-y-auto">
+            <div className="p-3 bg-[var(--cx-surface-1)] border-b border-white/5 sticky top-0">
+              <p className="text-xs text-white/50 uppercase tracking-wide font-medium">
+                {selectedCategoryName}
+              </p>
+            </div>
+            {isPanelsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 border-2 border-green-500/20 border-t-green-500 rounded-full animate-spin" />
+              </div>
+            ) : panels.length === 0 ? (
+              <div className="p-4 text-center text-white/40 text-sm">
+                Aucun panneau dans cette catégorie
+              </div>
+            ) : (
+              <div className="p-2 space-y-1">
+                {panels.map((panel) => (
+                  <button
+                    key={panel.id}
+                    onClick={() => handlePanelSelect(panel)}
+                    className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${
+                      formData.catalogPanelId === panel.id
+                        ? 'bg-green-500/20 border border-green-500/30'
+                        : 'hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    {panel.imageUrl ? (
+                      <img
+                        src={panel.imageUrl}
+                        alt=""
+                        className="w-10 h-10 rounded object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-[var(--cx-surface-2)] flex items-center justify-center flex-shrink-0">
+                        <Layers size={16} className="text-white/30" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">{panel.name}</p>
+                      <p className="text-xs text-white/40">
+                        {panel.thickness && `${panel.thickness}mm`}
+                        {panel.reference && ` • ${panel.reference}`}
+                      </p>
+                    </div>
+                    {formData.catalogPanelId === panel.id && (
+                      <Check size={16} className="text-green-400 flex-shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="flex-shrink-0 bg-[var(--cx-surface-0)]/95 backdrop-blur-sm border-b border-white/5">
+          <div className="max-w-3xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <Link
+                href="/chutes"
+                className="flex items-center gap-2 text-white/70 hover:text-white"
+              >
+                <ArrowLeft size={20} />
+                <span>Retour</span>
+              </Link>
+
+              <h1 className="font-semibold text-white">Vendre une chute</h1>
+
+              <div className="flex items-center gap-2">
+                <CutXAppsMenu />
+                <UserAccountMenu />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Progress */}
+        <div className="flex-shrink-0 bg-[var(--cx-surface-1)] border-b border-white/5">
+          <div className="max-w-3xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              {STEPS.map((step, index) => (
+                <div key={step.id} className="flex items-center">
+                  <button
+                    onClick={() => index < currentStep && setCurrentStep(index)}
+                    disabled={index > currentStep}
+                    className={`flex items-center gap-2 transition-all ${
+                      index === currentStep
+                        ? 'text-green-400'
+                        : index < currentStep
+                          ? 'text-green-400 cursor-pointer'
+                          : 'text-white/30 cursor-not-allowed'
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                        index === currentStep
+                          ? 'bg-green-500 text-white'
+                          : index < currentStep
+                            ? 'bg-green-500 text-white'
+                            : 'bg-white/10 text-white/30'
+                      }`}
+                    >
+                      {index < currentStep ? <Check size={16} /> : index + 1}
+                    </div>
+                    <span className="hidden sm:inline text-sm">{step.title}</span>
+                  </button>
+                  {index < STEPS.length - 1 && (
+                    <div
+                      className={`w-8 sm:w-12 h-0.5 mx-2 ${
+                        index < currentStep ? 'bg-green-500' : 'bg-white/10'
+                      }`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-4 py-8">
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3">
+                <AlertCircle size={20} className="text-red-400" />
+                <p className="text-red-400">{error}</p>
+              </div>
+            )}
+
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-white mb-2">
+                {STEPS[currentStep].title}
+              </h2>
+            </div>
+
+            {renderStepContent()}
+
+            {/* Navigation */}
+            <div className="mt-8 flex items-center justify-between">
+              <button
+                onClick={goBack}
+                disabled={currentStep === 0}
+                className={`cx-btn cx-btn--secondary flex items-center gap-2 ${
+                  currentStep === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <ArrowLeft size={18} />
+                Précédent
+              </button>
+
+              {currentStep < STEPS.length - 1 ? (
+                <button
+                  onClick={goNext}
+                  disabled={!validateCurrentStep()}
+                  className={`cx-btn cx-btn--primary flex items-center gap-2 ${
+                    !validateCurrentStep() ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                  style={{
+                    background: validateCurrentStep() ? 'linear-gradient(180deg, #4ade80 0%, #22c55e 100%)' : undefined,
+                    borderColor: validateCurrentStep() ? '#22c55e' : undefined,
+                  }}
+                >
+                  Suivant
+                  <ArrowRight size={18} />
+                </button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleSubmit(true)}
+                    disabled={isSubmitting}
+                    className="cx-btn cx-btn--secondary"
+                  >
+                    Enregistrer brouillon
+                  </button>
+                  <button
+                    onClick={() => handleSubmit(false)}
+                    disabled={isSubmitting || !validateCurrentStep()}
+                    className="cx-btn cx-btn--primary flex items-center gap-2"
+                    style={{
+                      background: 'linear-gradient(180deg, #4ade80 0%, #22c55e 100%)',
+                      borderColor: '#22c55e',
+                    }}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
+                        Publication...
+                      </>
+                    ) : (
+                      <>
+                        <Check size={18} />
+                        Publier l&apos;annonce
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
