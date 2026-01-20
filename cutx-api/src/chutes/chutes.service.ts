@@ -31,7 +31,7 @@ export class ChutesService {
     userId: string,
     createChuteDto: CreateChuteDto,
   ): Promise<ChuteOfferingWithRelations> {
-    const { isDraft, ...data } = createChuteDto;
+    const { isDraft, categoryId, ...data } = createChuteDto;
 
     // Extraire le département du code postal
     const departement = data.departement || data.postalCode.substring(0, 2);
@@ -47,8 +47,8 @@ export class ChutesService {
         expiresAt,
         status: isDraft ? ChuteOfferingStatus.DRAFT : ChuteOfferingStatus.ACTIVE,
         seller: { connect: { id: userId } },
-        ...(data.categoryId && {
-          category: { connect: { id: data.categoryId } },
+        ...(categoryId && {
+          category: { connect: { id: categoryId } },
         }),
       },
       include: {
@@ -65,7 +65,7 @@ export class ChutesService {
       },
     });
 
-    return offering;
+    return offering as ChuteOfferingWithRelations;
   }
 
   /**
