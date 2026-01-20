@@ -11,6 +11,8 @@ export interface CategoryTreeNode {
   catalogueSlug?: string;
   catalogueName?: string;
   panelCount: number;
+  /** Aggregated count (sum of panelCount for this node + all children) */
+  aggregatedCount?: number;
   children: CategoryTreeNode[];
 }
 

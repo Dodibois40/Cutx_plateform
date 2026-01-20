@@ -153,8 +153,8 @@ export const TreeNode = memo(function TreeNode({
           />
         )}
 
-        {/* Count badge */}
-        {node.panelCount > 0 && (
+        {/* Count badge - use aggregatedCount (sum of children) if available, else panelCount */}
+        {(node.aggregatedCount ?? node.panelCount) > 0 && (
           <span
             className={`
               text-[10px] font-medium px-1.5 py-0.5 rounded
@@ -165,7 +165,7 @@ export const TreeNode = memo(function TreeNode({
               }
             `}
           >
-            {node.panelCount}
+            {node.aggregatedCount ?? node.panelCount}
           </span>
         )}
       </motion.div>

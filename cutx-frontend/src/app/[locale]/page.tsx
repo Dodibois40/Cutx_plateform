@@ -45,6 +45,7 @@ import {
   TreeNavigation,
   useBidirectionalSync,
 } from '@/components/command-search';
+import { SupplierSelector, SUPPLIERS, type SupplierSlug } from '@/components/home/SupplierSelector';
 
 // Fallback for Suspense
 function HomePageLoading() {
@@ -130,10 +131,12 @@ function HomePageContent() {
   const [searchingChantForMulticouche, setSearchingChantForMulticouche] = useState(false);
   // Product detail modal
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
-  // Search category: panels (panneaux), chants (bandes de chant), all (tous)
-  const [searchCategory, setSearchCategory] = useState<'panels' | 'chants' | 'all'>('all');
   // Panel mode: industriel (fichiers) ou multicouche (builder)
   const [panelMode, setPanelMode] = useState<HomePanelMode>('industriel');
+  // Active suppliers filter (default: all suppliers active)
+  const [activeSuppliers, setActiveSuppliers] = useState<SupplierSlug[]>(
+    SUPPLIERS.map(s => s.slug)
+  );
   // Suggested chant for the panel being searched
   const [suggestedChant, setSuggestedChant] = useState<{
     chant: SearchProduct | null;
@@ -241,8 +244,8 @@ function HomePageContent() {
     useSmartSearch: true,
     enabled: combinedQuery.length >= 2 || !!selectedCategory,
     enStock: explicitFilters.enStock || undefined,
-    // Catégorie: panels | chants | all
-    category: searchCategory,
+    // Filtrer par fournisseurs sélectionnés (seulement si pas tous actifs)
+    catalogueSlugs: activeSuppliers.length < SUPPLIERS.length ? activeSuppliers : undefined,
     // Slug de catégorie sélectionnée dans l'arborescence
     categorySlug: selectedCategory || undefined,
     decorCategory: explicitFilters.decorCategory,
@@ -263,6 +266,24 @@ function HomePageContent() {
       }
     }
     return Array.from(types);
+  }, [produits]);
+
+  // Extract actual category slugs from search results for deep tree highlighting
+  // This shows green dots on the exact categories where results are (e.g., "decors-unis", "chants-abs")
+  const resultCategorySlugs = useMemo(() => {
+    if (!produits || produits.length === 0) return [];
+    const slugs = new Set<string>();
+    for (const p of produits) {
+      // Add the deep category slug (e.g., "decors-unis", "strat-unis", "chants-abs")
+      if (p.categorySlug) {
+        slugs.add(p.categorySlug);
+      }
+      // Also add parent category slug for breadth (e.g., "panneaux-decors", "chants")
+      if (p.parentCategorySlug) {
+        slugs.add(p.parentCategorySlug);
+      }
+    }
+    return Array.from(slugs);
   }, [produits]);
 
   // Fetch sponsored when search changes
@@ -380,8 +401,6 @@ function HomePageContent() {
   // Handle chant search - triggered from FilesPanel "Ajouter bande de chant" button
   const handleSearchChant = useCallback((file: import('@/components/home/hooks/useFileImport').ImportedFileData) => {
     setSearchingChantForFileId(file.id);
-    // Activate Chants filter
-    setSearchCategory('chants');
     // Extract decor from assigned panel name as search suggestion
     const decor = file.assignedPanel?.nom ? extractDecorFromName(file.assignedPanel.nom) : null;
     setQuery(decor || '');
@@ -390,8 +409,6 @@ function HomePageContent() {
   // Handle chant search for multicouche builder
   const handleSearchChantMulticouche = useCallback(() => {
     setSearchingChantForMulticouche(true);
-    // Activate Chants filter
-    setSearchCategory('chants');
     // Clear query to start fresh search
     setQuery('');
     console.log('[HomePage] Entering chant search mode for multicouche builder');
@@ -656,9 +673,11 @@ function HomePageContent() {
             selectedPath={selectedPath}
             selectedSlug={selectedCategory}
             onSelect={(path, slug) => selectCategory(slug, path)}
+            supplierSlugs={activeSuppliers}
             searchQuery={debouncedQuery}
             parsedFilters={parsedFilters}
             resultProductTypes={resultProductTypes}
+            resultCategorySlugs={resultCategorySlugs}
           />
 
           {/* Search content */}
@@ -819,42 +838,20 @@ function HomePageContent() {
                     multicoucheCount={multicoucheBuilder.couches.filter(c => c.produit).length}
                   />
 
-                  {/* Separator */}
-                  <div className="h-8 w-px bg-[var(--cx-border)]" />
+                  {/* Séparateur subtil */}
+                  <div className="h-6 w-px bg-white/10" />
 
-                  {/* Category tabs - Panneaux | Chants | Tous */}
-                  <div className="flex items-center gap-1 p-1 bg-[var(--cx-surface-1)] border border-[var(--cx-border)] rounded-lg">
-                    <button
-                      onClick={() => setSearchCategory('panels')}
-                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                        searchCategory === 'panels'
-                          ? 'bg-amber-500/20 text-amber-500'
-                          : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
-                      }`}
-                    >
-                      Panneaux
-                    </button>
-                    <button
-                      onClick={() => setSearchCategory('chants')}
-                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                        searchCategory === 'chants'
-                          ? 'bg-amber-500/20 text-amber-500'
-                          : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
-                      }`}
-                    >
-                      Chants
-                    </button>
-                    <button
-                      onClick={() => setSearchCategory('all')}
-                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                        searchCategory === 'all'
-                          ? 'bg-amber-500/20 text-amber-500'
-                          : 'text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] hover:bg-white/5'
-                      }`}
-                    >
-                      Tous
-                    </button>
-                  </div>
+                  {/* Supplier selector */}
+                  <SupplierSelector
+                    activeSuppliers={activeSuppliers}
+                    onToggle={(slug) => {
+                      setActiveSuppliers(prev =>
+                        prev.includes(slug)
+                          ? prev.filter(s => s !== slug)
+                          : [...prev, slug]
+                      );
+                    }}
+                  />
                 </div>
 
                 {/* Suggested chant - shown when in chant search mode */}

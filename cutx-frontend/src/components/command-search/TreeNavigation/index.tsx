@@ -26,12 +26,16 @@ interface TreeNavigationProps {
   selectedSlug: string | null;
   onSelect: (path: BreadcrumbItem[], categorySlug: string | null) => void;
   catalogueSlug?: string;
+  /** Filter panel counts by supplier slugs (e.g., ['dispano', 'bouney', 'barrillet']) */
+  supplierSlugs?: string[];
   /** Search query for sync (tree expands to match search) */
   searchQuery?: string;
   /** Parsed filters from smart search (productTypes, woods, etc.) */
   parsedFilters?: ParsedFilters | null;
   /** ProductTypes from search results (for expanding when reference search like "U963") */
   resultProductTypes?: string[];
+  /** Actual category slugs from search results for deep highlighting (e.g., 'decors-unis', 'chants-abs') */
+  resultCategorySlugs?: string[];
 }
 
 export function TreeNavigation({
@@ -41,9 +45,11 @@ export function TreeNavigation({
   selectedSlug,
   onSelect,
   catalogueSlug,
+  supplierSlugs,
   searchQuery = '',
   parsedFilters,
   resultProductTypes,
+  resultCategorySlugs,
 }: TreeNavigationProps) {
   const {
     tree,
@@ -57,7 +63,7 @@ export function TreeNavigation({
     collapseAll,
     expandAll,
     findPathToCategory,
-  } = useTreeNavigation({ catalogueSlug, enabled: !isCollapsed });
+  } = useTreeNavigation({ catalogueSlug, supplierSlugs, enabled: !isCollapsed });
 
   // Sync search → tree: expand tree to match search query
   const { syncTreeWithSearch, expandByResultProductTypes } = useSyncSearchToTree({
@@ -159,17 +165,31 @@ export function TreeNavigation({
   // These are categories that contain search results
   const highlightedSlugs = useMemo(() => {
     const slugs = new Set<string>();
-    if (searchQuery.length < 2 || !resultProductTypes || resultProductTypes.length === 0) {
+    if (searchQuery.length < 2) {
       return slugs;
     }
-    for (const productType of resultProductTypes) {
-      const slug = RESULT_PRODUCT_TYPE_TO_CATEGORY[productType];
-      if (slug) {
+
+    // Priority 1: Use actual category slugs from search results (deep highlighting)
+    // This shows green dots on exact categories like "decors-unis", "chants-abs", "strat-unis"
+    if (resultCategorySlugs && resultCategorySlugs.length > 0) {
+      for (const slug of resultCategorySlugs) {
         slugs.add(slug);
       }
     }
+
+    // Fallback: Map productTypes to top-level categories if no direct slugs
+    // (backward compatibility for when category slugs aren't available)
+    if (slugs.size === 0 && resultProductTypes && resultProductTypes.length > 0) {
+      for (const productType of resultProductTypes) {
+        const slug = RESULT_PRODUCT_TYPE_TO_CATEGORY[productType];
+        if (slug) {
+          slugs.add(slug);
+        }
+      }
+    }
+
     return slugs;
-  }, [searchQuery, resultProductTypes]);
+  }, [searchQuery, resultCategorySlugs, resultProductTypes]);
 
   // Handle category selection
   const handleSelect = useCallback(

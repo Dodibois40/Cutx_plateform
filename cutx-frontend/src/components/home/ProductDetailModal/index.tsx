@@ -23,7 +23,12 @@ import {
   Square,
   Euro,
   Scale,
+  AlertTriangle,
+  Save,
+  Loader2,
 } from 'lucide-react';
+import { useAuth } from '@clerk/nextjs';
+import { useIsAdmin } from '@/lib/hooks/useIsAdmin';
 import type { SearchProduct } from '../types';
 
 // Full panel details from API
@@ -99,6 +104,10 @@ interface PanelDetails {
     slug: string;
     parent?: { id: string; name: string; slug: string } | null;
   } | null;
+
+  // Admin verification
+  verificationNote?: string | null;
+  reviewStatus?: string | null;
 }
 
 interface RelatedPanel {
@@ -135,6 +144,52 @@ export default function ProductDetailModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Admin verification note state
+  const { isAdmin } = useIsAdmin();
+  const { getToken } = useAuth();
+  const [editedNote, setEditedNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
+
+  // Sync note with details when loaded
+  useEffect(() => {
+    if (details?.verificationNote) {
+      setEditedNote(details.verificationNote);
+    } else {
+      setEditedNote('');
+    }
+    setNoteSaved(false);
+  }, [details?.verificationNote, details?.id]);
+
+  // Save verification note
+  const handleSaveNote = async () => {
+    if (!details || !isAdmin) return;
+
+    setIsSavingNote(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_URL}/api/catalogues/admin/panels/${details.id}/note`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ note: editedNote || null }),
+      });
+
+      if (res.ok) {
+        setNoteSaved(true);
+        // Update local state
+        setDetails((prev) => prev ? { ...prev, verificationNote: editedNote || null } : null);
+        setTimeout(() => setNoteSaved(false), 2000);
+      }
+    } catch (err) {
+      console.error('Error saving note:', err);
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   // Fetch panel details
   useEffect(() => {
@@ -646,6 +701,43 @@ export default function ProductDetailModal({
                       Description
                     </h4>
                     <p className="text-sm text-neutral-300">{details.description}</p>
+                  </div>
+                )}
+
+                {/* Admin: Verification Note */}
+                {isAdmin && (
+                  <div className="pt-4 border-t border-amber-500/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <h4 className="text-sm font-medium text-amber-500">
+                        Note de vérification (Admin)
+                      </h4>
+                    </div>
+                    <textarea
+                      value={editedNote}
+                      onChange={(e) => setEditedNote(e.target.value)}
+                      placeholder="Ajouter une note sur ce qui doit être corrigé..."
+                      className="w-full h-24 px-3 py-2 text-sm bg-neutral-800 border border-neutral-600 rounded-lg text-neutral-200 placeholder-neutral-500 resize-none focus:outline-none focus:border-amber-500"
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs text-neutral-500">
+                        {details.verificationNote ? 'Note existante' : 'Aucune note'}
+                      </span>
+                      <button
+                        onClick={handleSaveNote}
+                        disabled={isSavingNote || editedNote === (details.verificationNote || '')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-amber-500 hover:bg-amber-400 disabled:bg-neutral-600 disabled:text-neutral-400 text-black rounded-lg transition-colors"
+                      >
+                        {isSavingNote ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : noteSaved ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
+                        {noteSaved ? 'Enregistré !' : 'Enregistrer la note'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

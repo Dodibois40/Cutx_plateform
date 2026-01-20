@@ -19,6 +19,8 @@ interface UseCatalogueSearchParams {
   epaisseur?: number;
   enStock?: boolean;
   catalogue?: string;
+  /** Multiple catalogues filter (e.g., ['dispano', 'bouney', 'barillet']) */
+  catalogueSlugs?: string[];
   sortBy?: 'nom' | 'reference' | 'prix' | 'epaisseur' | 'stock';
   sortDirection?: 'asc' | 'desc';
   enabled?: boolean;
@@ -63,10 +65,11 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
         pageParam,
         enabled,
       });
-      // Si smart search activé ET (recherche texte OU catégorie sélectionnée), utiliser smart search
+      // Si smart search activé ET (recherche texte OU catégorie sélectionnée OU wildcard), utiliser smart search
       const hasTextSearch = searchParams.search && searchParams.search.length >= 2;
+      const hasWildcard = searchParams.search === '*'; // '*' = match all
       const hasCategoryFilter = !!searchParams.categorySlug;
-      if (useSmartSearch && (hasTextSearch || hasCategoryFilter)) {
+      if (useSmartSearch && (hasTextSearch || hasCategoryFilter || hasWildcard)) {
         console.log('[useCatalogueSearch] Calling smartSearch...');
         // Use '*' as query when only category filter is used (matches all in that category)
         const searchQuery = hasTextSearch ? searchParams.search! : '*';
@@ -74,6 +77,7 @@ export function useCatalogueSearch(params: UseCatalogueSearchParams = {}) {
           page: pageParam,
           limit: PAGE_SIZE,
           catalogueSlug: searchParams.catalogue || undefined,
+          catalogueSlugs: searchParams.catalogueSlugs,
           sortBy: searchParams.sortBy,
           sortDirection: searchParams.sortDirection,
           enStock: searchParams.enStock,

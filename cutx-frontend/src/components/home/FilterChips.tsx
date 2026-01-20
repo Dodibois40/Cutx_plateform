@@ -148,59 +148,53 @@ export default function FilterChips({
 
   return (
     <div className="w-full space-y-3">
-      {/* Combined: Parsed filters + Active filters + Stock toggle on same line */}
+      {/* Tags actifs (détectés + sélectionnés) - design unifié olive subtil */}
       {(hasParsedFilters || hasActiveFilters || showFacets) && (
         <div className="flex flex-wrap items-center gap-2">
-          {/* Parsed filters (detected from query) */}
+          {/* Parsed filters (detected) - style olive subtil, pas de label */}
           {hasParsedFilters && (
             <>
-              <span className="text-xs font-medium text-[var(--cx-text-muted)] uppercase tracking-wide">
-                {t('filters.detected')}
-              </span>
               {parsedFilters?.productTypes.map((type) => (
                 <span
                   key={type}
-                  className="px-3 py-1.5 bg-amber-500/10 text-amber-500 text-sm font-medium rounded-full border border-amber-500/20"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--cx-accent)]/10 text-[var(--cx-accent)] text-xs font-medium rounded-md border border-[var(--cx-accent)]/20"
                 >
                   {PRODUCT_TYPE_LABELS[type] || type}
                 </span>
               ))}
               {parsedFilters?.thickness && (
-                <span className="px-3 py-1.5 bg-amber-500/10 text-amber-500 text-sm font-medium rounded-full border border-amber-500/20">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--cx-accent)]/10 text-[var(--cx-accent)] text-xs font-medium rounded-md border border-[var(--cx-accent)]/20">
                   {parsedFilters.thickness}mm
                 </span>
               )}
             </>
           )}
 
-          {/* Separator if both parsed filters and non-stock active filters exist */}
+          {/* Séparateur subtil si tags détectés ET filtres actifs */}
           {hasParsedFilters && activeFilters.some(f => f.type !== 'stock') && (
-            <span className="w-px h-5 bg-[var(--cx-border)] mx-1" />
+            <span className="w-px h-4 bg-white/10 mx-1" />
           )}
 
-          {/* Active filters (user-selected, excluding stock which has its own button) */}
+          {/* Active filters (user-selected) - style olive avec X, pas de label */}
           {(() => {
             const nonStockFilters = activeFilters.filter(f => f.type !== 'stock');
             const hasNonStockFilters = nonStockFilters.length > 0;
             return hasNonStockFilters ? (
               <>
-                <span className="text-xs font-medium text-[var(--cx-text-muted)] uppercase tracking-wide">
-                  {t('filters.active')}
-                </span>
                 {nonStockFilters.map((filter, idx) => (
                   <button
                     key={`${filter.type}-${filter.value}-${idx}`}
                     onClick={() => onClearFilter?.(filter.type, filter.value)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-black text-sm font-medium rounded-full hover:bg-amber-400 transition-colors group"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--cx-accent)]/15 text-[var(--cx-accent)] text-xs font-medium rounded-md border border-[var(--cx-accent)]/25 hover:bg-[var(--cx-accent)]/20 transition-colors duration-150 group"
                   >
                     {filter.label}
-                    <X className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
+                    <X className="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity duration-150" />
                   </button>
                 ))}
                 {nonStockFilters.length > 1 && (
                   <button
                     onClick={onClearAllFilters}
-                    className="px-3 py-1.5 text-sm text-[var(--cx-text-muted)] hover:text-[var(--cx-text)] transition-colors"
+                    className="px-2 py-1 text-xs text-white/40 hover:text-white/70 transition-colors duration-150"
                   >
                     {t('filters.clearAll')}
                   </button>
@@ -212,29 +206,25 @@ export default function FilterChips({
         </div>
       )}
 
-      {/* Tab-based facets */}
+      {/* Dropdowns de filtres - style discret, pas de label */}
       {showFacets && (
         <div className="space-y-2">
-          {/* Tab buttons row */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-[var(--cx-text-muted)] uppercase tracking-wide mr-1">
-              {t('filters.refine')}
-            </span>
-
+          {/* Tab buttons row - design gris discret */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             {/* Type tab */}
             {facets?.genres && facets.genres.length > 0 && (
               <button
                 onClick={() => handleTabClick('genres')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-[background-color,border-color,color] duration-150 ${
                   activeTab === 'genres'
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
-                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                    ? 'bg-white/[0.08] text-white/90 border-white/10'
+                    : 'text-white/50 border-transparent hover:text-white/70 hover:bg-white/[0.04]'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5" />
+                <Layers className="w-3.5 h-3.5 opacity-60" />
                 {t('filters.type')}
-                <span className="text-[var(--cx-text-muted)]">({facets.genres.length})</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'genres' ? 'rotate-180' : ''}`} />
+                <span className="text-white/30">({facets.genres.length})</span>
+                <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-150 ${activeTab === 'genres' ? 'rotate-180' : ''}`} />
               </button>
             )}
 
@@ -242,16 +232,16 @@ export default function FilterChips({
             {sortedThicknesses.length > 0 && (
               <button
                 onClick={() => handleTabClick('thicknesses')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-[background-color,border-color,color] duration-150 ${
                   activeTab === 'thicknesses'
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
-                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                    ? 'bg-white/[0.08] text-white/90 border-white/10'
+                    : 'text-white/50 border-transparent hover:text-white/70 hover:bg-white/[0.04]'
                 }`}
               >
-                <Ruler className="w-3.5 h-3.5" />
+                <Ruler className="w-3.5 h-3.5 opacity-60" />
                 {t('filters.thickness')}
-                <span className="text-[var(--cx-text-muted)]">({sortedThicknesses.length})</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'thicknesses' ? 'rotate-180' : ''}`} />
+                <span className="text-white/30">({sortedThicknesses.length})</span>
+                <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-150 ${activeTab === 'thicknesses' ? 'rotate-180' : ''}`} />
               </button>
             )}
 
@@ -259,16 +249,16 @@ export default function FilterChips({
             {facets?.dimensions && facets.dimensions.length > 0 && (
               <button
                 onClick={() => handleTabClick('dimensions')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-[background-color,border-color,color] duration-150 ${
                   activeTab === 'dimensions'
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
-                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                    ? 'bg-white/[0.08] text-white/90 border-white/10'
+                    : 'text-white/50 border-transparent hover:text-white/70 hover:bg-white/[0.04]'
                 }`}
               >
-                <Box className="w-3.5 h-3.5" />
+                <Box className="w-3.5 h-3.5 opacity-60" />
                 {t('filters.dimensions')}
-                <span className="text-[var(--cx-text-muted)]">({facets.dimensions.length})</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'dimensions' ? 'rotate-180' : ''}`} />
+                <span className="text-white/30">({facets.dimensions.length})</span>
+                <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-150 ${activeTab === 'dimensions' ? 'rotate-180' : ''}`} />
               </button>
             )}
 
@@ -276,16 +266,16 @@ export default function FilterChips({
             {facets?.decorCategories && facets.decorCategories.length > 0 && (
               <button
                 onClick={() => handleTabClick('decorCategories')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-[background-color,border-color,color] duration-150 ${
                   activeTab === 'decorCategories'
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
-                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                    ? 'bg-white/[0.08] text-white/90 border-white/10'
+                    : 'text-white/50 border-transparent hover:text-white/70 hover:bg-white/[0.04]'
                 }`}
               >
-                <Palette className="w-3.5 h-3.5" />
+                <Palette className="w-3.5 h-3.5 opacity-60" />
                 Décor
-                <span className="text-[var(--cx-text-muted)]">({facets.decorCategories.length})</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'decorCategories' ? 'rotate-180' : ''}`} />
+                <span className="text-white/30">({facets.decorCategories.length})</span>
+                <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-150 ${activeTab === 'decorCategories' ? 'rotate-180' : ''}`} />
               </button>
             )}
 
@@ -293,16 +283,16 @@ export default function FilterChips({
             {facets?.manufacturers && facets.manufacturers.length > 0 && (
               <button
                 onClick={() => handleTabClick('manufacturers')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-[background-color,border-color,color] duration-150 ${
                   activeTab === 'manufacturers'
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
-                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                    ? 'bg-white/[0.08] text-white/90 border-white/10'
+                    : 'text-white/50 border-transparent hover:text-white/70 hover:bg-white/[0.04]'
                 }`}
               >
-                <Building2 className="w-3.5 h-3.5" />
+                <Building2 className="w-3.5 h-3.5 opacity-60" />
                 Fabricant
-                <span className="text-[var(--cx-text-muted)]">({facets.manufacturers.length})</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'manufacturers' ? 'rotate-180' : ''}`} />
+                <span className="text-white/30">({facets.manufacturers.length})</span>
+                <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-150 ${activeTab === 'manufacturers' ? 'rotate-180' : ''}`} />
               </button>
             )}
 
@@ -310,23 +300,23 @@ export default function FilterChips({
             {facets?.properties && facets.properties.length > 0 && (
               <button
                 onClick={() => handleTabClick('properties')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-[background-color,border-color,color] duration-150 ${
                   activeTab === 'properties'
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500'
-                    : 'bg-[var(--cx-surface-1)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/30'
+                    ? 'bg-white/[0.08] text-white/90 border-white/10'
+                    : 'text-white/50 border-transparent hover:text-white/70 hover:bg-white/[0.04]'
                 }`}
               >
-                <Shield className="w-3.5 h-3.5" />
+                <Shield className="w-3.5 h-3.5 opacity-60" />
                 Propriétés
-                <span className="text-[var(--cx-text-muted)]">({facets.properties.length})</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeTab === 'properties' ? 'rotate-180' : ''}`} />
+                <span className="text-white/30">({facets.properties.length})</span>
+                <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-150 ${activeTab === 'properties' ? 'rotate-180' : ''}`} />
               </button>
             )}
           </div>
 
-          {/* Tab content */}
+          {/* Tab content - style cohérent gris/olive */}
           {activeTab && currentItems && (
-            <div className="flex flex-wrap items-center gap-2 pl-0 py-2 border-t border-[var(--cx-border)]">
+            <div className="flex flex-wrap items-center gap-1.5 py-2 border-t border-white/[0.06]">
               {currentItems.items.map((item) => {
                 // Map tab ID to filter type
                 const filterTypeMap: Record<string, string> = {
@@ -343,21 +333,21 @@ export default function FilterChips({
                 <button
                   key={item.key}
                   onClick={() => onFilterClick(filterType, item.value)}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                  className={`px-2.5 py-1 text-xs rounded-md transition-[background-color,color] duration-150 ${
                     'isPopular' in item && item.isPopular
-                      ? 'bg-[var(--cx-surface-2)] border-amber-500/30 text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/10'
-                      : 'bg-[var(--cx-surface-2)] border-[var(--cx-border)] text-[var(--cx-text)] hover:border-amber-500/50 hover:bg-amber-500/5'
+                      ? 'bg-[var(--cx-accent)]/10 text-[var(--cx-accent)] hover:bg-[var(--cx-accent)]/15'
+                      : 'bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white/90'
                   }`}
                 >
                   {item.label}
-                  <span className="ml-1.5 text-[var(--cx-text-muted)]">({item.count})</span>
+                  <span className="ml-1.5 text-white/30">({item.count})</span>
                 </button>
                 );
               })}
               {currentItems.hasMore && (
                 <button
                   onClick={() => setShowMore(!showMore)}
-                  className="px-3 py-1.5 bg-[var(--cx-surface-2)] border border-dashed border-[var(--cx-border)] text-[var(--cx-text-muted)] text-sm rounded-full hover:border-amber-500/50 hover:text-[var(--cx-text)] transition-colors flex items-center gap-1"
+                  className="px-2.5 py-1 text-xs text-white/40 hover:text-white/70 transition-colors duration-150 flex items-center gap-1"
                 >
                   {showMore ? (
                     <>Moins</>

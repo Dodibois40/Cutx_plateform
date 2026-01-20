@@ -23,6 +23,7 @@ export interface SmartSearchOptions {
   page?: number;
   limit?: number;
   catalogueSlug?: string;
+  catalogueSlugs?: string[]; // Multiple catalogues filter (e.g., ['dispano', 'bouney', 'barillet'])
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';
   enStock?: boolean;
@@ -92,7 +93,13 @@ export class SmartSearchService {
 
     // Add catalogue filter if specified
     let catalogueCondition = '';
-    if (options?.catalogueSlug) {
+    if (options?.catalogueSlugs && options.catalogueSlugs.length > 0) {
+      // Multiple catalogues: AND c.slug IN ($x, $y, $z)
+      const placeholders = options.catalogueSlugs.map((_, i) => `$${params.length + i + 1}`).join(', ');
+      catalogueCondition = `AND c.slug IN (${placeholders})`;
+      params.push(...options.catalogueSlugs);
+    } else if (options?.catalogueSlug) {
+      // Single catalogue (backward compatibility)
       catalogueCondition = `AND c.slug = $${params.length + 1}`;
       params.push(options.catalogueSlug);
     }
@@ -197,6 +204,7 @@ export class SmartSearchService {
         p."manufacturerRef",
         p."createdAt",
         p."updatedAt",
+        p."verificationNote",
         c.name as catalogue_name,
         cat.name as category_name,
         cat.slug as category_slug,
@@ -302,6 +310,7 @@ export class SmartSearchService {
       manufacturerRef: p.manufacturerRef,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
+      verificationNote: p.verificationNote,
       catalogue: { name: p.catalogue_name },
       category: p.category_name
         ? {

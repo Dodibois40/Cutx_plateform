@@ -10,11 +10,13 @@ const API_URL =
 
 interface UseTreeNavigationOptions {
   catalogueSlug?: string;
+  /** Filter panel counts by supplier slugs (e.g., ['dispano', 'bouney', 'barrillet']) */
+  supplierSlugs?: string[];
   enabled?: boolean;
 }
 
 export function useTreeNavigation(options: UseTreeNavigationOptions = {}) {
-  const { catalogueSlug, enabled = true } = options;
+  const { catalogueSlug, supplierSlugs, enabled = true } = options;
 
   // Local state
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -22,10 +24,18 @@ export function useTreeNavigation(options: UseTreeNavigationOptions = {}) {
 
   // Fetch categories tree
   const { data: tree = [], isLoading } = useQuery({
-    queryKey: ['categories-tree', catalogueSlug],
+    queryKey: ['categories-tree', catalogueSlug, supplierSlugs],
     queryFn: async (): Promise<CategoryTreeNode[]> => {
-      const params = catalogueSlug ? `?catalogue=${catalogueSlug}` : '';
-      const res = await fetch(`${API_URL}/api/catalogues/categories-tree${params}`);
+      const params = new URLSearchParams();
+      if (catalogueSlug) {
+        params.set('catalogue', catalogueSlug);
+      }
+      if (supplierSlugs?.length) {
+        params.set('suppliers', supplierSlugs.join(','));
+      }
+      const queryString = params.toString();
+      const url = `${API_URL}/api/catalogues/categories-tree${queryString ? `?${queryString}` : ''}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch categories');
       const data = await res.json();
       return data.categories || [];
@@ -33,6 +43,26 @@ export function useTreeNavigation(options: UseTreeNavigationOptions = {}) {
     enabled,
     staleTime: 30 * 1000, // 30 seconds - fast sync with admin changes
   });
+
+  // Compute aggregated counts for each node (sum of panelCount for this + all children)
+  const treeWithAggregatedCounts = useMemo(() => {
+    const computeAggregatedCount = (node: CategoryTreeNode): number => {
+      const childCount = (node.children || []).reduce(
+        (sum, child) => sum + computeAggregatedCount(child),
+        0
+      );
+      return node.panelCount + childCount;
+    };
+
+    const addAggregatedCounts = (nodes: CategoryTreeNode[]): CategoryTreeNode[] =>
+      nodes.map((node) => ({
+        ...node,
+        aggregatedCount: computeAggregatedCount(node),
+        children: node.children ? addAggregatedCounts(node.children) : [],
+      }));
+
+    return addAggregatedCounts(tree);
+  }, [tree]);
 
   // Toggle expand/collapse for a node
   const toggleNode = useCallback((slug: string) => {
@@ -78,9 +108,9 @@ export function useTreeNavigation(options: UseTreeNavigationOptions = {}) {
     setExpandedNodes(allSlugs);
   }, [tree]);
 
-  // Filter tree based on search
+  // Filter tree based on search (use tree with aggregated counts)
   const filteredTree = useMemo(() => {
-    if (!searchFilter.trim()) return tree;
+    if (!searchFilter.trim()) return treeWithAggregatedCounts;
 
     const searchLower = searchFilter.toLowerCase();
 
@@ -107,8 +137,8 @@ export function useTreeNavigation(options: UseTreeNavigationOptions = {}) {
       return results;
     }
 
-    return filterNodes(tree);
-  }, [tree, searchFilter]);
+    return filterNodes(treeWithAggregatedCounts);
+  }, [treeWithAggregatedCounts, searchFilter]);
 
   // Find path to a category by slug
   const findPathToCategory = useCallback(
@@ -138,7 +168,7 @@ export function useTreeNavigation(options: UseTreeNavigationOptions = {}) {
   );
 
   return {
-    tree,
+    tree: treeWithAggregatedCounts,
     filteredTree,
     isLoading,
     expandedNodes,

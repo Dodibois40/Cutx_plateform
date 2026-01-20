@@ -133,6 +133,10 @@ export class PanelsService {
         supportQuality: true,
         certification: true,
 
+        // Admin verification
+        verificationNote: true,
+        reviewStatus: true,
+
         // Relations
         catalogue: {
           select: {
