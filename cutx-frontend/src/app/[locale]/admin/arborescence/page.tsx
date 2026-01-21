@@ -146,7 +146,7 @@ export default function ArborescenceAdminPage() {
       const result = await assignPanelsToCategory({ panelIds, categoryId });
       if (result.success > 0) {
         // Refresh to update panel counts
-        fetchCategories();
+        await fetchCategories();
         // Clear selection in PanelManager to prevent re-dropping same panels
         setClearSelectionTrigger((prev) => prev + 1);
       }

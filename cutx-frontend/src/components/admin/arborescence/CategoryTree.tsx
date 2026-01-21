@@ -352,10 +352,11 @@ export function CategoryTree({
   );
 
   // When categories change (from API refresh), rebuild items with our tracked collapsed state
-  // NOTE: We don't force re-mount because it causes crashes with the library
-  // The trade-off is that collapsed state may not be perfectly preserved on refresh
+  // Force re-mount to ensure panel counts are updated (the library doesn't re-render on data changes)
   useEffect(() => {
     setItems(buildItemsWithCollapsedState(categories, collapsedIdsRef.current));
+    // Increment treeKey to force re-mount and update displayed counts
+    setTreeKey((k) => k + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories]);
 
@@ -370,6 +371,14 @@ export function CategoryTree({
       setIsSaving(true);
       try {
         const token = await getToken();
+        if (!token) {
+          console.error('Reorder failed: Not authenticated - please sign in');
+          alert('Vous devez être connecté pour réorganiser les catégories');
+          setItems(buildItemsWithCollapsedState(categories, collapsedIdsRef.current as Set<string>));
+          setIsSaving(false);
+          return;
+        }
+
         const res = await fetch(`${API_URL}/api/catalogues/admin/categories/reorder`, {
           method: 'POST',
           headers: {

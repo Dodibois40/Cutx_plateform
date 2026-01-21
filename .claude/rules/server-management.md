@@ -16,61 +16,56 @@ L'utilisateur a TOUJOURS les serveurs en cours d'exécution dans des fenêtres s
    curl -s http://localhost:3000 -o /dev/null -w "%{http_code}"
    ```
 
-## CRITIQUE : Syntaxe des commandes Windows dans Git Bash
+## Scripts PowerShell (RECOMMANDÉS)
 
-Claude Code utilise Git Bash (MINGW64), pas cmd.exe. Pour exécuter des commandes Windows :
+Des scripts PowerShell sont disponibles à la racine du projet. **Toujours utiliser PowerShell**, pas les anciens scripts .bat.
 
-**UTILISER `//c` (double slash), pas `/c` (simple slash) :**
-
+### Démarrer les serveurs
 ```bash
-# CORRECT - Git Bash passe /c à cmd.exe
-cmd //c "taskkill /F /IM node.exe"
-cmd //c "c:\\CutX_plateform\\restart-servers.bat"
-
-# INCORRECT - Git Bash interprète /c comme un chemin
-cmd /c "taskkill /F /IM node.exe"  # NE FONCTIONNE PAS
+powershell -ExecutionPolicy Bypass -File "c:\CutX_plateform\dev-start.ps1"
 ```
 
-## Méthode recommandée : Utiliser les scripts batch
-
-Des scripts batch sont disponibles à la racine du projet :
-
+### Arrêter les serveurs
 ```bash
-# Arrêter tous les serveurs
-cmd //c "c:\\CutX_plateform\\stop-servers.bat"
-
-# Démarrer les serveurs
-cmd //c "c:\\CutX_plateform\\start-servers.bat"
-
-# Redémarrer complètement (stop + clear cache + start)
-cmd //c "c:\\CutX_plateform\\restart-servers.bat"
+powershell -ExecutionPolicy Bypass -File "c:\CutX_plateform\dev-stop.ps1"
 ```
 
-## Si l'utilisateur dit que c'est planté
-
-SEULEMENT dans ce cas, utiliser le script de redémarrage :
-
+### Redémarrer (stop + clear cache + start)
 ```bash
-cmd //c "c:\\CutX_plateform\\restart-servers.bat"
+powershell -ExecutionPolicy Bypass -File "c:\CutX_plateform\dev-restart.ps1"
 ```
 
-Ou manuellement avec la syntaxe correcte :
+## CRITIQUE : Ne JAMAIS utiliser taskkill /IM node.exe
 
-```bash
-# 1. Arrêter les processus
-cmd //c "taskkill /F /IM node.exe /T"
+L'ancienne méthode `taskkill /F /IM node.exe` tue TOUS les processus node du système, y compris :
+- VSCode
+- Claude Code
+- Extensions diverses
 
-# 2. Attendre (utiliser sleep en Git Bash, pas timeout)
-sleep 3
+Cela fait planter Windows. Les nouveaux scripts PowerShell ne tuent que les processus sur les ports 3000 et 3001.
 
-# 3. Démarrer l'API en arrière-plan
-cd c:/CutX_plateform/cutx-api && npm run start:dev > /tmp/api.log 2>&1 &
+## Arrêter manuellement (si scripts indisponibles)
 
-# 4. Attendre que l'API démarre
-sleep 8
+```powershell
+# Arrêter seulement les serveurs sur ports 3000/3001
+powershell -ExecutionPolicy Bypass -Command "& {
+    netstat -ano | Select-String ':3001.*LISTENING' | ForEach-Object {
+        Stop-Process -Id (($_  -split '\s+')[-1]) -Force -ErrorAction SilentlyContinue
+    }
+    netstat -ano | Select-String ':3000.*LISTENING' | ForEach-Object {
+        Stop-Process -Id (($_ -split '\s+')[-1]) -Force -ErrorAction SilentlyContinue
+    }
+}"
+```
 
-# 5. Vérifier
-curl -s http://localhost:3001/api/health
+## Démarrer manuellement (si scripts indisponibles)
+
+```powershell
+# API
+Start-Process cmd -ArgumentList "/k", "cd /d c:\CutX_plateform\cutx-api && npm run start:dev"
+
+# Frontend (attendre 5s après l'API)
+Start-Process cmd -ArgumentList "/k", "cd /d c:\CutX_plateform\cutx-frontend && npm run dev"
 ```
 
 ## Hot Reload
@@ -87,12 +82,16 @@ Si j'ai créé un **nouveau module NestJS** (comme `panels-review`), je dois :
 2. NE PAS le faire moi-même
 3. Attendre que l'utilisateur confirme qu'il l'a fait
 
-## Commandes Windows courantes (syntaxe Git Bash)
+## Vérification rapide
 
-| Action | Commande |
-|--------|----------|
-| Tuer node | `cmd //c "taskkill /F /IM node.exe"` |
-| Lister processus | `cmd //c "tasklist \| findstr node"` |
-| Vérifier port | `netstat -ano \| findstr :3001` |
-| Supprimer dossier | `cmd //c "rmdir /s /q c:\\path"` |
-| Démarrer fenêtre | `start "Title" cmd //k "command"` |
+```bash
+# API health
+curl -s http://localhost:3001/api/health
+
+# Frontend status
+curl -s http://localhost:3000 -o /dev/null -w "%{http_code}"
+```
+
+Réponses attendues :
+- API : `{"status":"ok",...}`
+- Frontend : `200` ou `307` (redirect)
