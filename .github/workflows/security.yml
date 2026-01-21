@@ -1,0 +1,109 @@
+# CutX Platform - Security Workflow
+# Sources:
+# - https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning
+# - https://graphite.dev/guides/in-depth-guide-ci-cd-best-practices
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Chaque lundi à 6h UTC
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # DEPENDENCY AUDIT
+  # ═══════════════════════════════════════════════════════════
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+
+      - name: Audit Frontend Dependencies
+        run: npm audit --audit-level=moderate
+        working-directory: cutx-frontend
+        continue-on-error: true
+
+      - name: Audit Backend Dependencies
+        run: npm audit --audit-level=moderate
+        working-directory: cutx-api
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════
+  # CODEQL ANALYSIS
+  # ═══════════════════════════════════════════════════════════
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  # ═══════════════════════════════════════════════════════════
+  # SECRET SCANNING (check for accidentally committed secrets)
+  # ═══════════════════════════════════════════════════════════
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════
+  # LICENSE CHECK
+  # ═══════════════════════════════════════════════════════════
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+
+      - name: Install license-checker
+        run: npm install -g license-checker
+
+      - name: Check Frontend Licenses
+        run: license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;CC0-1.0;Unlicense' --excludePrivatePackages
+        working-directory: cutx-frontend
+        continue-on-error: true
+
+      - name: Check Backend Licenses
+        run: license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;CC0-1.0;Unlicense' --excludePrivatePackages
+        working-directory: cutx-api
+        continue-on-error: true

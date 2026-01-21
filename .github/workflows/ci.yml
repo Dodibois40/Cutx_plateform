@@ -1,0 +1,196 @@
+# CutX Platform - CI Workflow
+# Sources:
+# - https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+# - https://docs.nestjs.com/devtools/ci-cd-integration
+# - https://nextjs.org/blog/next-16
+# - https://github.com/actions/setup-node (v6.2.0 - Jan 2026)
+# - https://github.com/actions/checkout (v6 - Dec 2025)
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read  # Recommandé pour setup-node v6
+
+env:
+  NODE_VERSION: '24.x'  # Node.js 24 LTS "Krypton" (Active LTS depuis Oct 2025)
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # FRONTEND (Next.js 16)
+  # ═══════════════════════════════════════════════════════════
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cutx-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cutx-frontend
+
+      - name: Run ESLint
+        run: npm run lint
+        working-directory: cutx-frontend
+
+  frontend-typecheck:
+    name: Frontend TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cutx-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cutx-frontend
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+        working-directory: cutx-frontend
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: [frontend-lint, frontend-typecheck]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cutx-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cutx-frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: cutx-frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+
+  # ═══════════════════════════════════════════════════════════
+  # BACKEND (NestJS 11)
+  # ═══════════════════════════════════════════════════════════
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cutx-api/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cutx-api
+
+      - name: Run ESLint
+        run: npm run lint
+        working-directory: cutx-api
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cutx-api/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cutx-api
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: cutx-api
+
+      - name: Run tests
+        run: npm test
+        working-directory: cutx-api
+
+  backend-build:
+    name: Backend Build
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-test]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: cutx-api/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cutx-api
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: cutx-api
+
+      - name: Build
+        run: npm run build
+        working-directory: cutx-api
+
+  # ═══════════════════════════════════════════════════════════
+  # MATRIX TEST (Multi-version validation)
+  # ═══════════════════════════════════════════════════════════
+  compatibility-check:
+    name: Node.js Compatibility
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x, 24.x]
+        project: [cutx-frontend, cutx-api]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ matrix.project }}
+
+      - name: Generate Prisma (API only)
+        if: matrix.project == 'cutx-api'
+        run: npx prisma generate
+        working-directory: ${{ matrix.project }}
+
+      - name: Build
+        run: npm run build
+        working-directory: ${{ matrix.project }}
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}

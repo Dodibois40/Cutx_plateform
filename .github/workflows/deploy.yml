@@ -1,0 +1,97 @@
+# CutX Platform - Deploy Workflow
+# Sources:
+# - https://docs.railway.com/tutorials/github-actions-post-deploy
+# - https://docs.railway.com/guides/github-autodeploys
+# - https://blog.railway.com/p/github-actions
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24.x'
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # DEPLOY API TO RAILWAY
+  # ═══════════════════════════════════════════════════════════
+  deploy-api:
+    name: Deploy API to Railway
+    runs-on: ubuntu-latest
+    # Déploie seulement si CI a réussi OU si c'est un push direct
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --service cutx-api
+        working-directory: cutx-api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Notify deployment success
+        if: success()
+        run: echo "API deployed successfully to Railway"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: echo "API deployment failed"
+
+  # ═══════════════════════════════════════════════════════════
+  # POST-DEPLOY HEALTH CHECK
+  # ═══════════════════════════════════════════════════════════
+  health-check:
+    name: Post-Deploy Health Check
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    steps:
+      - name: Wait for deployment to stabilize
+        run: sleep 30
+
+      - name: Check API health
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.API_HEALTH_URL || 'https://cutxplateform-production.up.railway.app/api/health' }})
+          if [ "$response" -eq 200 ]; then
+            echo "Health check passed (HTTP $response)"
+          else
+            echo "Health check failed (HTTP $response)"
+            exit 1
+          fi
+
+  # ═══════════════════════════════════════════════════════════
+  # OPTIONAL: DEPLOY FRONTEND (si pas sur Vercel)
+  # ═══════════════════════════════════════════════════════════
+  # deploy-frontend:
+  #   name: Deploy Frontend
+  #   runs-on: ubuntu-latest
+  #   if: |
+  #     github.event_name == 'push' ||
+  #     (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+  #   steps:
+  #     - uses: actions/checkout@v6
+  #     - name: Deploy to Vercel
+  #       uses: amondnet/vercel-action@v25
+  #       with:
+  #         vercel-token: ${{ secrets.VERCEL_TOKEN }}
+  #         vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+  #         vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+  #         working-directory: cutx-frontend

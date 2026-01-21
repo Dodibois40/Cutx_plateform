@@ -1,0 +1,120 @@
+# CutX Platform - Dependabot Configuration
+# Source: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+
+registries:
+  npm-npmjs:
+    type: npm-registry
+    url: https://registry.npmjs.org
+    replaces-base: true
+
+updates:
+  # ═══════════════════════════════════════════════════════════
+  # FRONTEND DEPENDENCIES
+  # ═══════════════════════════════════════════════════════════
+  - package-ecosystem: "npm"
+    directory: "/cutx-frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    registries:
+      - npm-npmjs
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      # Grouper les mises à jour mineures et patches
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+      # Next.js et React séparément (breaking changes possibles)
+      next-react:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+    ignore:
+      # Ignorer les pre-releases
+      - dependency-name: "*"
+        update-types: ["version-update:semver-prerelease"]
+
+  # ═══════════════════════════════════════════════════════════
+  # BACKEND DEPENDENCIES
+  # ═══════════════════════════════════════════════════════════
+  - package-ecosystem: "npm"
+    directory: "/cutx-api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    registries:
+      - npm-npmjs
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      # Grouper NestJS ensemble
+      nestjs:
+        patterns:
+          - "@nestjs/*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Prisma séparément (migrations possibles)
+      prisma:
+        patterns:
+          - "prisma"
+          - "@prisma/*"
+      # Autres dépendances
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "@nestjs/*"
+          - "prisma"
+          - "@prisma/*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-prerelease"]
+
+  # ═══════════════════════════════════════════════════════════
+  # GITHUB ACTIONS
+  # ═══════════════════════════════════════════════════════════
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"
