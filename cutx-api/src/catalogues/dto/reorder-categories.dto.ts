@@ -7,6 +7,7 @@ import {
   ValidateNested,
   ArrayMaxSize,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -20,6 +21,7 @@ export class CategoryReorderItemDto {
   sortOrder: number;
 
   @IsOptional()
+  @ValidateIf((o) => o.parentId !== null)
   @IsString()
   parentId?: string | null;
 }

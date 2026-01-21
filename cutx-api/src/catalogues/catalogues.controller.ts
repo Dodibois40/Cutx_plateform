@@ -239,6 +239,36 @@ export class CataloguesController {
     return this.cataloguesService.getPanelsWithVerificationNote();
   }
 
+  /**
+   * DELETE /api/catalogues/admin/panels/:id
+   * Supprimer un panel
+   */
+  @Delete('admin/panels/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ClerkAuthGuard)
+  async deletePanel(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Param('id') panelId: string,
+  ) {
+    await this.checkAdmin(clerkUser);
+    return this.cataloguesService.deletePanel(panelId);
+  }
+
+  /**
+   * DELETE /api/catalogues/admin/panels
+   * Supprimer plusieurs panels (batch)
+   */
+  @Delete('admin/panels')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ClerkAuthGuard)
+  async deletePanels(
+    @CurrentUser() clerkUser: ClerkUser,
+    @Body() body: { panelIds: string[] },
+  ) {
+    await this.checkAdmin(clerkUser);
+    return this.cataloguesService.deletePanels(body.panelIds);
+  }
+
   // =============================================
   // ENDPOINTS PUBLICS
   // =============================================

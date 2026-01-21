@@ -39,4 +39,6 @@ export interface PanelManagerProps {
   onClearCategoryFilter?: () => void;
   /** Incrémenté après un drop réussi pour vider la sélection */
   clearSelectionTrigger?: number;
+  /** Fournisseurs actifs (filtrés dans la sidebar) */
+  activeSuppliers?: string[];
 }

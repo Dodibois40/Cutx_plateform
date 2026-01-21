@@ -1252,4 +1252,37 @@ export class CataloguesService {
     await collectDescendants(categoryId, 0);
     return descendants;
   }
+
+  /**
+   * Delete a single panel
+   */
+  async deletePanel(panelId: string): Promise<void> {
+    const panel = await this.prisma.panel.findUnique({
+      where: { id: panelId },
+      select: { id: true, reference: true },
+    });
+
+    if (!panel) {
+      throw new NotFoundException(`Panel with ID "${panelId}" not found`);
+    }
+
+    await this.prisma.panel.delete({ where: { id: panelId } });
+    console.log(`Deleted panel: ${panel.reference} (${panelId})`);
+  }
+
+  /**
+   * Delete multiple panels (batch)
+   */
+  async deletePanels(panelIds: string[]): Promise<{ deleted: number }> {
+    if (!panelIds || panelIds.length === 0) {
+      return { deleted: 0 };
+    }
+
+    const result = await this.prisma.panel.deleteMany({
+      where: { id: { in: panelIds } },
+    });
+
+    console.log(`Batch deleted ${result.count} panels`);
+    return { deleted: result.count };
+  }
 }

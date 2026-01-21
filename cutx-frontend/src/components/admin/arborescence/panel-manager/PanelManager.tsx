@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { useCatalogueSearch } from '@/lib/hooks/useCatalogueSearch';
+import { useQueryClient } from '@tanstack/react-query';
 import ProductDetailModal from '@/components/home/ProductDetailModal';
 import { PanelSearchBar } from './PanelSearchBar';
 import { PanelSelectionBar } from './PanelSelectionBar';
 import { PanelList } from './PanelList';
 import type { PanelManagerProps } from './types';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export function PanelManager({
   onAssignComplete,
@@ -14,11 +18,31 @@ export function PanelManager({
   selectedCategoryName,
   onClearCategoryFilter,
   clearSelectionTrigger,
+  activeSuppliers,
 }: PanelManagerProps) {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
   // Search state
   const [search, setSearch] = useState('');
   const [productType, setProductType] = useState('');
   const [supplier, setSupplier] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Determine which suppliers to use for the search
+  // Priority: local supplier filter > activeSuppliers from sidebar
+  const effectiveSuppliers = useMemo(() => {
+    if (supplier) {
+      // Local dropdown filter takes precedence
+      return [supplier];
+    }
+    if (activeSuppliers && activeSuppliers.length > 0) {
+      // Use sidebar filter
+      return activeSuppliers;
+    }
+    // No filter - all suppliers
+    return undefined;
+  }, [supplier, activeSuppliers]);
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -37,7 +61,7 @@ export function PanelManager({
     search: search || '*',
     useSmartSearch: true,
     enabled: true,
-    catalogueSlugs: supplier ? [supplier] : undefined,
+    catalogueSlugs: effectiveSuppliers,
     categorySlug: selectedCategorySlug || undefined,
   });
 
@@ -74,6 +98,45 @@ export function PanelManager({
       setSelectedIds(new Set());
     }
   }, [clearSelectionTrigger]);
+
+  // Delete selected panels
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Supprimer ${selectedIds.size} panneau${selectedIds.size > 1 ? 'x' : ''} définitivement ?`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_URL}/api/catalogues/admin/panels`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ panelIds: Array.from(selectedIds) }),
+      });
+
+      if (res.ok) {
+        setSelectedIds(new Set());
+        // Invalidate queries to refresh the list
+        queryClient.invalidateQueries({ queryKey: ['catalogue-search'] });
+        onAssignComplete?.();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error('Delete failed:', err);
+        alert('Erreur lors de la suppression');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedIds, getToken, queryClient, onAssignComplete]);
 
   return (
     <div className="flex flex-col h-full">
@@ -128,6 +191,8 @@ export function PanelManager({
         <PanelSelectionBar
           selectedCount={selectedIds.size}
           onClearSelection={handleDeselectAll}
+          onDelete={handleDeleteSelected}
+          isDeleting={isDeleting}
         />
       </div>
 
